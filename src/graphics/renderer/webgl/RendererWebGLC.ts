@@ -5,6 +5,7 @@ import TileOverlay from '#/dash3d/type/TileOverlay.js';
 import TileUnderlay from '#/dash3d/type/TileUnderlay.js';
 import World3D from '#/dash3d/World3D';
 
+import { canvas as cpuCanvas } from '#/graphics/Canvas.ts';
 import Pix3D from '#/graphics/Pix3D.js';
 import Model from '#/graphics/Model.js';
 import PixMap from '#/graphics/PixMap.js';
@@ -556,10 +557,11 @@ export class RendererWebGLC extends Renderer {
         const canvas: HTMLCanvasElement = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        canvas.style.display = 'block';
-        canvas.style.position = 'absolute';
-        canvas.style.width = '789px';
-        canvas.style.height = '532px';
+        canvas.style.display = cpuCanvas.style.display;
+        canvas.style.position = cpuCanvas.style.position;
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.imageRendering = cpuCanvas.style.imageRendering;
         container.appendChild(canvas);
 
         const gl: WebGL2RenderingContext | null = canvas.getContext('webgl2', {

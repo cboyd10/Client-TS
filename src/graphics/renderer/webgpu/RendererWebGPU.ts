@@ -146,10 +146,11 @@ export class RendererWebGPU extends Renderer {
         const canvas: HTMLCanvasElement = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        canvas.style.display = 'block';
-        canvas.style.position = 'absolute';
-        canvas.style.width = '789px';
-        canvas.style.height = '532px';
+        canvas.style.display = cpuCanvas.style.display;
+        canvas.style.position = cpuCanvas.style.position;
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.imageRendering = cpuCanvas.style.imageRendering;
         container.appendChild(canvas);
 
         const context: GPUCanvasContext | null = canvas.getContext('webgpu');
