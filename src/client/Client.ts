@@ -5480,6 +5480,7 @@ export class Client extends GameShell {
                                         Renderer.resetRenderer();
                                         Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
                                         RendererWebGLC.onSceneLoaded(this.scene);
+                                        RendererWebGLC.setBrightness(0.8); // todo: preserve brightness
 
                                         if (!Renderer.renderer) {
                                             this.addMessage(0, 'Failed to change renderer', '');
