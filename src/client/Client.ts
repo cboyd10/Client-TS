@@ -5447,6 +5447,7 @@ export class Client extends GameShell {
                                     }
                                 } else if (this.chatTyped === '::tk1') {
                                     try {
+                                        Renderer.resetRenderer();
                                         Renderer.renderer = await RendererWebGPU.init(canvasContainer, this.width, this.height);
 
                                         if (!Renderer.renderer) {
@@ -5461,6 +5462,7 @@ export class Client extends GameShell {
                                     }
                                 } else if (this.chatTyped === '::tk2') {
                                     try {
+                                        Renderer.resetRenderer();
                                         Renderer.renderer = RendererWebGL.init(canvasContainer, this.width, this.height);
 
                                         if (!Renderer.renderer) {
@@ -5475,6 +5477,7 @@ export class Client extends GameShell {
                                     }
                                 } else if (this.chatTyped === '::tk3') {
                                     try {
+                                        Renderer.resetRenderer();
                                         Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
 
                                         if (!Renderer.renderer) {
