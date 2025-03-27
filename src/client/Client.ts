@@ -5479,6 +5479,7 @@ export class Client extends GameShell {
                                     try {
                                         Renderer.resetRenderer();
                                         Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
+                                        RendererWebGLC.onSceneLoaded(this.scene);
 
                                         if (!Renderer.renderer) {
                                             this.addMessage(0, 'Failed to change renderer', '');

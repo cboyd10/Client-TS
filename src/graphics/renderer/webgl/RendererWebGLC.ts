@@ -490,6 +490,8 @@ export class RendererWebGLC extends Renderer {
     }
 
     destroy(): void {
+        delete RendererWebGLC.viewportFramebuffer;
+        // todo: pixMapTextures getting re-initialized results in no data
     }
 
     frame: number = 0;
