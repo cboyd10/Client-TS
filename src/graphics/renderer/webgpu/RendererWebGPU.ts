@@ -137,10 +137,18 @@ export class RendererWebGPU extends Renderer {
     }
 
     static async init(container: HTMLElement, width: number, height: number): Promise<RendererWebGPU | undefined> {
-        const adapter: GPUAdapter | null = await navigator.gpu?.requestAdapter();
-        const device: GPUDevice | undefined = await adapter?.requestDevice();
+        if (!RendererWebGPU.hasWebGPUSupport()) {
+          throw Error('WebGPU is not supported.');
+        }
+
+        const adapter: GPUAdapter | null = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+          throw Error('Request for WebGPU adapter failed.');
+        }
+
+        const device: GPUDevice | undefined = await adapter.requestDevice();
         if (!device) {
-            throw new Error('Could not request WebGPU device');
+            throw new Error('Request for WebGPU device failed.');
         }
 
         const canvas: HTMLCanvasElement = document.createElement('canvas');
@@ -156,7 +164,7 @@ export class RendererWebGPU extends Renderer {
         const context: GPUCanvasContext | null = canvas.getContext('webgpu');
         if (!context) {
             canvas.remove();
-            throw new Error('WebGPU is not supported');
+            throw new Error('WebGPU context could not be created.');
         }
 
         const presentationFormat: GPUTextureFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -165,6 +173,7 @@ export class RendererWebGPU extends Renderer {
             format: presentationFormat
         });
 
+        Renderer.resetRenderer();
         return new RendererWebGPU(canvas, device, context);
     }
 

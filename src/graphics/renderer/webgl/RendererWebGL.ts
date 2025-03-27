@@ -68,9 +68,10 @@ export class RendererWebGL extends Renderer {
         });
         if (!gl) {
             canvas.remove();
-            throw new Error('WebGL2 is not supported');
+            throw new Error('WebGL2 is not supported.');
         }
 
+        Renderer.resetRenderer();
         return new RendererWebGL(canvas, gl);
     }
 

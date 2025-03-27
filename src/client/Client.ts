@@ -1690,6 +1690,20 @@ export class Client extends GameShell {
                 this.errorMessage = err.message;
             }
         }
+
+        try {
+            if (RendererWebGPU.hasWebGPUSupport()) {
+                Renderer.renderer = await RendererWebGPU.init(canvasContainer, this.width, this.height);
+            }
+
+            // todo: RenderWebGL instead of RenderWebGLC when it's completed!
+
+            if (!Renderer.renderer) {
+                Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     async update() {
@@ -5436,6 +5450,7 @@ export class Client extends GameShell {
                                         this.setTargetedFramerate(desiredFps);
                                     } catch (e) { }
                                 } else if (this.chatTyped === '::tk0') {
+                                    // CPU renderer
                                     if (Renderer.renderer) {
                                         Renderer.resetRenderer();
 
@@ -5446,8 +5461,8 @@ export class Client extends GameShell {
                                         this.redrawTitleBackground = true;
                                     }
                                 } else if (this.chatTyped === '::tk1') {
+                                    // WebGPU renderer (1:1 - not widespread yet)
                                     try {
-                                        Renderer.resetRenderer();
                                         Renderer.renderer = await RendererWebGPU.init(canvasContainer, this.width, this.height);
 
                                         if (!Renderer.renderer) {
@@ -5461,8 +5476,8 @@ export class Client extends GameShell {
                                         console.error('Failed enabling renderer', e);
                                     }
                                 } else if (this.chatTyped === '::tk2') {
+                                    // WebGL renderer (working towards 1:1 rasterizing in fragment shaders)
                                     try {
-                                        Renderer.resetRenderer();
                                         Renderer.renderer = RendererWebGL.init(canvasContainer, this.width, this.height);
 
                                         if (!Renderer.renderer) {
@@ -5476,8 +5491,8 @@ export class Client extends GameShell {
                                         console.error('Failed enabling renderer', e);
                                     }
                                 } else if (this.chatTyped === '::tk3') {
+                                    // WebGL renderer (not 1:1 - closer to typical GL rendering)
                                     try {
-                                        Renderer.resetRenderer();
                                         Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
                                         RendererWebGLC.onSceneLoaded(this.scene);
                                         RendererWebGLC.setBrightness(0.8); // todo: preserve brightness
