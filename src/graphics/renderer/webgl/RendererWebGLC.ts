@@ -326,6 +326,8 @@ layout(location = 0) in uvec3 a_packed;
 
 #ifdef GL_NV_shader_noperspective_interpolation
 noperspective centroid out float v_hsl;
+#else
+out float v_hsl;
 #endif
 out vec4 v_color;
 out vec3 v_texCoord;
