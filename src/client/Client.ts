@@ -69,6 +69,7 @@ import WordFilter from '#/wordenc/WordFilter.js';
 import WordPack from '#/wordenc/WordPack.js';
 
 import Wave from '#/sound/Wave.js';
+import { RendererWebGLC } from '#/graphics/renderer/webgl/RendererWebGLC.ts';
 
 const enum Constants {
     CLIENT_VERSION = 225,
@@ -5472,6 +5473,20 @@ export class Client extends GameShell {
 
                                         console.error('Failed enabling renderer', e);
                                     }
+                                } else if (this.chatTyped === '::tk3') {
+                                    try {
+                                        Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
+
+                                        if (!Renderer.renderer) {
+                                            this.addMessage(0, 'Failed to change renderer', '');
+                                        }
+                                    } catch (e) {
+                                        if (e instanceof Error) {
+                                            this.addMessage(0, 'Error enabling renderer: ' + e.message, '');
+                                        }
+
+                                        console.error('Failed enabling renderer', e);
+                                    }
                                 } else {
                                     this.out.p1isaac(ClientProt.CLIENT_CHEAT);
                                     this.out.p1(this.chatTyped.length - 1);
@@ -5666,7 +5681,7 @@ export class Client extends GameShell {
             Pix2D.clear();
             this.imageMapback?.draw(0, 0);
             this.areaSidebar = new PixMap(190, 261);
-            this.areaViewport = new PixMap(512, 334);
+            this.areaViewport = RendererWebGLC.areaViewport = new PixMap(512, 334);
             Pix2D.clear();
             this.areaBackbase1 = new PixMap(501, 61);
             this.areaBackbase2 = new PixMap(288, 40);
@@ -7287,6 +7302,8 @@ export class Client extends GameShell {
                     }
                 }
             }
+
+            RendererWebGLC.onSceneLoaded(this.scene);
 
             for (let x: number = 0; x < CollisionConstants.SIZE; x++) {
                 for (let z: number = 0; z < CollisionConstants.SIZE; z++) {

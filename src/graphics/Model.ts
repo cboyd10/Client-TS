@@ -9,6 +9,7 @@ import Packet from '#/io/Packet.js';
 import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
 
 import { Int32Array2d, TypedArray1d } from '#/util/Arrays.js';
+import { Renderer } from '#/graphics/renderer/Renderer.ts';
 
 class Metadata {
     vertexCount: number = 0;
@@ -1686,6 +1687,8 @@ export default class Model extends DoublyLinkable {
 
     // todo: better name, Java relies on overloads
     draw(yaw: number, sinEyePitch: number, cosEyePitch: number, sinEyeYaw: number, cosEyeYaw: number, relativeX: number, relativeY: number, relativeZ: number, typecode: number): void {
+        Renderer.startDrawModel(this, yaw, relativeX, relativeY, relativeZ, typecode);
+
         const zPrime: number = (relativeZ * cosEyeYaw - relativeX * sinEyeYaw) >> 16;
         const midZ: number = (relativeY * sinEyePitch + zPrime * cosEyePitch) >> 16;
         const radiusCosEyePitch: number = (this.radius * cosEyePitch) >> 16;
@@ -1817,6 +1820,8 @@ export default class Model extends DoublyLinkable {
         } catch (err) {
             /* empty */
         }
+
+        Renderer.endDrawModel(this, yaw, relativeX, relativeY, relativeZ, typecode);
     }
 
     // todo: better name, Java relies on overloads
@@ -2091,6 +2096,10 @@ export default class Model extends DoublyLinkable {
     }
 
     private drawFace(face: number, wireframe: boolean = false): void {
+        if (Renderer.drawModelTriangle(this, face)) {
+            return;
+        }
+
         if (Model.faceNearClipped && Model.faceNearClipped[face]) {
             this.drawNearClippedFace(face, wireframe);
             return;

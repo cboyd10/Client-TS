@@ -1,4 +1,7 @@
+import type TileOverlay from '#/dash3d/type/TileOverlay.ts';
+import type TileUnderlay from '#/dash3d/type/TileUnderlay.ts';
 import World3D from '#/dash3d/World3D.js';
+import type Model from '#/graphics/Model.ts';
 import PixMap from '#/graphics/PixMap.js';
 import { Renderer } from '#/graphics/renderer/Renderer.js';
 
@@ -15,6 +18,24 @@ import { SHADER_CODE as mainVertShaderCode } from './shaders/main.vert.glsl';
 const INITIAL_TRIANGLES: number = 100000;
 
 export class RendererWebGL extends Renderer {
+    drawTileUnderlay(world: World3D, underlay: TileUnderlay, level: number, tileX: number, tileZ: number): boolean {
+        return false;
+    }
+
+    drawTileOverlay(world: World3D, overlay: TileOverlay, tileX: number, tileZ: number): boolean {
+        return false;
+    }
+
+    startDrawModel(model: Model, yaw: number, relativeX: number, relativeY: number, relativeZ: number, bitset: number): void {
+    }
+
+    endDrawModel(model: Model, yaw: number, relativeX: number, relativeY: number, relativeZ: number, bitset: number): void {
+    }
+
+    drawModelTriangle(model: Model, index: number): boolean {
+        return false;
+    }
+
     pixMapProgram!: ShaderProgram;
     textureProgram!: ShaderProgram;
     mainProgram!: ShaderProgram;

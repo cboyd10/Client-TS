@@ -1,3 +1,4 @@
+// https://stackoverflow.com/a/17309861
 export const hslToRgbFunction: string = `
 vec3 hslToRgb(int hsl, float brightness) {
     const float onethird = 1.0 / 3.0;
