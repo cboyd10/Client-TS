@@ -34,8 +34,8 @@ export default class World3D {
 
     private static viewportLeft: number = 0;
     private static viewportTop: number = 0;
-    private static viewportRight: number = 0;
-    private static viewportBottom: number = 0;
+    static viewportRight: number = 0;
+    static viewportBottom: number = 0;
     private static viewportCenterX: number = 0;
     private static viewportCenterY: number = 0;
 

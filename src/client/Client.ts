@@ -43,7 +43,7 @@ import { downloadUrl, sleep, arraycopy } from '#/util/JsUtil.js';
 
 import AnimBase from '#/graphics/AnimBase.js';
 import AnimFrame from '#/graphics/AnimFrame.js';
-import { canvas2d } from '#/graphics/Canvas.js';
+import { canvas2d, canvasContainer } from '#/graphics/Canvas.js';
 import { Colors } from '#/graphics/Colors.js';
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/graphics/Pix3D.js';
@@ -52,6 +52,10 @@ import Pix8 from '#/graphics/Pix8.js';
 import Pix24 from '#/graphics/Pix24.js';
 import PixFont from '#/graphics/PixFont.js';
 import PixMap from '#/graphics/PixMap.js';
+
+import { Renderer } from '#/graphics/renderer/Renderer.js';
+import { RendererWebGPU } from '#/graphics/renderer/webgpu/RendererWebGPU.js';
+import { RendererWebGL } from '#/graphics/renderer/webgl/RendererWebGL.js';
 
 import ClientStream from '#/io/ClientStream.js';
 import { ClientProt } from '#/io/ClientProt.js';
@@ -166,7 +170,7 @@ export class Client extends GameShell {
     private flameCycle0: number = 0;
     private flameGradientCycle0: number = 0;
     private flameGradientCycle1: number = 0;
-    private flamesInterval: Timer | null = null;
+    protected flamesInterval: ReturnType<typeof setTimeout> | null = null;
 
     // game world properties
     private areaSidebar: PixMap | null = null;
@@ -642,6 +646,7 @@ export class Client extends GameShell {
     }
 
     private drawError(): void {
+        Renderer.resetRenderer();
         canvas2d.fillStyle = 'black';
         canvas2d.fillRect(0, 0, this.width, this.height);
 
@@ -1704,11 +1709,13 @@ export class Client extends GameShell {
             return;
         }
 
+        Renderer.startFrame();
         if (this.ingame) {
             this.drawGame();
         } else {
             await this.drawTitleScreen();
         }
+        Renderer.endFrame();
 
         this.dragCycles = 0;
     }
@@ -3271,8 +3278,12 @@ export class Client extends GameShell {
         Model.pickedCount = 0;
         Model.mouseX = this.mouseX - 8;
         Model.mouseY = this.mouseY - 11;
-        Pix2D.clear();
+
+        Pix2D.clear(Renderer.getSceneClearColor());
+        Renderer.startRenderScene();
         this.scene?.draw(this.cameraX, this.cameraY, this.cameraZ, level, this.cameraYaw, this.cameraPitch, this.loopCycle);
+        Renderer.endRenderScene();
+
         this.scene?.clearTemporaryLocs();
         this.draw2DEntityElements();
         this.drawTileHint();
@@ -5423,6 +5434,44 @@ export class Client extends GameShell {
                                         const desiredFps = parseInt(this.chatTyped.substring(6)) || 50;
                                         this.setTargetedFramerate(desiredFps);
                                     } catch (e) { }
+                                } else if (this.chatTyped === '::tk0') {
+                                    if (Renderer.renderer) {
+                                        Renderer.resetRenderer();
+
+                                        this.redrawChatback = true;
+                                        this.redrawPrivacySettings = true;
+                                        this.redrawSidebar = true;
+                                        this.redrawSideicons = true;
+                                        this.redrawTitleBackground = true;
+                                    }
+                                } else if (this.chatTyped === '::tk1') {
+                                    try {
+                                        Renderer.renderer = await RendererWebGPU.init(canvasContainer, this.width, this.height);
+
+                                        if (!Renderer.renderer) {
+                                            this.addMessage(0, 'Failed to change renderer', '');
+                                        }
+                                    } catch (e) {
+                                        if (e instanceof Error) {
+                                            this.addMessage(0, 'Error enabling renderer: ' + e.message, '');
+                                        }
+
+                                        console.error('Failed enabling renderer', e);
+                                    }
+                                } else if (this.chatTyped === '::tk2') {
+                                    try {
+                                        Renderer.renderer = RendererWebGL.init(canvasContainer, this.width, this.height);
+
+                                        if (!Renderer.renderer) {
+                                            this.addMessage(0, 'Failed to change renderer', '');
+                                        }
+                                    } catch (e) {
+                                        if (e instanceof Error) {
+                                            this.addMessage(0, 'Error enabling renderer: ' + e.message, '');
+                                        }
+
+                                        console.error('Failed enabling renderer', e);
+                                    }
                                 } else {
                                     this.out.p1isaac(ClientProt.CLIENT_CHEAT);
                                     this.out.p1(this.chatTyped.length - 1);

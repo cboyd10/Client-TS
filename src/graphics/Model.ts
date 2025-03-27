@@ -1157,7 +1157,7 @@ export default class Model extends DoublyLinkable {
 
     // runtime
     objRaise: number = 0;
-    pickable: boolean = false;
+    pickAabb: boolean = false;
     pickedFace: number = -1;
     pickedFaceDepth: number = -1;
 
@@ -1750,7 +1750,7 @@ export default class Model extends DoublyLinkable {
             const mouseX: number = Model.mouseX - Pix3D.centerX;
             const mouseY: number = Model.mouseY - Pix3D.centerY;
             if (mouseX > leftX && mouseX < rightX && mouseY > topY && mouseY < bottomY) {
-                if (this.pickable) {
+                if (this.pickAabb) {
                     Model.picked[Model.pickedCount++] = typecode;
                 } else {
                     picking = true;
