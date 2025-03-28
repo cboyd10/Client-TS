@@ -156,7 +156,6 @@ export class Client extends GameShell {
 
     // login screen pillar flames properties
     private imageRunes: Pix8[] = [];
-    private flameActive: boolean = false;
     private imageFlamesLeft: Pix24 | null = null;
     private imageFlamesRight: Pix24 | null = null;
     private flameBuffer1: Int32Array | null = null;
@@ -171,7 +170,6 @@ export class Client extends GameShell {
     private flameCycle0: number = 0;
     private flameGradientCycle0: number = 0;
     private flameGradientCycle1: number = 0;
-    protected flamesInterval: ReturnType<typeof setTimeout> | null = null;
 
     // game world properties
     private areaSidebar: PixMap | null = null;
@@ -558,11 +556,6 @@ export class Client extends GameShell {
     // ----
 
     private unloadTitle(): void {
-        this.flameActive = false;
-        if (this.flamesInterval) {
-            clearInterval(this.flamesInterval);
-            this.flamesInterval = null;
-        }
         this.imageTitlebox = null;
         this.imageTitlebutton = null;
         this.imageRunes = [];
@@ -651,9 +644,7 @@ export class Client extends GameShell {
 
         this.setUpdateRate(1);
 
-        this.flameActive = false;
         let y: number = 35;
-
         if (this.errorLoading) {
             canvas2d.font = 'bold 16px helvetica, sans-serif';
             canvas2d.textAlign = 'left';
@@ -1701,11 +1692,15 @@ export class Client extends GameShell {
         if (this.errorStarted || this.errorLoading || this.errorHost) {
             return;
         }
+
         this.loopCycle++;
+
         if (this.ingame) {
             await this.updateGame();
         } else {
             await this.updateTitleScreen();
+            this.updateFlames();
+            this.updateFlames();
         }
     }
 
@@ -1720,6 +1715,7 @@ export class Client extends GameShell {
             this.drawGame();
         } else {
             await this.drawTitleScreen();
+            this.drawFlames();
         }
         Renderer.endFrame();
 
@@ -1758,10 +1754,8 @@ export class Client extends GameShell {
 
         if (this.redrawTitleBackground) {
             this.redrawTitleBackground = false;
-            if (!this.flameActive) {
-                this.imageTitle0?.draw(0, 0);
-                this.imageTitle1?.draw(661, 0);
-            }
+            this.imageTitle0?.draw(0, 0);
+            this.imageTitle1?.draw(661, 0);
             this.imageTitle2?.draw(128, 0);
             this.imageTitle3?.draw(214, 386);
             this.imageTitle5?.draw(0, 265);
@@ -1770,16 +1764,10 @@ export class Client extends GameShell {
             this.imageTitle8?.draw(574, 186);
         }
 
-        await sleep(5); // return a slice of time to the main loop so it can update the progress bar
-    }
-
-    runFlames(): void {
-        if (!this.flameActive) {
-            return;
-        }
         this.updateFlames();
         this.updateFlames();
         this.drawFlames();
+        await sleep(0); // return a slice of time to the main loop so it can update the progress bar
     }
 
     private async loadTitle(): Promise<void> {
@@ -2005,12 +1993,7 @@ export class Client extends GameShell {
         this.flameBuffer3 = new Int32Array(32768);
         this.flameBuffer2 = new Int32Array(32768);
 
-        this.showProgress(10, 'Connecting to fileserver').then((): void => {
-            if (!this.flameActive) {
-                this.flameActive = true;
-                this.flamesInterval = setInterval(this.runFlames.bind(this), 35);
-            }
-        });
+        this.showProgress(10, 'Connecting to fileserver');
     }
 
     private async updateTitleScreen(): Promise<void> {
