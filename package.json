@@ -25,6 +25,8 @@
         "typescript": "^5.0.0"
     },
     "dependencies": {
-        "gl-matrix": "^3.4.3"
+        "@types/stats.js": "^0.17.3",
+        "gl-matrix": "^3.4.3",
+        "stats.js": "^0.17.0"
     }
 }

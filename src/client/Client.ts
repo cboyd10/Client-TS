@@ -490,8 +490,6 @@ export class Client extends GameShell {
     private midiSize: number = 0;
     private midiVolume: number = 64;
 
-    private displayFps: boolean = false;
-
     static setHighMemory(): void {
         World3D.lowMemory = false;
         Pix3D.lowMemory = false;
@@ -3601,29 +3599,6 @@ export class Client extends GameShell {
             this.fontPlain12?.drawStringCenter(484, 329, 'Arena', Colors.YELLOW);
         }
 
-        if (this.displayFps) {
-            let x: number = 507;
-            let y: number = 20;
-
-            let color: number = Colors.YELLOW;
-            if (this.fps < 15) {
-                color = Colors.RED;
-            }
-
-            this.fontPlain12?.drawStringRight(x, y, 'Fps:' + this.fps, color);
-            y += 15;
-
-            let memoryUsage = -1;
-            if (typeof window.performance['memory' as keyof Performance] !== 'undefined') {
-                const memory = window.performance['memory' as keyof Performance] as any;
-                memoryUsage = (memory.usedJSHeapSize / 1024) | 0;
-            }
-
-            if (memoryUsage !== -1) {
-                this.fontPlain12?.drawStringRight(x, y, 'Mem:' + memoryUsage + 'k', Colors.YELLOW);
-            }
-        }
-
         if (this.systemUpdateTimer !== 0) {
             let seconds: number = (this.systemUpdateTimer / 50) | 0;
             const minutes: number = (seconds / 60) | 0;
@@ -5439,10 +5414,10 @@ export class Client extends GameShell {
                             if (this.chatTyped.startsWith('::')) {
                                 if (this.chatTyped === '::fpson') {
                                     // authentic in later revs
-                                    this.displayFps = true;
+                                    this.fpsStats.dom.style.display = 'block';
                                 } else if (this.chatTyped === '::fpsoff') {
                                     // authentic in later revs
-                                    this.displayFps = false;
+                                    this.fpsStats.dom.style.display = 'none';
                                 } else if (this.chatTyped.startsWith('::fps ')) {
                                     // custom ::fps command for setting a target framerate
                                     try {

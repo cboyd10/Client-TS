@@ -1,4 +1,4 @@
-import { canvas, canvas2d, canvasOverlay } from '#/graphics/Canvas.js';
+import { canvas, canvas2d, canvasContainer, canvasOverlay } from '#/graphics/Canvas.js';
 import Pix3D from '#/graphics/Pix3D.js';
 import PixMap from '#/graphics/PixMap.js';
 
@@ -8,6 +8,7 @@ import { CanvasEnabledKeys, KeyCodes } from '#/client/KeyCodes.js';
 import InputTracking from '#/client/InputTracking.js';
 import { MobileKeyboard } from '#3rdparty/deps.js';
 import { Renderer } from '#/graphics/renderer/Renderer.ts';
+import Stats from 'stats.js';
 
 export default abstract class GameShell {
     protected slowestMS: number = 0.0; // custom
@@ -49,6 +50,12 @@ export default abstract class GameShell {
     private nx: number = 0;
     private ny: number = 0;
 
+    // game loop
+    fpsStats: Stats = new Stats();
+    rafId: number = 0;
+    updateAcc: number = 0;
+    lastUpdate: number = 0;
+
     abstract getTitleScreenState(): number;
     abstract isChatBackInputOpen(): boolean;
     abstract isShowSocialInput(): boolean;
@@ -56,10 +63,10 @@ export default abstract class GameShell {
     abstract getViewportInterfaceId(): number;
     abstract getReportAbuseInterfaceId(): number; // custom: report abuse input on mobile
 
-    protected async load() {}
-    protected async update() {}
-    protected async draw() {}
-    protected async refresh() {}
+    protected async load() { }
+    protected async update() { }
+    protected async draw() { }
+    protected async refresh() { }
 
     constructor(resizetoFit: boolean = false) {
         canvasOverlay.tabIndex = -1;
@@ -133,58 +140,48 @@ export default abstract class GameShell {
         await this.showProgress(0, 'Loading...');
         await this.load();
 
-        await this.mainloop(performance.now());
+        this.fpsStats.showPanel(0);
+        this.fpsStats.dom.style.cssText = 'display:none;position:absolute;top:0px;right:0px;';
+        canvasContainer.appendChild(this.fpsStats.dom);
 
-        // backup game loop for when the tab has been minimized
-        // basically, return if RAF has ran, otherwise run this
-        setInterval(async () => {
-            const now = performance.now();
-            if (now - this.lastTime > 1000) {
-                await this.mainloop(now, false);
-            }
-        }, 1000);
+        setTimeout(this.mainupdate.bind(this), 0);
+        window.requestAnimationFrame(this.mainloop.bind(this));
     }
 
-    rafId: number = 0;
-    lastTime: number = performance.now();
-    updateAcc: number = 0;
-    drawAcc: number = 0;
+    protected async mainloop(_now: number) {
+        this.fpsStats.begin();
+        await this.maindraw();
+        this.fpsStats.end();
 
-    protected async mainloop(curTime: number, raf: boolean = true) {
-        const elapsed = curTime - this.lastTime;
-        this.lastTime = curTime;
-
-        if (this.state > 0) {
-            this.state--;
-
-            if (this.state === 0) {
-                this.shutdown();
-                return;
-            }
-        }
-
-        this.updateAcc += elapsed;
-        while (this.updateAcc >= this.updateRate) {
-            await this.mainupdate();
-            this.updateAcc -= this.updateRate;
-        }
-
-        if (raf) {
-            // todo: might not reach 50 fps exactly depending on user's refresh rate...
-            // ie elapsed might be adding bulk ms at a time and not rendering some frames
-            this.drawAcc += elapsed;
-            if (this.drawAcc >= this.drawRate) {
-                // todo: average and sample fps taken
-                this.fps = (1000 / this.drawAcc) | 0;
-                await this.maindraw();
-                this.drawAcc = 0;
-            }
-
-            this.rafId = window.requestAnimationFrame(this.mainloop.bind(this)); // MDN says to put it at the start. DO NOT :')
-        }
+        this.rafId = window.requestAnimationFrame(this.mainloop.bind(this)); // MDN says to put it at the start. DO NOT :')
     }
 
     protected async mainupdate() {
+        const now = performance.now();
+        const elapsed = now - this.lastUpdate;
+        this.lastUpdate = now;
+
+        this.updateAcc += elapsed;
+        if (this.updateAcc >= this.updateRate) {
+            if (this.state > 0) {
+                this.state--;
+
+                if (this.state === 0) {
+                    this.shutdown();
+                    return;
+                }
+            }
+        }
+
+        while (this.updateAcc >= this.updateRate) {
+            await this.mainupdateinner();
+            this.updateAcc -= this.updateRate;
+        }
+
+        setTimeout(this.mainupdate.bind(this), this.updateRate);
+    }
+
+    protected async mainupdateinner() {
         await this.update();
         this.mouseClickButton = 0;
         this.keyQueueReadPos = this.keyQueueWritePos;
@@ -555,23 +552,23 @@ export default abstract class GameShell {
         this.nx = touch.screenX | 0;
         this.ny = touch.screenY | 0;
         if (!MobileKeyboard.isWithinCanvasKeyboard(this.mouseX, this.mouseY)) {  // CUSTOM: MobileKeyboard
-        if (this.startedInViewport && this.getViewportInterfaceId() === -1) {
-            // Camera panning
-            if (this.mx - this.nx > 0) {
-                this.rotate(2);
-            } else if (this.mx - this.nx < 0) {
-                this.rotate(0);
-            }
+            if (this.startedInViewport && this.getViewportInterfaceId() === -1) {
+                // Camera panning
+                if (this.mx - this.nx > 0) {
+                    this.rotate(2);
+                } else if (this.mx - this.nx < 0) {
+                    this.rotate(0);
+                }
 
-            if (this.my - this.ny > 0) {
-                this.rotate(3);
-            } else if (this.my - this.ny < 0) {
-                this.rotate(1);
+                if (this.my - this.ny > 0) {
+                    this.rotate(3);
+                } else if (this.my - this.ny < 0) {
+                    this.rotate(1);
+                }
+            } else if (this.startedInTabArea || this.getViewportInterfaceId() !== -1) {
+                // Drag and drop
+                this.onmousedown(new MouseEvent('mousedown', { clientX, clientY, button: 1 }));
             }
-        } else if (this.startedInTabArea || this.getViewportInterfaceId() !== -1) {
-            // Drag and drop
-            this.onmousedown(new MouseEvent('mousedown', { clientX, clientY, button: 1 }));
-        }
         }  // CUSTOM: MobileKeyboard
 
         this.mx = this.nx;
