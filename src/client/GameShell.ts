@@ -64,8 +64,8 @@ export default abstract class GameShell {
     abstract getReportAbuseInterfaceId(): number; // custom: report abuse input on mobile
 
     protected async load() { }
-    protected async update() { }
-    protected async draw() { }
+    protected async update(now: number) { }
+    protected async draw(now: number) { }
     protected async refresh() { }
 
     constructor(resizetoFit: boolean = false) {
@@ -172,29 +172,29 @@ export default abstract class GameShell {
         }
 
         while (this.updateAcc >= this.updateRate) {
-            await this.mainupdateinner();
+            await this.mainupdateinner(now);
             this.updateAcc -= this.updateRate;
         }
 
         setTimeout(this.mainupdate.bind(this), 1);
     }
 
-    protected async mainupdateinner() {
-        await this.update();
+    protected async mainupdateinner(now: number) {
+        await this.update(now);
         this.mouseClickButton = 0;
         this.keyQueueReadPos = this.keyQueueWritePos;
     }
 
-    protected async maindraw(_now: number) {
+    protected async maindraw(now: number) {
         this.drawStats.begin();
-        await this.maindrawinner();
+        await this.maindrawinner(now);
         this.drawStats.end();
 
         this.rafId = window.requestAnimationFrame(this.maindraw.bind(this)); // MDN says to put it at the start. DO NOT :')
     }
 
-    protected async maindrawinner() {
-        await this.draw();
+    protected async maindrawinner(now: number) {
+        await this.draw(now);
 
         // CUSTOM: MobileKeyboard
         if (this.isMobile) {

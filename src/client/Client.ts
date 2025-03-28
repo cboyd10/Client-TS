@@ -155,6 +155,7 @@ export class Client extends GameShell {
     private fontQuill8: PixFont | null = null;
 
     // login screen pillar flames properties
+    private flameNext: number = 0;
     private imageRunes: Pix8[] = [];
     private imageFlamesLeft: Pix24 | null = null;
     private imageFlamesRight: Pix24 | null = null;
@@ -1688,7 +1689,7 @@ export class Client extends GameShell {
         // }
     }
 
-    async update() {
+    async update(now: number) {
         if (this.errorStarted || this.errorLoading || this.errorHost) {
             return;
         }
@@ -1699,8 +1700,12 @@ export class Client extends GameShell {
             await this.updateGame();
         } else {
             await this.updateTitleScreen();
-            this.updateFlames();
-            this.updateFlames();
+
+            if (now >= this.flameNext) {
+                this.updateFlames();
+                this.updateFlames();
+                this.flameNext = now + 35;
+            }
         }
     }
 
