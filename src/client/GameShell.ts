@@ -176,7 +176,7 @@ export default abstract class GameShell {
             this.updateAcc -= this.updateRate;
         }
 
-        setTimeout(this.mainupdate.bind(this), this.updateRate);
+        setTimeout(this.mainupdate.bind(this), 1);
     }
 
     protected async mainupdateinner() {
