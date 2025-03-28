@@ -1684,19 +1684,17 @@ export class Client extends GameShell {
             }
         }
 
-        try {
-            if (RendererWebGPU.hasWebGPUSupport()) {
-                Renderer.renderer = await RendererWebGPU.init(canvasContainer, this.width, this.height);
-            }
-
-            // todo: RenderWebGL instead of RenderWebGLC when it's completed!
-
-            if (!Renderer.renderer) {
-                Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
-            }
-        } catch (err) {
-            console.error(err);
-        }
+        // todo: enable GPU support automatically when we're ready
+        // try {
+        //     if (RendererWebGPU.hasWebGPUSupport()) {
+        //         Renderer.renderer = await RendererWebGPU.init(canvasContainer, this.width, this.height);
+        //     }
+        //     if (!Renderer.renderer) {
+        //         Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
+        //     }
+        // } catch (err) {
+        //     console.error(err);
+        // }
     }
 
     async update() {
@@ -5419,17 +5417,13 @@ export class Client extends GameShell {
                                     // CPU renderer
                                     if (Renderer.renderer) {
                                         Renderer.resetRenderer();
-
-                                        this.redrawChatback = true;
-                                        this.redrawPrivacySettings = true;
-                                        this.redrawSidebar = true;
-                                        this.redrawSideicons = true;
-                                        this.redrawTitleBackground = true;
+                                        this.redrawAll();
                                     }
                                 } else if (this.chatTyped === '::tk1') {
                                     // WebGPU renderer (1:1 - not widespread yet)
                                     try {
                                         Renderer.renderer = await RendererWebGPU.init(canvasContainer, this.width, this.height);
+                                        this.redrawAll();
 
                                         if (!Renderer.renderer) {
                                             this.addMessage(0, 'Failed to change renderer', '');
@@ -5445,6 +5439,7 @@ export class Client extends GameShell {
                                     // WebGL renderer (working towards 1:1 rasterizing in fragment shaders)
                                     try {
                                         Renderer.renderer = RendererWebGL.init(canvasContainer, this.width, this.height);
+                                        this.redrawAll();
 
                                         if (!Renderer.renderer) {
                                             this.addMessage(0, 'Failed to change renderer', '');
@@ -5462,6 +5457,7 @@ export class Client extends GameShell {
                                         Renderer.renderer = RendererWebGLC.init(canvasContainer, this.width, this.height);
                                         RendererWebGLC.onSceneLoaded(this.scene);
                                         RendererWebGLC.setBrightness(0.8); // todo: preserve brightness
+                                        this.redrawAll();
 
                                         if (!Renderer.renderer) {
                                             this.addMessage(0, 'Failed to change renderer', '');
@@ -10586,5 +10582,13 @@ export class Client extends GameShell {
         if (this.isMobile) {
             MobileKeyboard.draw();
         }
+    }
+
+    private redrawAll() {
+        this.redrawChatback = true;
+        this.redrawPrivacySettings = true;
+        this.redrawSidebar = true;
+        this.redrawSideicons = true;
+        this.redrawTitleBackground = true;
     }
 }

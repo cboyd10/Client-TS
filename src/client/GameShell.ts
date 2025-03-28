@@ -149,15 +149,7 @@ export default abstract class GameShell {
         canvasContainer.appendChild(this.updateStats.dom);
 
         setTimeout(this.mainupdate.bind(this), 0);
-        window.requestAnimationFrame(this.mainloop.bind(this));
-    }
-
-    protected async mainloop(_now: number) {
-        this.drawStats.begin();
-        await this.maindraw();
-        this.drawStats.end();
-
-        this.rafId = window.requestAnimationFrame(this.mainloop.bind(this)); // MDN says to put it at the start. DO NOT :')
+        window.requestAnimationFrame(this.maindraw.bind(this));
     }
 
     protected async mainupdate() {
@@ -193,7 +185,15 @@ export default abstract class GameShell {
         this.keyQueueReadPos = this.keyQueueWritePos;
     }
 
-    protected async maindraw() {
+    protected async maindraw(_now: number) {
+        this.drawStats.begin();
+        await this.maindrawinner();
+        this.drawStats.end();
+
+        this.rafId = window.requestAnimationFrame(this.maindraw.bind(this)); // MDN says to put it at the start. DO NOT :')
+    }
+
+    protected async maindrawinner() {
         await this.draw();
 
         // CUSTOM: MobileKeyboard
