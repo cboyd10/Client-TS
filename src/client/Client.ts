@@ -1417,11 +1417,6 @@ export class Client extends GameShell {
     }
 
     async load() {
-        if (this.isMobile && Client.lowMemory) {
-            // force mobile on low detail mode to 30 fps
-            this.setDrawRate(30);
-        }
-
         if (this.alreadyStarted) {
             this.errorStarted = true;
             return;
@@ -5413,17 +5408,13 @@ export class Client extends GameShell {
                         if ((key === 13 || key === 10) && this.chatTyped.length > 0) {
                             if (this.chatTyped.startsWith('::')) {
                                 if (this.chatTyped === '::fpson') {
-                                    // authentic in later revs
-                                    this.fpsStats.dom.style.display = 'block';
+                                    // authentic command in later revs
+                                    this.drawStats.dom.style.display = 'block';
+                                    this.updateStats.dom.style.display = 'block';
                                 } else if (this.chatTyped === '::fpsoff') {
-                                    // authentic in later revs
-                                    this.fpsStats.dom.style.display = 'none';
-                                } else if (this.chatTyped.startsWith('::fps ')) {
-                                    // custom ::fps command for setting a target framerate
-                                    try {
-                                        const desiredFps = parseInt(this.chatTyped.substring(6)) || 50;
-                                        this.setDrawRate(Math.max(1, Math.min(50, desiredFps)));
-                                    } catch (e) { }
+                                    // authentic command in later revs
+                                    this.drawStats.dom.style.display = 'none';
+                                    this.updateStats.dom.style.display = 'none';
                                 } else if (this.chatTyped === '::tk0') {
                                     // CPU renderer
                                     if (Renderer.renderer) {

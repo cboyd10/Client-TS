@@ -17,9 +17,6 @@ export default abstract class GameShell {
 
     protected drawArea: PixMap | null = null;
     protected state: number = 0;
-    protected updateRate: number = 20;
-    protected drawRate: number = 20; // custom
-    protected fps: number = 0;
     protected redrawScreen: boolean = true;
     protected resizeToFit: boolean = false;
     protected hasFocus: boolean = true; // mapview applet
@@ -51,10 +48,13 @@ export default abstract class GameShell {
     private ny: number = 0;
 
     // game loop
-    fpsStats: Stats = new Stats();
+    drawStats: Stats = new Stats();
+    updateStats: Stats = new Stats();
+
     rafId: number = 0;
+    updateRate: number = 20;
     updateAcc: number = 0;
-    lastUpdate: number = 0;
+    lastUpdate: number = performance.now();
 
     abstract getTitleScreenState(): number;
     abstract isChatBackInputOpen(): boolean;
@@ -140,18 +140,22 @@ export default abstract class GameShell {
         await this.showProgress(0, 'Loading...');
         await this.load();
 
-        this.fpsStats.showPanel(0);
-        this.fpsStats.dom.style.cssText = 'display:none;position:absolute;top:0px;right:0px;';
-        canvasContainer.appendChild(this.fpsStats.dom);
+        this.drawStats.showPanel(0);
+        this.drawStats.dom.style.cssText = 'display:none;position:absolute;top:0px;right:0px;';
+        canvasContainer.appendChild(this.drawStats.dom);
+
+        this.updateStats.showPanel(1);
+        this.updateStats.dom.style.cssText = 'display:none;position:absolute;top:48px;right:0px;';
+        canvasContainer.appendChild(this.updateStats.dom);
 
         setTimeout(this.mainupdate.bind(this), 0);
         window.requestAnimationFrame(this.mainloop.bind(this));
     }
 
     protected async mainloop(_now: number) {
-        this.fpsStats.begin();
+        this.drawStats.begin();
         await this.maindraw();
-        this.fpsStats.end();
+        this.drawStats.end();
 
         this.rafId = window.requestAnimationFrame(this.mainloop.bind(this)); // MDN says to put it at the start. DO NOT :')
     }
@@ -171,6 +175,8 @@ export default abstract class GameShell {
                     return;
                 }
             }
+
+            this.updateStats.update();
         }
 
         while (this.updateAcc >= this.updateRate) {
@@ -203,10 +209,6 @@ export default abstract class GameShell {
 
     protected setUpdateRate(rate: number) {
         this.updateRate = (1000 / rate) | 0;
-    }
-
-    protected setDrawRate(rate: number) {
-        this.drawRate = (1000 / rate) | 0;
     }
 
     protected start() {
