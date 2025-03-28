@@ -651,7 +651,7 @@ export class Client extends GameShell {
         canvas2d.fillStyle = 'black';
         canvas2d.fillRect(0, 0, this.width, this.height);
 
-        this.setFramerate(1);
+        this.setUpdateRate(1);
 
         this.flameActive = false;
         let y: number = 35;
@@ -1421,7 +1421,7 @@ export class Client extends GameShell {
     async load() {
         if (this.isMobile && Client.lowMemory) {
             // force mobile on low detail mode to 30 fps
-            this.setTargetedFramerate(30);
+            this.setDrawRate(30);
         }
 
         if (this.alreadyStarted) {
@@ -5447,7 +5447,7 @@ export class Client extends GameShell {
                                     // custom ::fps command for setting a target framerate
                                     try {
                                         const desiredFps = parseInt(this.chatTyped.substring(6)) || 50;
-                                        this.setTargetedFramerate(desiredFps);
+                                        this.setDrawRate(Math.max(1, Math.min(50, desiredFps)));
                                     } catch (e) { }
                                 } else if (this.chatTyped === '::tk0') {
                                     // CPU renderer

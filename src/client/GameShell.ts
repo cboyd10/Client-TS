@@ -16,15 +16,11 @@ export default abstract class GameShell {
 
     protected drawArea: PixMap | null = null;
     protected state: number = 0;
-    protected deltime: number = 20;
-    protected mindel: number = 1;
-    protected otim: number[] = [];
+    protected updateRate: number = 20;
+    protected drawRate: number = 20; // custom
     protected fps: number = 0;
-    protected fpos: number = 0;
-    protected frameTime: number[] = [];
     protected redrawScreen: boolean = true;
     protected resizeToFit: boolean = false;
-    protected tfps: number = 50; // custom
     protected hasFocus: boolean = true; // mapview applet
 
     protected ingame: boolean = false;
@@ -137,112 +133,83 @@ export default abstract class GameShell {
         await this.showProgress(0, 'Loading...');
         await this.load();
 
-        for (let i: number = 0; i < 10; i++) {
-            this.otim[i] = performance.now();
-        }
+        await this.mainloop(performance.now());
 
-        let ntime: number;
-        let opos: number = 0;
-        let ratio: number = 256;
-        let delta: number = 1;
-        let count: number = 0;
-
-        while (this.state >= 0) {
-            if (this.state > 0) {
-                this.state--;
-
-                if (this.state === 0) {
-                    this.shutdown();
-                    return;
-                }
+        // backup game loop for when the tab has been minimized
+        // basically, return if RAF has ran, otherwise run this
+        setInterval(async () => {
+            const now = performance.now();
+            if (now - this.lastTime > 1000) {
+                await this.mainloop(now, false);
             }
+        }, 1000);
+    }
 
-            const lastRatio: number = ratio;
-            const lastDelta: number = delta;
-            ratio = 300;
-            delta = 1;
+    rafId: number = 0;
+    lastTime: number = performance.now();
+    updateAcc: number = 0;
+    drawAcc: number = 0;
 
-            ntime = performance.now();
-            const otim: number = this.otim[opos];
+    protected async mainloop(curTime: number, raf: boolean = true) {
+        const elapsed = curTime - this.lastTime;
+        this.lastTime = curTime;
 
-            if (otim === 0) {
-                ratio = lastRatio;
-                delta = lastDelta;
-            } else if (ntime > otim) {
-                ratio = ((this.deltime * 2560) / (ntime - otim)) | 0;
-            }
+        if (this.state > 0) {
+            this.state--;
 
-            if (ratio < 25) {
-                ratio = 25;
-            } else if (ratio > 256) {
-                ratio = 256;
-                delta = (this.deltime - (ntime - otim) / 10) | 0;
-            }
-
-            this.otim[opos] = ntime;
-            opos = (opos + 1) % 10;
-
-            if (delta > 1) {
-                for (let i: number = 0; i < 10; i++) {
-                    if (this.otim[i] !== 0) {
-                        this.otim[i] += delta;
-                    }
-                }
-            }
-
-            if (delta < this.mindel) {
-                delta = this.mindel;
-            }
-
-            await sleep(delta);
-
-            while (count < 256) {
-                await this.update();
-                this.mouseClickButton = 0;
-                this.keyQueueReadPos = this.keyQueueWritePos;
-                count += ratio;
-            }
-
-            count &= 0xff;
-
-            if (this.deltime > 0) {
-                this.fps = ((ratio * 1000) / (this.deltime * 256)) | 0;
-            }
-
-            const time: number = performance.now();
-
-            await this.draw();
-            // CUSTOM: MobileKeyboard
-            if (this.isMobile) {
-                MobileKeyboard.draw();
-            }
-
-            this.frameTime[this.fpos] = (performance.now() - time) / 1000;
-            this.fpos = (this.fpos + 1) % this.frameTime.length;
-
-            // this is custom for targeting specific fps (on mobile).
-            if (this.tfps < 50) {
-                const tfps: number = 1000 / this.tfps - (performance.now() - ntime);
-                if (tfps > 0) {
-                    await sleep(tfps);
-                }
+            if (this.state === 0) {
+                this.shutdown();
+                return;
             }
         }
-        if (this.state === -1) {
-            this.shutdown();
+
+        this.updateAcc += elapsed;
+        while (this.updateAcc >= this.updateRate) {
+            await this.mainupdate();
+            this.updateAcc -= this.updateRate;
+        }
+
+        if (raf) {
+            // todo: might not reach 50 fps exactly depending on user's refresh rate...
+            // ie elapsed might be adding bulk ms at a time and not rendering some frames
+            this.drawAcc += elapsed;
+            if (this.drawAcc >= this.drawRate) {
+                // todo: average and sample fps taken
+                this.fps = (1000 / this.drawAcc) | 0;
+                await this.maindraw();
+                this.drawAcc = 0;
+            }
+
+            this.rafId = window.requestAnimationFrame(this.mainloop.bind(this)); // MDN says to put it at the start. DO NOT :')
+        }
+    }
+
+    protected async mainupdate() {
+        await this.update();
+        this.mouseClickButton = 0;
+        this.keyQueueReadPos = this.keyQueueWritePos;
+    }
+
+    protected async maindraw() {
+        await this.draw();
+
+        // CUSTOM: MobileKeyboard
+        if (this.isMobile) {
+            MobileKeyboard.draw();
         }
     }
 
     protected shutdown() {
         this.state = -2;
+        window.cancelAnimationFrame(this.rafId);
     }
 
-    protected setFramerate(rate: number) {
-        this.deltime = (1000 / rate) | 0;
+    protected setUpdateRate(rate: number) {
+        this.updateRate = (1000 / rate) | 0;
     }
 
-    protected setTargetedFramerate(rate: number) {
-        this.tfps = Math.max(Math.min(50, rate | 0), 0);
+    protected setDrawRate(rate: number) {
+        this.drawRate = (1000 / rate) | 0;
     }
 
     protected start() {
@@ -253,7 +220,7 @@ export default abstract class GameShell {
 
     protected stop() {
         if (this.state >= 0) {
-            this.state = (4000 / this.deltime) | 0;
+            this.state = (4000 / this.updateRate) | 0;
         }
     }
 
@@ -298,25 +265,6 @@ export default abstract class GameShell {
             this.keyQueueReadPos = (this.keyQueueReadPos + 1) & 0x7f;
         }
         return key;
-    }
-
-    protected get ms(): number {
-        const length: number = this.frameTime.length;
-        let ft: number = 0;
-        for (let index: number = 0; index < length; index++) {
-            ft += this.frameTime[index];
-        }
-        const ms: number = (ft / length) * 1000;
-        if (ms > this.slowestMS) {
-            this.slowestMS = ms;
-        }
-        this.averageMS[this.averageIndexMS] = ms;
-        this.averageIndexMS = (this.averageIndexMS + 1) % 250; // 250 circular limit
-        return ms;
-    }
-
-    protected get msAvg(): number {
-        return this.averageMS.reduce((accumulator: number, currentValue: number): number => accumulator + currentValue, 0) / 250; // 250 circular limit
     }
 
     // ----
