@@ -382,6 +382,8 @@ export class Client extends GameShell {
     private sceneMapLocReady: boolean[] | null = null;
     private sceneMapIndex: Int32Array | null = null;
     private sceneAwaitingSync: boolean = false;
+    private sceneInstanced: boolean = false;
+    private sceneMapRegion: number[][][] = new TypedArray3d(4, 13, 13, -1);
     private scenePrevBaseTileX: number = 0;
     private scenePrevBaseTileZ: number = 0;
     private textureBuffer: Int8Array = new Int8Array(16384);
@@ -6108,9 +6110,29 @@ export class Client extends GameShell {
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.REBUILD_NORMAL) {
-                const zoneX: number = this.in.g2();
-                const zoneZ: number = this.in.g2();
+            if (this.inPacketType === ServerProt.REBUILD_NORMAL || this.inPacketType === ServerProt.REBUILD_REGION) {
+                let zoneX = this.in.g2();
+                let zoneZ = this.in.g2();
+
+                if (this.inPacketType === ServerProt.REBUILD_REGION) {
+                    this.in.bits();
+
+                    for (let level = 0; level < 4; level++) {
+                        for (let x = 0; x < 13; x++) {
+                            for (let z = 0; z < 13; z++) {
+                                if (this.in.gBit(1) === 1) {
+                                    this.sceneMapRegion[level][x][z] = this.in.gBit(26);
+                                } else {
+                                    this.sceneMapRegion[level][x][z] = -1;
+                                }
+                            }
+                        }
+                    }
+
+                    this.in.bytes();
+                }
+
+                this.sceneInstanced = this.inPacketType === ServerProt.REBUILD_REGION;
 
                 if (this.sceneCenterZoneX === zoneX && this.sceneCenterZoneZ === zoneZ && this.sceneState !== 0) {
                     this.inPacketType = -1;
@@ -6130,18 +6152,18 @@ export class Client extends GameShell {
 
                 // signlink.looprate(5);
 
-                const regions: number = ((this.inPacketSize - 2) / 10) | 0;
+                const mapCount: number = ((this.inPacketSize - 2) / 10) | 0;
 
-                this.sceneMapLandData = new TypedArray1d(regions, null);
-                this.sceneMapLandReady = new TypedArray1d(regions, false);
-                this.sceneMapLocData = new TypedArray1d(regions, null);
-                this.sceneMapLocReady = new TypedArray1d(regions, false);
-                this.sceneMapIndex = new Int32Array(regions);
+                this.sceneMapLandData = new TypedArray1d(mapCount, null);
+                this.sceneMapLandReady = new TypedArray1d(mapCount, false);
+                this.sceneMapLocData = new TypedArray1d(mapCount, null);
+                this.sceneMapLocReady = new TypedArray1d(mapCount, false);
+                this.sceneMapIndex = new Int32Array(mapCount);
 
                 this.out.p1isaac(ClientProt.REBUILD_GETMAPS);
                 this.out.p1(0);
-                let mapCount: number = 0;
-                for (let i: number = 0; i < regions; i++) {
+                let outSize: number = 0;
+                for (let i: number = 0; i < mapCount; i++) {
                     const mapsquareX: number = this.in.g1();
                     const mapsquareZ: number = this.in.g1();
                     const landCrc: number = this.in.g4();
@@ -6160,7 +6182,7 @@ export class Client extends GameShell {
                             this.out.p1(0); // map request
                             this.out.p1(mapsquareX);
                             this.out.p1(mapsquareZ);
-                            mapCount += 3;
+                            outSize += 3;
                         } else {
                             this.sceneMapLandData[i] = data;
                             this.sceneMapLandReady[i] = true;
@@ -6179,7 +6201,7 @@ export class Client extends GameShell {
                             this.out.p1(1); // loc request
                             this.out.p1(mapsquareX);
                             this.out.p1(mapsquareZ);
-                            mapCount += 3;
+                            outSize += 3;
                         } else {
                             this.sceneMapLocData[i] = data;
                             this.sceneMapLocReady[i] = true;
@@ -6188,7 +6210,7 @@ export class Client extends GameShell {
                         this.sceneMapLocReady[i] = true;
                     }
                 }
-                this.out.psize1(mapCount);
+                this.out.psize1(outSize);
 
                 // signlink.looprate(50);
 
@@ -7155,7 +7177,11 @@ export class Client extends GameShell {
     }
 
     private buildScene(): void {
-		try {
+        if (!this.sceneMapIndex || !this.sceneMapLandData || !this.sceneMapLocData) {
+            return;
+        }
+
+        try {
             this.minimapLevel = -1;
             this.locList.clear();
             this.spotanims.clear();
@@ -7171,10 +7197,8 @@ export class Client extends GameShell {
             const world: World = new World(CollisionConstants.SIZE, CollisionConstants.SIZE, this.levelHeightmap!, this.levelTileFlags!);
             World.lowMemory = Client.lowMemory;
 
-            const maps: number = this.sceneMapLandData?.length ?? 0;
-
             if (this.sceneMapIndex) {
-                for (let index: number = 0; index < maps; index++) {
+                for (let index: number = 0; index < this.sceneMapLandData.length; index++) {
                     const mapsquareX: number = this.sceneMapIndex[index] >> 8;
                     const mapsquareZ: number = this.sceneMapIndex[index] & 0xff;
 
@@ -7192,34 +7216,113 @@ export class Client extends GameShell {
                 this.scene?.setMinLevel(0);
             }
 
-            if (this.sceneMapIndex && this.sceneMapLandData) {
+            if (!this.sceneInstanced) {
                 this.out.p1isaac(ClientProt.NO_TIMEOUT);
-
-                for (let i: number = 0; i < maps; i++) {
+                for (let i: number = 0; i < this.sceneMapLandData.length; i++) {
                     const x: number = (this.sceneMapIndex[i] >> 8) * 64 - this.sceneBaseTileX;
                     const z: number = (this.sceneMapIndex[i] & 0xff) * 64 - this.sceneBaseTileZ;
                     const src: Uint8Array | null = this.sceneMapLandData[i];
 
                     if (src) {
                         const data = BZip2.decompress(src, -1, false, true);
-                        world.readLandscape((this.sceneCenterZoneX - 6) * 8, (this.sceneCenterZoneZ - 6) * 8, x, z, data);
+                        world.readLandscape(data, x, z, (this.sceneCenterZoneX - 6) * 8, (this.sceneCenterZoneZ - 6) * 8);
                     } else if (this.sceneCenterZoneZ < 800) {
-                        world.clearLandscape(z, x, 64, 64);
+                        world.clearLandscape(x, z, 64, 64);
                     }
                 }
-            }
 
-            if (this.sceneMapIndex && this.sceneMapLocData) {
                 this.out.p1isaac(ClientProt.NO_TIMEOUT);
-
-                for (let i: number = 0; i < maps; i++) {
+                for (let i: number = 0; i < this.sceneMapLocData.length; i++) {
                     const x: number = (this.sceneMapIndex[i] >> 8) * 64 - this.sceneBaseTileX;
                     const z: number = (this.sceneMapIndex[i] & 0xff) * 64 - this.sceneBaseTileZ;
                     const src: Uint8Array | null = this.sceneMapLocData[i];
 
                     if (src) {
                         const data = BZip2.decompress(src, -1, false, true);
-                        world.readLocs(this.scene, this.locList, this.levelCollisionMap, data, x, z);
+                        world.readLocs(this.locList, this.levelCollisionMap, this.scene, x, z, data);
+                    }
+                }
+            } else {
+                const tempLandData: Map<number, Uint8Array> = new Map();
+
+                this.out.p1isaac(ClientProt.NO_TIMEOUT);
+                for (let level = 0; level < 4; level++) {
+                    for (let x = 0; x < 13; x++) {
+                        for (let z = 0; z < 13; z++) {
+                            const region = this.sceneMapRegion[level][x][z];
+                            if (region === -1) {
+                                continue;
+                            }
+
+                            const zoneLevel = (region >> 24) & 3;
+                            const zoneX = (region >> 14) & 0x3ff;
+                            const zoneZ = (region >> 3) & 0x3ff;
+                            const zoneRotation = (region >> 1) & 3;
+
+                            const mapIndex = ((zoneX >> 3) << 8) | (zoneZ >> 3);
+
+                            for (let i: number = 0; i < this.sceneMapLandData.length; i++) {
+                                if (this.sceneMapIndex[i] !== mapIndex || this.sceneMapLandData[i] === null) {
+                                    continue;
+                                }
+
+                                const src: Uint8Array = this.sceneMapLandData[i] as Uint8Array;
+
+                                let data: Uint8Array | undefined = tempLandData.get(mapIndex);
+                                if (typeof data === 'undefined') {
+                                    data = BZip2.decompress(src, -1, false, true);
+                                    tempLandData.set(mapIndex, data);
+                                }
+
+                                world.readLandscapeRegion(data, (zoneX & 7) * 8, (zoneZ & 7) * 8, zoneLevel, zoneRotation, x * 8, z * 8, level);
+                            }
+                        }
+                    }
+                }
+
+                for (let x = 0; x < 13; x++) {
+                    for (let z = 0; z < 13; z++) {
+                        const region = this.sceneMapRegion[0][x][z];
+                        if (region == -1) {
+                            world.clearLandscape(x * 8, z * 8, 8, 8, false);
+                        }
+                    }
+                }
+
+                const tempLocData: Map<number, Uint8Array> = new Map();
+
+                this.out.p1isaac(ClientProt.NO_TIMEOUT);
+                for (let level = 0; level < 4; level++) {
+                    for (let x = 0; x < 13; x++) {
+                        for (let z = 0; z < 13; z++) {
+                            const region = this.sceneMapRegion[level][x][z];
+                            if (region === -1) {
+                                continue;
+                            }
+
+                            const zoneLevel = (region >> 24) & 3;
+                            const zoneX = (region >> 14) & 0x3ff;
+                            const zoneZ = (region >> 3) & 0x7ff;
+                            const zoneRotation = (region >> 1) & 3;
+
+                            const mapIndex = ((zoneX >> 3) << 8) | (zoneZ >> 3);
+
+                            for (let i: number = 0; i < this.sceneMapLocData.length; i++) {
+                                if (this.sceneMapIndex[i] !== mapIndex || this.sceneMapLocData[i] === null) {
+                                    continue;
+                                }
+
+                                const src: Uint8Array = this.sceneMapLocData[i] as Uint8Array;
+
+                                let data: Uint8Array | undefined = tempLocData.get(mapIndex);
+                                if (typeof data === 'undefined') {
+                                    data = BZip2.decompress(src, -1, false, true);
+                                    tempLocData.set(mapIndex, data);
+                                }
+
+                                world.readLocsRegion(this.locList, this.levelCollisionMap, this.scene, zoneLevel, zoneRotation, (zoneX & 7) * 8, (zoneZ & 7) * 8, x * 8, z * 8, data, level);
+                            }
+                        }
                     }
                 }
             }

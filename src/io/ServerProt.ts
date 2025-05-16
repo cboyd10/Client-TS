@@ -70,6 +70,7 @@ export const enum ServerProt {
     DATA_LAND = 132,
     DATA_LOC = 220,
     REBUILD_NORMAL = 237,
+    REBUILD_REGION = 238, // hello 2005 :)
 
     // vars
     VARP_SMALL = 150,

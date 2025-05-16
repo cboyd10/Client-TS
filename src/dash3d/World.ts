@@ -20,6 +20,7 @@ import Model from '#/graphics/Model.js';
 import Packet from '#/io/Packet.js';
 
 import { Int32Array2d, Int32Array3d, Uint8Array3d } from '#/util/Arrays.js';
+import WorldRegion from '#/dash3d/WorldRegion.ts';
 
 // noinspection JSSuspiciousNameCombination,DuplicatedCode
 export default class World {
@@ -725,7 +726,7 @@ export default class World {
         }
     }
 
-    clearLandscape(startX: number, startZ: number, endX: number, endZ: number): void {
+    clearLandscape(startX: number, startZ: number, endX: number, endZ: number, water: boolean = true): void {
         let waterOverlay: number = 0;
         for (let i: number = 0; i < FloType.totalCount; i++) {
             if (FloType.instances[i].debugname?.toLowerCase() === 'water') {
@@ -737,7 +738,9 @@ export default class World {
         for (let z: number = startX; z < startX + endX; z++) {
             for (let x: number = startZ; x < startZ + endZ; x++) {
                 if (x >= 0 && x < this.maxTileX && z >= 0 && z < this.maxTileZ) {
-                    this.levelTileOverlayIds[0][x][z] = waterOverlay;
+                    if (water) {
+                        this.levelTileOverlayIds[0][x][z] = waterOverlay;
+                    }
 
                     for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
                         this.levelHeightmap[level][x][z] = 0;
@@ -748,78 +751,97 @@ export default class World {
         }
     }
 
-    readLandscape(originX: number, originZ: number, xOffset: number, zOffset: number, src: Uint8Array): void {
-        const buf: Packet = new Packet(src);
+    readLandscape(data: Uint8Array, offsetX: number, offsetZ: number, originX: number, originZ: number): void {
+        const buf: Packet = new Packet(data);
 
         for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
             for (let x: number = 0; x < 64; x++) {
                 for (let z: number = 0; z < 64; z++) {
-                    const stx: number = x + xOffset;
-                    const stz: number = z + zOffset;
-                    let opcode: number;
+                    this.readLandscapeInner(buf, originX, originZ, level, x + offsetX, z + offsetZ, 0);
+                }
+            }
+        }
+    }
 
-                    if (stx >= 0 && stx < CollisionConstants.SIZE && stz >= 0 && stz < CollisionConstants.SIZE) {
-                        this.levelTileFlags[level][stx][stz] = 0;
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            opcode = buf.g1();
-                            if (opcode === 0) {
-                                if (level === 0) {
-                                    this.levelHeightmap[0][stx][stz] = -World.perlin(stx + originX + 932731, stz + 556238 + originZ) * 8;
-                                } else {
-                                    this.levelHeightmap[level][stx][stz] = this.levelHeightmap[level - 1][stx][stz] - 240;
-                                }
-                                break;
-                            }
+    readLandscapeRegion(data: Uint8Array, chunkX: number, chunkZ: number, mapLevel: number, chunkRotation: number, originX: number, originZ: number, level: number): void {
+        const buf: Packet = new Packet(data);
 
-                            if (opcode === 1) {
-                                let height: number = buf.g1();
-                                if (height === 1) {
-                                    height = 0;
-                                }
-                                if (level === 0) {
-                                    this.levelHeightmap[0][stx][stz] = -height * 8;
-                                } else {
-                                    this.levelHeightmap[level][stx][stz] = this.levelHeightmap[level - 1][stx][stz] - height * 8;
-                                }
-                                break;
-                            }
-
-                            if (opcode <= 49) {
-                                this.levelTileOverlayIds[level][stx][stz] = buf.g1b();
-                                this.levelTileOverlayShape[level][stx][stz] = ((((opcode - 2) / 4) | 0) << 24) >> 24;
-                                this.levelTileOverlayRotation[level][stx][stz] = (((opcode - 2) & 0x3) << 24) >> 24;
-                            } else if (opcode <= 81) {
-                                this.levelTileFlags[level][stx][stz] = ((opcode - 49) << 24) >> 24;
-                            } else {
-                                this.levelTileUnderlayIds[level][stx][stz] = ((opcode - 81) << 24) >> 24;
-                            }
-                        }
+        for (let l: number = 0; l < CollisionConstants.LEVELS; l++) {
+            for (let x: number = 0; x < 64; x++) {
+                for (let z: number = 0; z < 64; z++) {
+                    if (l === mapLevel && x >= chunkX && x < chunkX + 8 && z >= chunkZ && z < chunkZ + 8) {
+                        this.readLandscapeInner(buf, 0, 0, level, originX + WorldRegion.rotateX(x & 0x7, z & 0x7, chunkRotation), originZ + WorldRegion.rotateZ(x & 0x7, z & 0x7, chunkRotation), chunkRotation);
                     } else {
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            opcode = buf.g1();
-                            if (opcode === 0) {
-                                break;
-                            }
-
-                            if (opcode === 1) {
-                                buf.g1();
-                                break;
-                            }
-
-                            if (opcode <= 49) {
-                                buf.g1();
-                            }
-                        }
+                        this.readLandscapeInner(buf, 0, 0, 0, -1, -1, 0);
                     }
                 }
             }
         }
     }
 
-    readLocs(scene: World3D | null, locs: LinkList, collision: (CollisionMap | null)[], src: Uint8Array, xOffset: number, zOffset: number): void {
-        const buf: Packet = new Packet(src);
+    readLandscapeInner(buf: Packet, originX: number, originZ: number, level: number, x: number, z: number, mapRotation: number): void {
+        if (x < 0 || x >= CollisionConstants.SIZE || x < 0 || z >= CollisionConstants.SIZE) {
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                let opcode = buf.g1();
+                if (opcode === 0) {
+                    return;
+                }
+
+                if (opcode === 1) {
+                    buf.g1();
+                    return;
+                }
+
+                if (opcode <= 49) {
+                    buf.g1();
+                }
+            }
+        }
+
+        this.levelTileFlags[level][x][z] = 0;
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            let opcode = buf.g1();
+            if (opcode === 0) {
+                if (level === 0) {
+                    this.levelHeightmap[0][x][z] = -World.perlin(x + originX + 932731, z + 556238 + originZ) * 8;
+                } else {
+                    this.levelHeightmap[level][x][z] = this.levelHeightmap[level - 1][x][z] - 240;
+                }
+                break;
+            }
+
+            if (opcode === 1) {
+                let height: number = buf.g1();
+                if (height === 1) {
+                    height = 0;
+                }
+
+                if (level === 0) {
+                    this.levelHeightmap[0][x][z] = -height * 8;
+                } else {
+                    this.levelHeightmap[level][x][z] = this.levelHeightmap[level - 1][x][z] - height * 8;
+                }
+
+                break;
+            }
+
+            if (opcode <= 49) {
+                this.levelTileOverlayIds[level][x][z] = buf.g1b();
+                this.levelTileOverlayShape[level][x][z] = ((((opcode - 2) / 4) | 0) << 24) >> 24;
+                this.levelTileOverlayRotation[level][x][z] = ((((opcode - 2) + mapRotation) & 0x3) << 24) >> 24;
+            } else if (opcode <= 81) {
+                this.levelTileFlags[level][x][z] = ((opcode - 49) << 24) >> 24;
+            } else {
+                this.levelTileUnderlayIds[level][x][z] = ((opcode - 81) << 24) >> 24;
+            }
+        }
+    }
+
+    readLocs(locs: LinkList, collision: (CollisionMap | null)[], scene: World3D | null, originX: number, originZ: number, data: Uint8Array): void {
+        const buf: Packet = new Packet(data);
         let locId: number = -1;
 
         // eslint-disable-next-line no-constant-condition
@@ -847,8 +869,8 @@ export default class World {
                 const info: number = buf.g1();
                 const shape: number = info >> 2;
                 const rotation: number = info & 0x3;
-                const stx: number = x + xOffset;
-                const stz: number = z + zOffset;
+                const stx: number = x + originX;
+                const stz: number = z + originZ;
 
                 if (stx > 0 && stz > 0 && stx < CollisionConstants.SIZE - 1 && stz < CollisionConstants.SIZE - 1) {
                     let currentLevel: number = level;
@@ -863,6 +885,63 @@ export default class World {
 
                     this.addLoc(level, stx, stz, scene, locs, collisionMap, locId, shape, rotation);
                 }
+            }
+        }
+    }
+
+    readLocsRegion(locs: LinkList, collision: (CollisionMap | null)[], scene: World3D | null, mapLevel: number, mapRotation: number, mapChunkX: number, mapChunkZ: number, originX: number, originZ: number, data: Uint8Array, level: number): void {
+        const buf: Packet = new Packet(data);
+        let locId: number = -1;
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const deltaId: number = buf.gsmarts();
+            if (deltaId === 0) {
+                return;
+            }
+
+            locId += deltaId;
+
+            let locPos: number = 0;
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                const deltaPos: number = buf.gsmarts();
+                if (deltaPos === 0) {
+                    break;
+                }
+
+                locPos += deltaPos - 1;
+                const locZ: number = locPos & 0x3f;
+                const locX: number = (locPos >> 6) & 0x3f;
+                const locLevel: number = locPos >> 12;
+
+                const info: number = buf.g1();
+                const shape: number = info >> 2;
+                const rotation: number = info & 0x3;
+
+                if (locLevel != mapLevel || locX < mapChunkX || locX >= mapChunkX + 8 || locZ < mapChunkZ || locZ >= mapChunkZ + 8) {
+                    continue;
+                }
+
+                const type = LocType.get(locId);
+                const x = originX + WorldRegion.rotateLocX(locX & 0x7, locZ & 0x7, type.width, type.length, mapRotation);
+                const z = originZ + WorldRegion.rotateLocZ(locX & 0x7, locZ & 0x7, type.width, type.length, mapRotation);
+
+                if (x <= 0 || z <= 0 || x >= CollisionConstants.SIZE - 1 || z >= CollisionConstants.SIZE - 1) {
+                    continue;
+                }
+
+                let currentLevel: number = locLevel;
+                if ((this.levelTileFlags[1][x][z] & 0x2) === 2) {
+                    currentLevel = locLevel - 1;
+                }
+
+                let collisionMap: CollisionMap | null = null;
+                if (currentLevel >= 0) {
+                    collisionMap = collision[currentLevel];
+                }
+
+                this.addLoc(level, x, z, scene, locs, collisionMap, locId, shape, (rotation + mapRotation) & 3);
             }
         }
     }
