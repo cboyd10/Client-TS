@@ -6183,7 +6183,7 @@ export class Client extends GameShell {
                     }
                     const data: Uint8Array | null = this.sceneMapLocData[index];
                     if (data) {
-                        this.in.gdata(this.inPacketSize - 6, off, data);
+                        this.in.gdata(data, off, this.inPacketSize - 6);
                     }
                 }
                 this.inPacketType = -1;
@@ -6500,7 +6500,7 @@ export class Client extends GameShell {
 
                     const data: Uint8Array | null = this.sceneMapLandData[index];
                     if (data) {
-                        this.in.gdata(this.inPacketSize - 6, off, data);
+                        this.in.gdata(data, off, this.inPacketSize - 6);
                     }
                 }
 
@@ -7476,7 +7476,7 @@ export class Client extends GameShell {
             const length: number = buf.g1();
             const data: Uint8Array = new Uint8Array(length);
             const appearance: Packet = new Packet(data);
-            buf.gdata(length, 0, data);
+            buf.gdata(data, 0, length);
             this.playerAppearanceBuffer[index] = appearance;
             player.read(appearance);
         }

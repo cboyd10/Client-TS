@@ -178,7 +178,7 @@ export default class Packet extends DoublyLinkable {
         return str;
     }
 
-    gdata(length: number, offset: number, dest: Uint8Array | Int8Array): void {
+    gdata(dest: Uint8Array | Int8Array, offset: number, length: number): void {
         dest.set(this.data.subarray(this.pos, this.pos + length), offset);
         this.pos += length;
     }
@@ -240,6 +240,26 @@ export default class Packet extends DoublyLinkable {
         this.view.setUint8(this.pos - size - 1, size);
     }
 
+    psmarts(value: number): void {
+        if (value < 64 && value >= -64) {
+            this.p1(value + 64);
+        } else if (value < 16384 && value >= -16384) {
+            this.p2(value + 0xc000);
+        } else {
+            throw new Error('Error psmarts out of range: ' + value);
+        }
+    }
+
+    psmart(value: number): void {
+        if (value >= 0 && value < 128) {
+            this.p1(value);
+        } else if (value >= 0 && value < 32768) {
+            this.p2(value + 0x8000);
+        } else {
+            throw new Error('Error psmart out of range: ' + value);
+        }
+    }
+
     bits(): void {
         this.bitPos = this.pos << 3;
     }
@@ -273,7 +293,7 @@ export default class Packet extends DoublyLinkable {
         this.pos = 0;
 
         const temp: Uint8Array = new Uint8Array(length);
-        this.gdata(length, 0, temp);
+        this.gdata(temp, 0, length);
 
         const bigRaw: bigint = bytesToBigInt(temp);
         const bigEnc: bigint = bigIntModPow(bigRaw, exp, mod);

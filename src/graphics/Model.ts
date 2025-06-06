@@ -10,6 +10,25 @@ import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
 
 import { Int32Array2d, TypedArray1d } from '#/util/Arrays.js';
 
+export interface ModelPart {
+    partIndex: number;
+    originalModel: Model;
+    originalModelName: string;
+    vertexOffset: number;
+    vertexCount: number;
+    faceOffset: number;
+    faceCount: number;
+    texturedFaceOffset: number;
+    texturedFaceCount: number;
+    vertexMapping: Map<number, number>;
+}
+
+export interface ModelPartMapping {
+    parts: ModelPart[];
+    isNpcModel: boolean;
+    npcId?: string;
+}
+
 class Metadata {
     vertexCount: number = 0;
     faceCount: number = 0;
@@ -694,7 +713,7 @@ export default class Model extends DoublyLinkable {
         return model;
     }
 
-    static modelFromModels(models: (Model | null)[], count: number): Model {
+    static modelFromModels(models: (Model | null)[], count: number, modelNames?: string[]): Model {
         let copyInfo: boolean = false;
         let copyPriorities: boolean = false;
         let copyAlpha: boolean = false;
@@ -765,6 +784,8 @@ export default class Model extends DoublyLinkable {
         }
 
         const faceColor: Int32Array = new Int32Array(faceCount);
+        const parts: ModelPart[] = [];
+
         vertexCount = 0;
         faceCount = 0;
         texturedFaceCount = 0;
@@ -813,6 +834,11 @@ export default class Model extends DoublyLinkable {
             const model: Model | null = models[i];
 
             if (model) {
+                const partStartVertex = vertexCount;
+                const partStartFace = faceCount;
+                const partStartTexturedFace = texturedFaceCount;
+                const vertexMapping = new Map<number, number>();
+
                 for (let face: number = 0; face < model.faceCount; face++) {
                     if (copyInfo) {
                         if (!model.faceInfo) {
@@ -859,12 +885,49 @@ export default class Model extends DoublyLinkable {
                     if (model.faceColor) {
                         faceColor[faceCount] = model.faceColor[face];
                     }
-                    const a: { vertex: number; vertexCount: number } = addVertex(model, model.faceVertexA[face], vertexX, vertexY, vertexZ, vertexLabel, vertexCount);
+
+                    const a: { vertex: number; vertexCount: number } = addVertex(
+                        model,
+                        model.faceVertexA[face],
+                        vertexX,
+                        vertexY,
+                        vertexZ,
+                        vertexLabel,
+                        vertexCount
+                    );
+                    if (!vertexMapping.has(model.faceVertexA[face])) {
+                        vertexMapping.set(model.faceVertexA[face], a.vertex);
+                    }
                     vertexCount = a.vertexCount;
-                    const b: { vertex: number; vertexCount: number } = addVertex(model, model.faceVertexB[face], vertexX, vertexY, vertexZ, vertexLabel, vertexCount);
+
+                    const b: { vertex: number; vertexCount: number } = addVertex(
+                        model,
+                        model.faceVertexB[face],
+                        vertexX,
+                        vertexY,
+                        vertexZ,
+                        vertexLabel,
+                        vertexCount
+                    );
+                    if (!vertexMapping.has(model.faceVertexB[face])) {
+                        vertexMapping.set(model.faceVertexB[face], b.vertex);
+                    }
                     vertexCount = b.vertexCount;
-                    const c: { vertex: number; vertexCount: number } = addVertex(model, model.faceVertexC[face], vertexX, vertexY, vertexZ, vertexLabel, vertexCount);
+
+                    const c: { vertex: number; vertexCount: number } = addVertex(
+                        model,
+                        model.faceVertexC[face],
+                        vertexX,
+                        vertexY,
+                        vertexZ,
+                        vertexLabel,
+                        vertexCount
+                    );
+                    if (!vertexMapping.has(model.faceVertexC[face])) {
+                        vertexMapping.set(model.faceVertexC[face], c.vertex);
+                    }
                     vertexCount = c.vertexCount;
+
                     faceVertexA[faceCount] = a.vertex;
                     faceVertexB[faceCount] = b.vertex;
                     faceVertexC[faceCount] = c.vertex;
@@ -872,20 +935,72 @@ export default class Model extends DoublyLinkable {
                 }
 
                 for (let f: number = 0; f < model.texturedFaceCount; f++) {
-                    const a: { vertex: number; vertexCount: number } = addVertex(model, model.texturedVertexA[f], vertexX, vertexY, vertexZ, vertexLabel, vertexCount);
+                    const a: { vertex: number; vertexCount: number } = addVertex(
+                        model,
+                        model.texturedVertexA[f],
+                        vertexX,
+                        vertexY,
+                        vertexZ,
+                        vertexLabel,
+                        vertexCount
+                    );
+                    if (!vertexMapping.has(model.texturedVertexA[f])) {
+                        vertexMapping.set(model.texturedVertexA[f], a.vertex);
+                    }
                     vertexCount = a.vertexCount;
-                    const b: { vertex: number; vertexCount: number } = addVertex(model, model.texturedVertexB[f], vertexX, vertexY, vertexZ, vertexLabel, vertexCount);
+
+                    const b: { vertex: number; vertexCount: number } = addVertex(
+                        model,
+                        model.texturedVertexB[f],
+                        vertexX,
+                        vertexY,
+                        vertexZ,
+                        vertexLabel,
+                        vertexCount
+                    );
+                    if (!vertexMapping.has(model.texturedVertexB[f])) {
+                        vertexMapping.set(model.texturedVertexB[f], b.vertex);
+                    }
                     vertexCount = b.vertexCount;
-                    const c: { vertex: number; vertexCount: number } = addVertex(model, model.texturedVertexC[f], vertexX, vertexY, vertexZ, vertexLabel, vertexCount);
+
+                    const c: { vertex: number; vertexCount: number } = addVertex(
+                        model,
+                        model.texturedVertexC[f],
+                        vertexX,
+                        vertexY,
+                        vertexZ,
+                        vertexLabel,
+                        vertexCount
+                    );
+                    if (!vertexMapping.has(model.texturedVertexC[f])) {
+                        vertexMapping.set(model.texturedVertexC[f], c.vertex);
+                    }
                     vertexCount = c.vertexCount;
+
                     texturedVertexA[texturedFaceCount] = a.vertex;
                     texturedVertexB[texturedFaceCount] = b.vertex;
                     texturedVertexC[texturedFaceCount] = c.vertex;
                     texturedFaceCount++;
                 }
+
+                const originalModelName =
+                    modelNames && modelNames[i] ? modelNames[i] : `part_${i}`;
+                parts.push({
+                    partIndex: i,
+                    originalModel: model,
+                    originalModelName: originalModelName,
+                    vertexOffset: partStartVertex,
+                    vertexCount: vertexCount - partStartVertex,
+                    faceOffset: partStartFace,
+                    faceCount: faceCount - partStartFace,
+                    texturedFaceOffset: partStartTexturedFace,
+                    texturedFaceCount: texturedFaceCount - partStartTexturedFace,
+                    vertexMapping: vertexMapping,
+                });
             }
         }
-        return new Model({
+
+        const combinedModel = new Model({
             vertexCount: vertexCount,
             vertexX: vertexX,
             vertexY: vertexY,
@@ -907,8 +1022,19 @@ export default class Model extends DoublyLinkable {
             texturedVertexB: texturedVertexB,
             texturedVertexC: texturedVertexC,
             vertexLabel: vertexLabel,
-            faceLabel: faceLabel
+            faceLabel: faceLabel,
         });
+
+        combinedModel.partMapping = {
+            parts: parts,
+            isNpcModel: false,
+        };
+
+        if (combinedModel.faceColor) {
+            combinedModel.originalFaceColor = new Int32Array(combinedModel.faceColor);
+        }
+
+        return combinedModel;
     }
 
     static model(id: number): Model {
@@ -1112,6 +1238,22 @@ export default class Model extends DoublyLinkable {
         });
     }
 
+    static modelFromNpcModels(
+        models: (Model | null)[],
+        count: number,
+        npcId: string,
+        modelNames: string[]
+    ): Model {
+        const combinedModel = Model.modelFromModels(models, count, modelNames);
+
+        if (combinedModel.partMapping) {
+            combinedModel.partMapping.isNpcModel = true;
+            combinedModel.partMapping.npcId = npcId;
+        }
+
+        return combinedModel;
+    }
+
     // ----
     vertexCount: number;
     vertexX: Int32Array;
@@ -1161,6 +1303,29 @@ export default class Model extends DoublyLinkable {
     pickedFace: number = -1;
     pickedFaceDepth: number = -1;
 
+    private originalVertexX: Int32Array;
+    private originalVertexY: Int32Array;
+    private originalVertexZ: Int32Array;
+
+    private originalFaceColor: Int32Array | null = null;
+
+    faceTextures: Int32Array;
+
+    private hadOriginalFaceLabels: boolean = false;
+    private hadOriginalVertexLabels: boolean = false;
+    private hadOriginalFacePriorities: boolean = false;
+    private hadOriginalFaceAlphas: boolean = false;
+    private hadOriginalFaceInfos: boolean = false;
+
+    partMapping: ModelPartMapping | null = null;
+
+    private currentScaleX: number = 128;
+    private currentScaleY: number = 128;
+    private currentScaleZ: number = 128;
+    private baseScaleX: number = 128;
+    private baseScaleY: number = 128;
+    private baseScaleZ: number = 128;
+
     constructor(type: ModelType) {
         super();
 
@@ -1199,6 +1364,18 @@ export default class Model extends DoublyLinkable {
         this.labelFaces = type.labelFaces ?? null;
         this.vertexNormal = type.vertexNormal ?? null;
         this.vertexNormalOriginal = type.vertexNormalOriginal ?? null;
+        this.originalVertexX = new Int32Array(this.vertexX);
+        this.originalVertexY = new Int32Array(this.vertexY);
+        this.originalVertexZ = new Int32Array(this.vertexZ);
+        this.faceTextures = new Int32Array(this.faceCount);
+        this.faceTextures.fill(-1);
+        this.priorityVal = type.priorityVal;
+        this.currentScaleX = 128;
+        this.currentScaleY = 128;
+        this.currentScaleZ = 128;
+        this.baseScaleX = 128;
+        this.baseScaleY = 128;
+        this.baseScaleZ = 128;
     }
 
     calculateBoundsCylinder(): void {
@@ -1680,7 +1857,7 @@ export default class Model extends DoublyLinkable {
             // try catch for example a model being drawn from 3d can crash like at baxtorian falls
             this.draw2(false, false, 0);
         } catch (err) {
-            /* empty */
+            // console.error(err);
         }
     }
 
@@ -1815,7 +1992,7 @@ export default class Model extends DoublyLinkable {
             // try catch for example a model being drawn from 3d can crash like at baxtorian falls
             this.draw2(clipped, picking, typecode);
         } catch (err) {
-            /* empty */
+            // console.error(err);
         }
     }
 
@@ -2720,5 +2897,832 @@ export default class Model extends DoublyLinkable {
         Pix3D.drawLine(Model.vertexScreenX[a], Model.vertexScreenY[a], Model.vertexScreenX[b], Model.vertexScreenY[b], Pix3D.hslPal[1000]);
         Pix3D.drawLine(Model.vertexScreenX[b], Model.vertexScreenY[b], Model.vertexScreenX[c], Model.vertexScreenY[c], Pix3D.hslPal[1000]);
         Pix3D.drawLine(Model.vertexScreenX[c], Model.vertexScreenY[c], Model.vertexScreenX[a], Model.vertexScreenY[a], Pix3D.hslPal[1000]);
+    }
+
+    private static encodeVertices(
+        vertexX: Int32Array,
+        vertexY: Int32Array,
+        vertexZ: Int32Array,
+        vertexCount: number
+    ): {
+        flags: Uint8Array;
+        xData: Uint8Array;
+        yData: Uint8Array;
+        zData: Uint8Array;
+    } {
+        const flagsPacket = new Packet(new Uint8Array(vertexCount));
+        const xPacket = new Packet(new Uint8Array(vertexCount * 2));
+        const yPacket = new Packet(new Uint8Array(vertexCount * 2));
+        const zPacket = new Packet(new Uint8Array(vertexCount * 2));
+
+        let prevX = 0;
+        let prevY = 0;
+        let prevZ = 0;
+
+        for (let v = 0; v < vertexCount; v++) {
+            const currentX = vertexX[v];
+            const currentY = vertexY[v];
+            const currentZ = vertexZ[v];
+
+            const dx = currentX - prevX;
+            const dy = currentY - prevY;
+            const dz = currentZ - prevZ;
+
+            let flag = 0;
+            if (dx !== 0) {
+                flag |= 1;
+                xPacket.psmarts(dx);
+            }
+            if (dy !== 0) {
+                flag |= 2;
+                yPacket.psmarts(dy);
+            }
+            if (dz !== 0) {
+                flag |= 4;
+                zPacket.psmarts(dz);
+            }
+            flagsPacket.p1(flag);
+
+            prevX = currentX;
+            prevY = currentY;
+            prevZ = currentZ;
+        }
+        return {
+            flags: flagsPacket.data,
+            xData: xPacket.data.slice(0, xPacket.pos),
+            yData: yPacket.data.slice(0, yPacket.pos),
+            zData: zPacket.data.slice(0, zPacket.pos),
+        };
+    }
+
+    private static encodeFaces(
+        faceVertexA: Int32Array,
+        faceVertexB: Int32Array,
+        faceVertexC: Int32Array,
+        faceCount: number
+    ): { orientations: Uint8Array; vertexIndices: Uint8Array } {
+        const orientationsPacket = new Packet(new Uint8Array(faceCount));
+        const vertexIndicesPacket = new Packet(new Uint8Array(faceCount * 3 * 2));
+
+        let encA = 0,
+            encB = 0,
+            encC = 0,
+            encOffset = 0;
+
+        for (let f = 0; f < faceCount; f++) {
+            const vA = faceVertexA[f];
+            const vB = faceVertexB[f];
+            const vC = faceVertexC[f];
+
+            let orientation: number;
+
+            if (vA === encB && vB === encA && vC !== encOffset) {
+                orientation = 4;
+                orientationsPacket.p1(orientation);
+                vertexIndicesPacket.psmarts(vC - encOffset);
+            } else if (vA === encC && vB === encB && vC !== encOffset) {
+                orientation = 3;
+                orientationsPacket.p1(orientation);
+                vertexIndicesPacket.psmarts(vC - encOffset);
+            } else if (vA === encA && vB === encC && vC !== encOffset) {
+                orientation = 2;
+                orientationsPacket.p1(orientation);
+                vertexIndicesPacket.psmarts(vC - encOffset);
+            } else {
+                orientation = 1;
+                orientationsPacket.p1(orientation);
+                vertexIndicesPacket.psmarts(vA - encOffset);
+                vertexIndicesPacket.psmarts(vB - vA);
+                vertexIndicesPacket.psmarts(vC - vB);
+            }
+            encOffset = vC;
+            encA = vA;
+            encB = vB;
+            encC = vC;
+        }
+        return {
+            orientations: orientationsPacket.data,
+            vertexIndices: vertexIndicesPacket.data.slice(0, vertexIndicesPacket.pos),
+        };
+    }
+
+    static convertFromData(data: Packet): Model {
+        const originalDataEndPos = data.data.length - 18;
+        data.pos = originalDataEndPos;
+
+        const vertexCount = data.g2();
+        const faceCount = data.g2();
+        const texturedFaceCount = data.g1();
+
+        const hasInfoFlagFromFile = data.g1();
+        const hasPrioritiesFlagFromFile = data.g1();
+        const hasAlphaFlagFromFile = data.g1();
+        const hasFaceLabelsFlagFromFile = data.g1();
+        const hasVertexLabelsFlagFromFile = data.g1();
+
+        const vertexXLength = data.g2();
+        const vertexYLength = data.g2();
+        const vertexZLength = data.g2();
+        const faceVertexLength = data.g2();
+
+        data.pos = 0;
+
+        const p_vertexCount_flags = new Uint8Array(vertexCount);
+        data.gdata(p_vertexCount_flags, 0, p_vertexCount_flags.length);
+
+        const p_faceCount_orientations = new Uint8Array(faceCount);
+        data.gdata(p_faceCount_orientations, 0, p_faceCount_orientations.length);
+
+        const facePriorities: number[] = [];
+        const faceLabels: number[] = [];
+        const faceInfos: number[] = [];
+        const vertexLabels: number[] = [];
+        const faceAlphas: number[] = [];
+
+        if (hasPrioritiesFlagFromFile === 255) {
+            const p_priorities = new Uint8Array(faceCount);
+            data.gdata(p_priorities, 0, p_priorities.length);
+            for (let i = 0; i < p_priorities.length; i++)
+                facePriorities.push(p_priorities[i]);
+        }
+
+        if (hasFaceLabelsFlagFromFile === 1) {
+            const p_labels = new Uint8Array(faceCount);
+            data.gdata(p_labels, 0, p_labels.length);
+            for (let i = 0; i < p_labels.length; i++) faceLabels.push(p_labels[i]);
+        }
+
+        if (hasInfoFlagFromFile === 1) {
+            const p_infos = new Uint8Array(faceCount);
+            data.gdata(p_infos, 0, p_infos.length);
+            for (let i = 0; i < p_infos.length; i++) faceInfos.push(p_infos[i]);
+        }
+
+        if (hasVertexLabelsFlagFromFile === 1) {
+            const p_vLabels = new Uint8Array(vertexCount);
+            data.gdata(p_vLabels, 0, p_vLabels.length);
+            for (let i = 0; i < p_vLabels.length; i++)
+                vertexLabels.push(p_vLabels[i]);
+        }
+
+        if (hasAlphaFlagFromFile === 1) {
+            const p_alphas = new Uint8Array(faceCount);
+            data.gdata(p_alphas, 0, p_alphas.length);
+            for (let i = 0; i < p_alphas.length; i++) faceAlphas.push(p_alphas[i]);
+        }
+
+        const p_faceVertexIndices = new Uint8Array(faceVertexLength);
+        data.gdata(p_faceVertexIndices, 0, p_faceVertexIndices.length);
+
+        const p_faceColors = new Uint8Array(faceCount * 2);
+        data.gdata(p_faceColors, 0, p_faceColors.length);
+
+        const p_texturedFaceIndices = new Uint8Array(texturedFaceCount * 6);
+        data.gdata(p_texturedFaceIndices, 0, p_texturedFaceIndices.length);
+
+        const p_vertexXData = new Uint8Array(vertexXLength);
+        data.gdata(p_vertexXData, 0, p_vertexXData.length);
+
+        const p_vertexYData = new Uint8Array(vertexYLength);
+        data.gdata(p_vertexYData, 0, p_vertexYData.length);
+
+        const p_vertexZData = new Uint8Array(vertexZLength);
+        data.gdata(p_vertexZData, 0, p_vertexZData.length);
+
+        const vertexX = new Int32Array(vertexCount);
+        const vertexY = new Int32Array(vertexCount);
+        const vertexZ = new Int32Array(vertexCount);
+        const faceVertexA = new Int32Array(faceCount);
+        const faceVertexB = new Int32Array(faceCount);
+        const faceVertexC = new Int32Array(faceCount);
+        const faceColor = new Int32Array(faceCount);
+        const texturedVertexA = new Int32Array(texturedFaceCount);
+        const texturedVertexB = new Int32Array(texturedFaceCount);
+        const texturedVertexC = new Int32Array(texturedFaceCount);
+
+        Model.processVertices(
+            vertexX,
+            vertexY,
+            vertexZ,
+            vertexCount,
+            p_vertexXData,
+            p_vertexYData,
+            p_vertexZData,
+            p_vertexCount_flags
+        );
+        Model.processFaces(
+            faceVertexA,
+            faceVertexB,
+            faceVertexC,
+            faceCount,
+            p_faceVertexIndices,
+            p_faceCount_orientations
+        );
+        Model.processColors(faceColor, faceCount, p_faceColors);
+        Model.processTextures(
+            texturedVertexA,
+            texturedVertexB,
+            texturedVertexC,
+            texturedFaceCount,
+            p_texturedFaceIndices
+        );
+
+        let finalPriorityVal = 0;
+        if (hasPrioritiesFlagFromFile !== 255) {
+            finalPriorityVal = hasPrioritiesFlagFromFile;
+        }
+
+        const modelType: ModelType = {
+            vertexCount,
+            vertexX,
+            vertexY,
+            vertexZ,
+            faceCount,
+            faceVertexA,
+            faceVertexB,
+            faceVertexC,
+            faceColorA: null,
+            faceColorB: null,
+            faceColorC: null,
+            faceInfo: faceInfos.length > 0 ? new Int32Array(faceInfos) : null,
+            facePriority:
+                facePriorities.length > 0 ? new Int32Array(facePriorities) : null,
+            faceAlpha: faceAlphas.length > 0 ? new Int32Array(faceAlphas) : null,
+            faceColor,
+            priorityVal: finalPriorityVal,
+            texturedFaceCount,
+            texturedVertexA,
+            texturedVertexB,
+            texturedVertexC,
+            vertexLabel:
+                vertexLabels.length > 0 ? new Int32Array(vertexLabels) : null,
+            faceLabel: faceLabels.length > 0 ? new Int32Array(faceLabels) : null,
+            labelVertices: null,
+            labelFaces: null,
+            vertexNormal: null,
+            vertexNormalOriginal: null,
+        };
+
+        const model = new Model(modelType);
+        model.hadOriginalFaceInfos = hasInfoFlagFromFile === 1;
+        model.hadOriginalFacePriorities = hasPrioritiesFlagFromFile === 255;
+        model.hadOriginalFaceAlphas = hasAlphaFlagFromFile === 1;
+        model.hadOriginalFaceLabels = hasFaceLabelsFlagFromFile === 1;
+        model.hadOriginalVertexLabels = hasVertexLabelsFlagFromFile === 1;
+        if (model.faceColor) {
+            model.originalFaceColor = new Int32Array(model.faceColor);
+        }
+        return model;
+    }
+
+    public exportToOb2(): Uint8Array {
+        const dataBlocks: Uint8Array[] = [];
+
+        const {
+            flags: vertexFlagsData,
+            xData: vertexXData,
+            yData: vertexYData,
+            zData: vertexZData,
+        } = Model.encodeVertices(
+            this.vertexX,
+            this.vertexY,
+            this.vertexZ,
+            this.vertexCount
+        );
+        dataBlocks.push(vertexFlagsData);
+
+        const {
+            orientations: faceOrientationsData,
+            vertexIndices: faceVertexIndicesData,
+        } = Model.encodeFaces(
+            this.faceVertexA,
+            this.faceVertexB,
+            this.faceVertexC,
+            this.faceCount
+        );
+        dataBlocks.push(faceOrientationsData);
+
+        if (this.hadOriginalFacePriorities) {
+            const facePrioritiesData = this.facePriority
+                ? Uint8Array.from(this.facePriority)
+                : new Uint8Array(this.faceCount).fill(0);
+            dataBlocks.push(facePrioritiesData);
+        }
+
+        if (this.hadOriginalFaceLabels) {
+            let actualFaceLabels: Uint8Array;
+            if (this.faceLabel) {
+                actualFaceLabels = Uint8Array.from(this.faceLabel);
+            } else if (this.labelFaces) {
+                actualFaceLabels = new Uint8Array(this.faceCount).fill(0);
+                for (let l = 0; l < this.labelFaces.length; l++) {
+                    const indices = this.labelFaces[l];
+                    if (indices) {
+                        for (let i = 0; i < indices.length; i++) {
+                            if (indices[i] < this.faceCount) actualFaceLabels[indices[i]] = l;
+                        }
+                    }
+                }
+            } else {
+                actualFaceLabels = new Uint8Array(this.faceCount).fill(0);
+            }
+            dataBlocks.push(actualFaceLabels);
+        }
+
+        if (this.hadOriginalFaceInfos) {
+            const faceInfosData = this.faceInfo
+                ? Uint8Array.from(this.faceInfo)
+                : new Uint8Array(this.faceCount).fill(0);
+            dataBlocks.push(faceInfosData);
+        }
+
+        if (this.hadOriginalVertexLabels) {
+            let actualVertexLabels: Uint8Array;
+            if (this.vertexLabel) {
+                actualVertexLabels = Uint8Array.from(this.vertexLabel);
+            } else if (this.labelVertices) {
+                actualVertexLabels = new Uint8Array(this.vertexCount).fill(0);
+                for (let l = 0; l < this.labelVertices.length; l++) {
+                    const indices = this.labelVertices[l];
+                    if (indices) {
+                        for (let i = 0; i < indices.length; i++) {
+                            if (indices[i] < this.vertexCount)
+                                actualVertexLabels[indices[i]] = l;
+                        }
+                    }
+                }
+            } else {
+                actualVertexLabels = new Uint8Array(this.vertexCount).fill(0);
+            }
+            dataBlocks.push(actualVertexLabels);
+        }
+
+        if (this.hadOriginalFaceAlphas) {
+            const faceAlphasData = this.faceAlpha
+                ? Uint8Array.from(this.faceAlpha)
+                : new Uint8Array(this.faceCount).fill(0);
+            dataBlocks.push(faceAlphasData);
+        }
+        dataBlocks.push(faceVertexIndicesData);
+
+        const faceColorsPacket = new Packet(new Uint8Array(this.faceCount * 2));
+        const colorsToExport = this.originalFaceColor
+            ? this.originalFaceColor
+            : this.faceColor;
+
+        if (colorsToExport) {
+            for (let i = 0; i < this.faceCount; i++) {
+                faceColorsPacket.p2(colorsToExport[i]);
+            }
+        } else {
+            for (let i = 0; i < this.faceCount; i++) faceColorsPacket.p2(0);
+        }
+
+        const faceColorsData = faceColorsPacket.data;
+        dataBlocks.push(faceColorsData);
+
+        const texturedFaceDataPacket = new Packet(
+            new Uint8Array(this.texturedFaceCount * 6)
+        );
+        for (let i = 0; i < this.texturedFaceCount; i++) {
+            texturedFaceDataPacket.p2(this.texturedVertexA[i]);
+            texturedFaceDataPacket.p2(this.texturedVertexB[i]);
+            texturedFaceDataPacket.p2(this.texturedVertexC[i]);
+        }
+        const texturedFaceData = texturedFaceDataPacket.data;
+        dataBlocks.push(texturedFaceData);
+
+        dataBlocks.push(vertexXData);
+        dataBlocks.push(vertexYData);
+        dataBlocks.push(vertexZData);
+
+        let totalDataLength = 0;
+        for (let i = 0; i < dataBlocks.length; i++) {
+            totalDataLength += dataBlocks[i].length;
+        }
+
+        const footerPacket = new Packet(new Uint8Array(18));
+        footerPacket.p2(this.vertexCount);
+        footerPacket.p2(this.faceCount);
+        footerPacket.p1(this.texturedFaceCount);
+
+        const footerHasInfo = this.hadOriginalFaceInfos ? 1 : 0;
+        footerPacket.p1(footerHasInfo);
+
+        let priorityFlagForFooter: number;
+        if (this.hadOriginalFacePriorities) {
+            priorityFlagForFooter = 255;
+        } else {
+            priorityFlagForFooter = this.priorityVal;
+        }
+        footerPacket.p1(priorityFlagForFooter);
+
+        const footerHasAlpha = this.hadOriginalFaceAlphas ? 1 : 0;
+        footerPacket.p1(footerHasAlpha);
+        const footerHasFaceLabels = this.hadOriginalFaceLabels ? 1 : 0;
+        footerPacket.p1(footerHasFaceLabels);
+        const footerHasVertexLabels = this.hadOriginalVertexLabels ? 1 : 0;
+        footerPacket.p1(footerHasVertexLabels);
+
+        footerPacket.p2(vertexXData.length);
+        footerPacket.p2(vertexYData.length);
+        footerPacket.p2(vertexZData.length);
+        footerPacket.p2(faceVertexIndicesData.length);
+        const footerData = footerPacket.data;
+
+        const finalOb2Data = new Uint8Array(totalDataLength + footerData.length);
+        let currentOffset = 0;
+        for (const block of dataBlocks) {
+            finalOb2Data.set(block, currentOffset);
+            currentOffset += block.length;
+        }
+        finalOb2Data.set(footerData, currentOffset);
+        return finalOb2Data;
+    }
+
+    public saveCurrentVerticesAsOriginal(): void {
+        if (
+            this.baseScaleX !== 128 ||
+            this.baseScaleY !== 128 ||
+            this.baseScaleZ !== 128
+        ) {
+            this.originalVertexX = new Int32Array(this.vertexCount);
+            this.originalVertexY = new Int32Array(this.vertexCount);
+            this.originalVertexZ = new Int32Array(this.vertexCount);
+
+            for (let i = 0; i < this.vertexCount; i++) {
+                this.originalVertexX[i] =
+                    ((this.vertexX[i] * 128) / this.baseScaleX) | 0;
+                this.originalVertexY[i] =
+                    ((this.vertexY[i] * 128) / this.baseScaleY) | 0;
+                this.originalVertexZ[i] =
+                    ((this.vertexZ[i] * 128) / this.baseScaleZ) | 0;
+            }
+        } else {
+            this.originalVertexX = new Int32Array(this.vertexX);
+            this.originalVertexY = new Int32Array(this.vertexY);
+            this.originalVertexZ = new Int32Array(this.vertexZ);
+        }
+
+        if (this.partMapping && this.partMapping.isNpcModel) {
+            this.updateAllPartVertices();
+        }
+    }
+
+    public resetToOriginal(): void {
+        this.vertexX.set(this.originalVertexX);
+        this.vertexY.set(this.originalVertexY);
+        this.vertexZ.set(this.originalVertexZ);
+
+        this.currentScaleX = this.baseScaleX;
+        this.currentScaleY = this.baseScaleY;
+        this.currentScaleZ = this.baseScaleZ;
+
+        if (this.partMapping && this.partMapping.isNpcModel) {
+            for (const part of this.partMapping.parts) {
+                part.originalModel.resetToOriginal();
+            }
+        }
+    }
+
+    private static processVertices(
+        vertexX: Int32Array,
+        vertexY: Int32Array,
+        vertexZ: Int32Array,
+        vertexCount: number,
+        xData: Uint8Array,
+        yData: Uint8Array,
+        zData: Uint8Array,
+        vertexFlags: Uint8Array
+    ): void {
+        const dataX = new Packet(xData);
+        const dataY = new Packet(yData);
+        const dataZ = new Packet(zData);
+
+        let dx = 0;
+        let dy = 0;
+        let dz = 0;
+
+        for (let v = 0; v < vertexCount; v++) {
+            const flags = vertexFlags[v];
+
+            let a = 0;
+            if ((flags & 1) !== 0) {
+                a = dataX.gsmart();
+            }
+            let b = 0;
+            if ((flags & 2) !== 0) {
+                b = dataY.gsmart();
+            }
+            let c = 0;
+            if ((flags & 4) !== 0) {
+                c = dataZ.gsmart();
+            }
+
+            const x = dx + a;
+            const y = dy + b;
+            const z = dz + c;
+
+            dx = x;
+            dy = y;
+            dz = z;
+
+            vertexX[v] = x;
+            vertexY[v] = y;
+            vertexZ[v] = z;
+        }
+    }
+
+    private static processFaces(
+        faceVertexA: Int32Array,
+        faceVertexB: Int32Array,
+        faceVertexC: Int32Array,
+        faceCount: number,
+        faceVertexDataArray: Uint8Array,
+        faceOrientationArray: Uint8Array
+    ): void {
+        const vertexData = new Packet(faceVertexDataArray);
+        const orientationData = new Packet(faceOrientationArray);
+
+        let lastA = 0;
+        let lastB = 0;
+        let lastC = 0;
+        let last = 0;
+
+        for (let f = 0; f < faceCount; f++) {
+            const orientation = orientationData.g1();
+
+            if (orientation === 1) {
+                lastA = vertexData.gsmart() + last;
+                last = lastA;
+                lastB = vertexData.gsmart() + last;
+                last = lastB;
+                lastC = vertexData.gsmart() + last;
+                last = lastC;
+            } else if (orientation === 2) {
+                lastB = lastC;
+                lastC = vertexData.gsmart() + last;
+                last = lastC;
+            } else if (orientation === 3) {
+                lastA = lastC;
+                lastC = vertexData.gsmart() + last;
+                last = lastC;
+            } else if (orientation === 4) {
+                const temp = lastA;
+                lastA = lastB;
+                lastB = temp;
+                lastC = vertexData.gsmart() + last;
+                last = lastC;
+            }
+            faceVertexA[f] = lastA;
+            faceVertexB[f] = lastB;
+            faceVertexC[f] = lastC;
+        }
+    }
+
+    private static processColors(
+        faceColor: Int32Array,
+        faceCount: number,
+        faceColorsData: Uint8Array
+    ): void {
+        const colorPacket = new Packet(faceColorsData);
+
+        for (let f = 0; f < faceCount; f++) {
+            const color = colorPacket.g2();
+            faceColor[f] = color;
+        }
+    }
+
+    private static processTextures(
+        texturedVertexA: Int32Array,
+        texturedVertexB: Int32Array,
+        texturedVertexC: Int32Array,
+        texturedFaceCount: number,
+        texturedFaceRawData: Uint8Array
+    ): void {
+        if (texturedFaceCount === 0) {
+            return;
+        }
+
+        const textureData = new Packet(texturedFaceRawData);
+
+        for (let i = 0; i < texturedFaceCount; i++) {
+            texturedVertexA[i] = textureData.g2();
+            texturedVertexB[i] = textureData.g2();
+            texturedVertexC[i] = textureData.g2();
+        }
+    }
+
+    exportNpcParts(): Map<number, Uint8Array> | null {
+        if (!this.partMapping || !this.partMapping.isNpcModel) {
+            return null;
+        }
+
+        const partExports = new Map<number, Uint8Array>();
+
+        for (const part of this.partMapping.parts) {
+            const exportedModel = this.extractModelPart(part);
+            if (exportedModel) {
+                const ob2Data = exportedModel.exportToOb2();
+                partExports.set(part.partIndex, ob2Data);
+            }
+        }
+
+        return partExports;
+    }
+
+    private extractModelPart(part: ModelPart): Model | null {
+        if (!this.partMapping) {
+            return null;
+        }
+        return part.originalModel.clone();
+    }
+
+    public updateVertex(
+        vertexIndex: number,
+        x: number,
+        y: number,
+        z: number
+    ): void {
+        if (vertexIndex >= 0 && vertexIndex < this.vertexCount) {
+            this.vertexX[vertexIndex] = x;
+            this.vertexY[vertexIndex] = y;
+            this.vertexZ[vertexIndex] = z;
+
+            if (
+                this.currentScaleX !== 128 ||
+                this.currentScaleY !== 128 ||
+                this.currentScaleZ !== 128
+            ) {
+                this.originalVertexX[vertexIndex] = ((x * 128) / this.baseScaleX) | 0;
+                this.originalVertexY[vertexIndex] = ((y * 128) / this.baseScaleY) | 0;
+                this.originalVertexZ[vertexIndex] = ((z * 128) / this.baseScaleZ) | 0;
+            } else {
+                this.originalVertexX[vertexIndex] = x;
+                this.originalVertexY[vertexIndex] = y;
+                this.originalVertexZ[vertexIndex] = z;
+            }
+
+            if (this.partMapping && this.partMapping.isNpcModel) {
+                this.updateAllPartVertices();
+            }
+        }
+    }
+
+    private updateAllPartVertices(): void {
+        if (!this.partMapping) {
+            return;
+        }
+
+        for (const part of this.partMapping.parts) {
+            this.updatePartVertices(part);
+        }
+    }
+
+    private updatePartVertices(part: ModelPart): void {
+        for (const [originalVertexIdx, combinedVertexIdx] of part.vertexMapping) {
+            if (combinedVertexIdx < this.vertexCount) {
+                part.originalModel.vertexX[originalVertexIdx] =
+                    this.vertexX[combinedVertexIdx];
+                part.originalModel.vertexY[originalVertexIdx] =
+                    this.vertexY[combinedVertexIdx];
+                part.originalModel.vertexZ[originalVertexIdx] =
+                    this.vertexZ[combinedVertexIdx];
+            }
+        }
+        part.originalModel.originalVertexX = new Int32Array(
+            part.originalModel.vertexX
+        );
+        part.originalModel.originalVertexY = new Int32Array(
+            part.originalModel.vertexY
+        );
+        part.originalModel.originalVertexZ = new Int32Array(
+            part.originalModel.vertexZ
+        );
+    }
+
+    public clone(): Model {
+        const modelTypeData: ModelType = {
+            vertexCount: this.vertexCount,
+            vertexX: new Int32Array(this.vertexX),
+            vertexY: new Int32Array(this.vertexY),
+            vertexZ: new Int32Array(this.vertexZ),
+            faceCount: this.faceCount,
+            faceVertexA: new Int32Array(this.faceVertexA),
+            faceVertexB: new Int32Array(this.faceVertexB),
+            faceVertexC: new Int32Array(this.faceVertexC),
+            faceColorA: this.faceColorA ? new Int32Array(this.faceColorA) : null,
+            faceColorB: this.faceColorB ? new Int32Array(this.faceColorB) : null,
+            faceColorC: this.faceColorC ? new Int32Array(this.faceColorC) : null,
+            faceInfo: this.faceInfo ? new Int32Array(this.faceInfo) : null,
+            facePriority: this.facePriority
+                ? new Int32Array(this.facePriority)
+                : null,
+            faceAlpha: this.faceAlpha ? new Int32Array(this.faceAlpha) : null,
+            faceColor: this.faceColor ? new Int32Array(this.faceColor) : null,
+            priorityVal: this.priorityVal,
+            texturedFaceCount: this.texturedFaceCount,
+            texturedVertexA: new Int32Array(this.texturedVertexA),
+            texturedVertexB: new Int32Array(this.texturedVertexB),
+            texturedVertexC: new Int32Array(this.texturedVertexC),
+            minX: this.minX,
+            maxX: this.maxX,
+            minZ: this.minZ,
+            maxZ: this.maxZ,
+            radius: this.radius,
+            minY: this.minY,
+            maxY: this.maxY,
+            maxDepth: this.maxDepth,
+            minDepth: this.minDepth,
+            vertexLabel: this.vertexLabel ? new Int32Array(this.vertexLabel) : null,
+            faceLabel: this.faceLabel ? new Int32Array(this.faceLabel) : null,
+            labelVertices: null,
+            labelFaces: null,
+            vertexNormal: null,
+            vertexNormalOriginal: null,
+        };
+
+        const newModel = new Model(modelTypeData);
+
+        newModel.currentScaleX = this.currentScaleX;
+        newModel.currentScaleY = this.currentScaleY;
+        newModel.currentScaleZ = this.currentScaleZ;
+        newModel.baseScaleX = this.baseScaleX;
+        newModel.baseScaleY = this.baseScaleY;
+        newModel.baseScaleZ = this.baseScaleZ;
+
+        if (this.partMapping) {
+            newModel.partMapping = {
+                parts: this.partMapping.parts.map((part) => ({
+                    ...part,
+                    originalModel: part.originalModel.clone(),
+                    vertexMapping: new Map(part.vertexMapping),
+                })),
+                isNpcModel: this.partMapping.isNpcModel,
+                npcId: this.partMapping.npcId,
+            };
+        }
+
+        newModel.originalVertexX = new Int32Array(this.originalVertexX);
+        newModel.originalVertexY = new Int32Array(this.originalVertexY);
+        newModel.originalVertexZ = new Int32Array(this.originalVertexZ);
+
+        if (this.originalFaceColor) {
+            newModel.originalFaceColor = new Int32Array(this.originalFaceColor);
+        } else if (this.faceColor) {
+            newModel.originalFaceColor = new Int32Array(this.faceColor);
+        }
+
+        if (this.labelVertices) {
+            newModel.labelVertices = this.labelVertices.map((group) =>
+                group ? new Int32Array(group) : null
+            );
+        }
+        if (this.labelFaces) {
+            newModel.labelFaces = this.labelFaces.map((group) =>
+                group ? new Int32Array(group) : null
+            );
+        }
+
+        if (this.vertexNormal) {
+            newModel.vertexNormal = this.vertexNormal.map((vn) => {
+                if (vn) {
+                    const newVn = new VertexNormal();
+                    newVn.x = vn.x;
+                    newVn.y = vn.y;
+                    newVn.z = vn.z;
+                    newVn.w = vn.w;
+                    return newVn;
+                }
+                return null;
+            });
+        }
+        if (this.vertexNormalOriginal) {
+            newModel.vertexNormalOriginal = this.vertexNormalOriginal.map((vn) => {
+                if (vn) {
+                    const newVn = new VertexNormal();
+                    newVn.x = vn.x;
+                    newVn.y = vn.y;
+                    newVn.z = vn.z;
+                    newVn.w = vn.w;
+                    return newVn;
+                }
+                return null;
+            });
+        }
+
+        newModel.objRaise = this.objRaise;
+        newModel.pickable = this.pickable;
+        newModel.pickedFace = this.pickedFace;
+        newModel.pickedFaceDepth = this.pickedFaceDepth;
+        newModel.faceTextures.set(this.faceTextures);
+
+        newModel.hadOriginalFaceLabels = this.hadOriginalFaceLabels;
+        newModel.hadOriginalVertexLabels = this.hadOriginalVertexLabels;
+        newModel.hadOriginalFacePriorities = this.hadOriginalFacePriorities;
+        newModel.hadOriginalFaceAlphas = this.hadOriginalFaceAlphas;
+        newModel.hadOriginalFaceInfos = this.hadOriginalFaceInfos;
+
+        return newModel;
     }
 }

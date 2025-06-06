@@ -56,7 +56,8 @@ const prod = args[0] !== 'dev';
 
 const entrypoints = [
     'src/client/Client.ts',
-    'src/mapview/MapView.ts'
+    'src/mapview/MapView.ts',
+    'src/jaged/JagEd.ts',
 ];
 
 const deps = await bunBuild('./src/3rdparty/deps.js', [], true, ['console']);
@@ -65,7 +66,7 @@ fs.writeFileSync('out/deps.js', deps.source);
 for (const file of entrypoints) {
     const output = path.basename(file).replace('.ts', '.js').toLowerCase();
 
-    const script = await bunBuild(file, ['#3rdparty/*'], prod, prod ? ['console'] : []);
+    const script = await bunBuild(file, ['#3rdparty/*'], false, []);
 
     if (script) {
         fs.writeFileSync('out/' + output, replaceDepsUrl(script.source));
