@@ -2394,7 +2394,7 @@ export class Client extends GameShell {
                         }
                     }
 
-                    if (process.env.DEV_CLIENT) {
+                    if (process.env.DEV_CLIENT === 'true') {
                         this.menuOption[this.menuSize] = 'Examine @cya@' + loc.name + ' @whi@(@gre@' + loc.id + '@whi@)';
                     } else {
                         this.menuOption[this.menuSize] = 'Examine @cya@' + loc.name;
@@ -2509,7 +2509,7 @@ export class Client extends GameShell {
                             }
                         }
 
-                        if (process.env.DEV_CLIENT) {
+                        if (process.env.DEV_CLIENT === 'true') {
                             this.menuOption[this.menuSize] = 'Examine @lre@' + type.name + ' @whi@(@gre@' + type.id + '@whi@)';
                         } else {
                             this.menuOption[this.menuSize] = 'Examine @lre@' + type.name;
@@ -8596,7 +8596,7 @@ export class Client extends GameShell {
                 }
             }
 
-            if (process.env.DEV_CLIENT) {
+            if (process.env.DEV_CLIENT === 'true') {
                 this.menuOption[this.menuSize] = 'Examine @yel@' + tooltip + ' @whi@(@gre@' + npc.id + '@whi@)';
             } else {
                 this.menuOption[this.menuSize] = 'Examine @yel@' + tooltip;
@@ -9374,7 +9374,7 @@ export class Client extends GameShell {
                                 }
                             }
 
-                            if (process.env.DEV_CLIENT) {
+                            if (process.env.DEV_CLIENT === 'true') {
                                 this.menuOption[this.menuSize] = 'Examine @lre@' + obj.name + ' @whi@(@gre@' + obj.id + '@whi@)';
                             } else {
                                 this.menuOption[this.menuSize] = 'Examine @lre@' + obj.name;
