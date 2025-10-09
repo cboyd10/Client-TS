@@ -1,17 +1,17 @@
 export const enum ServerProt {
     // interfaces
-    IF_OPENCHATMODAL = 14,
-    IF_OPENMAINSIDEMODAL = 28,
+    IF_OPENCHAT = 14,
+    IF_OPENMAIN_SIDE = 28,
     IF_CLOSE = 129,
-    IF_OPENSIDEOVERLAY = 167,
-    IF_OPENMAINMODAL = 168,
-    IF_OPENSIDEMODAL = 195,
+    IF_SETTAB = 167,
+    IF_OPENMAIN = 168,
+    IF_OPENSIDE = 195,
+    IF_SETTAB_ACTIVE = 84,
 
     // updating interfaces
     IF_SETCOLOUR = 2,
     IF_SETHIDE = 26,
     IF_SETOBJECT = 46,
-    IF_SHOWSIDE = 84,
     IF_SETMODEL = 87,
     IF_SETRECOL = 103,
     IF_SETANIM = 146,
@@ -21,8 +21,8 @@ export const enum ServerProt {
     IF_SETPOSITION = 209,
 
     // tutorial area
-    TUTORIAL_FLASHSIDE = 126,
-    TUTORIAL_OPENCHAT = 185,
+    TUT_FLASH = 126,
+    TUT_OPEN = 185,
 
     // inventory
     UPDATE_INV_STOP_TRANSMIT = 15,
