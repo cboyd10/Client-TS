@@ -50,6 +50,7 @@ export default abstract class GameShell {
     // touch controls
     private startedInViewport: boolean = false;
     private startedInTabArea: boolean = false;
+    private startedInChatScroll: boolean = false;
     private ttime: number = -1;
     // start
     private sx: number = 0;
@@ -120,7 +121,9 @@ export default abstract class GameShell {
         canvas.onkeydown = this.onkeydown.bind(this);
         canvas.onkeyup = this.onkeyup.bind(this);
 
+        canvas.onmousedown = this.onmousedown.bind(this);
         canvas.onpointerdown = this.onpointerdown.bind(this);
+        canvas.onmouseup = this.onmouseup.bind(this);
         canvas.onpointerup = this.onpointerup.bind(this);
         canvas.onpointerenter = this.onpointerenter.bind(this);
         canvas.onpointerleave = this.onpointerleave.bind(this);
@@ -340,6 +343,35 @@ export default abstract class GameShell {
 
     // ----
 
+    private onmousedown(e: MouseEvent) {
+        if (e.clientX < 0 || e.clientY < 0) {
+            return;
+        }
+
+        const { x, y } = this.getMousePos(e);
+
+        this.idleCycles = performance.now();
+        this.nextMouseClickX = x;
+        this.nextMouseClickY = y;
+        this.nextMouseClickTime = performance.now();
+
+        // custom: down event comes before and potentially without move event
+        this.mouseX = x;
+        this.mouseY = y;
+
+        if (e.button === 2) {
+            this.nextMouseClickButton = 2;
+            this.mouseButton = 2;
+        } else {
+            this.nextMouseClickButton = 1;
+            this.mouseButton = 1;
+        }
+
+        if (InputTracking.enabled) {
+            InputTracking.mousePressed(x, y, e.button, 'mouse');
+        }
+    }
+
     private onpointerdown(e: PointerEvent) {
         if (e.clientX < 0 || e.clientY < 0) {
             return;
@@ -352,28 +384,7 @@ export default abstract class GameShell {
             return;
         }
 
-        if (e.pointerType === 'mouse') {
-            this.idleCycles = performance.now();
-            this.nextMouseClickX = x;
-            this.nextMouseClickY = y;
-            this.nextMouseClickTime = performance.now();
-
-            // custom: down event comes before and potentially without move event
-            this.mouseX = x;
-            this.mouseY = y;
-
-            if (e.button === 2) {
-                this.nextMouseClickButton = 2;
-                this.mouseButton = 2;
-            } else {
-                this.nextMouseClickButton = 1;
-                this.mouseButton = 1;
-            }
-
-            if (InputTracking.enabled) {
-                InputTracking.mousePressed(x, y, e.button, e.pointerType);
-            }
-        } else {
+        if (e.pointerType !== 'mouse') {
             // custom: touchscreen support
             // we don't acknowledge the first press as a click, instead we interpret the user's gesture on release
 
@@ -391,7 +402,23 @@ export default abstract class GameShell {
 
             this.startedInViewport = this.insideViewportArea();
             this.startedInTabArea = this.insideTabArea();
+            this.startedInChatScroll = this.insideChatScrollArea();
         }
+    }
+
+    private onmouseup(e: MouseEvent) {
+        const { x, y } = this.getMousePos(e);
+
+        this.idleCycles = performance.now();
+        this.mouseButton = 0;
+
+        if (InputTracking.enabled) {
+            InputTracking.mouseReleased(e.button, 'mouse');
+        }
+
+        // custom: up event comes before and potentially without move event
+        this.mouseX = x;
+        this.mouseY = y;
     }
 
     private onpointerup(e: PointerEvent) {
@@ -402,23 +429,7 @@ export default abstract class GameShell {
             return;
         }
 
-        if (e.pointerType === 'mouse') {
-            this.idleCycles = performance.now();
-            this.mouseButton = 0;
-
-            if (InputTracking.enabled) {
-                InputTracking.mouseReleased(e.button, e.pointerType);
-            }
-
-            // custom: up event comes before and potentially without move event
-            this.mouseX = x;
-            this.mouseY = y;
-
-            // custom: moving off-canvas may have a stuck mouse event
-            this.nextMouseClickX = -1;
-            this.nextMouseClickY = -1;
-            this.nextMouseClickButton = 0;
-        } else {
+        if (e.pointerType !== 'mouse') {
             // custom: touchscreen support
             // we don't acknowledge the first press as a click, instead we interpret the user's gesture on release
 
@@ -450,8 +461,8 @@ export default abstract class GameShell {
             } else {
                 if (!MobileKeyboard.isDisplayed() && this.insideMobileInputArea()) {
                     // show keyboard when tapping in an input area
-                    MobileKeyboard.show();
-                } else if (MobileKeyboard.isDisplayed() && !MobileKeyboard.isWithinCanvasKeyboard(x, y) && !this.insideMobileInputArea()) {
+                    MobileKeyboard.show(x, y, e.clientX, e.clientY);
+                } else if (MobileKeyboard.isDisplayed() && !MobileKeyboard.isWithinCanvasKeyboard(x, y)) {
                     // hide keyboard when tapping outside of an input area
                     MobileKeyboard.hide();
                     this.refresh();
@@ -477,9 +488,6 @@ export default abstract class GameShell {
 
                 // release after a client cycle has passed
                 setTimeout(() => {
-                    this.nextMouseClickX = -1;
-                    this.nextMouseClickY = -1;
-                    this.nextMouseClickButton = 0;
                     this.mouseButton = 0;
 
                     if (InputTracking.enabled) {
@@ -504,12 +512,6 @@ export default abstract class GameShell {
             if (InputTracking.enabled) {
                 InputTracking.mouseEntered();
             }
-
-            // custom: moving off-canvas may have a stuck mouse event
-            this.nextMouseClickX = -1;
-            this.nextMouseClickY = -1;
-            this.nextMouseClickButton = 0;
-            this.mouseButton = 0;
         } else {
             // custom: touchscreen support
 
@@ -592,20 +594,24 @@ export default abstract class GameShell {
                 // emulate arrow keys:
                 if (this.mx - this.nx > 0) {
                     // right
+                    this.actionKey[1] = 0;
                     this.actionKey[2] = 1;
                 } else if (this.mx - this.nx < 0) {
                     // left
                     this.actionKey[1] = 1;
+                    this.actionKey[2] = 0;
                 }
 
                 if (this.my - this.ny > 0) {
                     // down
+                    this.actionKey[3] = 0;
                     this.actionKey[4] = 1;
                 } else if (this.my - this.ny < 0) {
                     // up
                     this.actionKey[3] = 1;
+                    this.actionKey[4] = 0;
                 }
-            } else if (this.startedInTabArea || this.getViewportInterfaceId() !== -1) {
+            } else if (this.startedInTabArea || this.startedInChatScroll || this.getViewportInterfaceId() !== -1) {
                 if (!this.dragging && this.exceedsGrabThreshold(5)) {
                     this.dragging = true;
 
@@ -794,6 +800,21 @@ export default abstract class GameShell {
         return (
             this.ingame &&
             (this.isChatBackInputOpen() || this.isShowSocialInput()) &&
+            this.mouseX >= chatInputAreaX1 &&
+            this.mouseX <= chatInputAreaX2 &&
+            this.mouseY >= chatInputAreaY1 &&
+            this.mouseY <= chatInputAreaY2
+        );
+    }
+
+    private insideChatScrollArea() {
+        const chatInputAreaX1: number = 480;
+        const chatInputAreaY1: number = 357;
+        const chatInputAreaX2: number = chatInputAreaX1 + 16;
+        const chatInputAreaY2: number = chatInputAreaY1 + 77;
+        return (
+            this.ingame &&
+            (!this.isChatBackInputOpen() && !this.isShowSocialInput()) &&
             this.mouseX >= chatInputAreaX1 &&
             this.mouseX <= chatInputAreaX2 &&
             this.mouseY >= chatInputAreaY1 &&
