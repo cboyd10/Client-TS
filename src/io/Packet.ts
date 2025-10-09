@@ -40,12 +40,16 @@ export default class Packet extends DoublyLinkable {
         }
     }
 
-    static crc32(src: Uint8Array): number {
-        let crc: number = 0xffffffff;
-        for (let i: number = 0; i < src.length; i++) {
+    static getcrc(src: Uint8Array, off: number, len: number): number {
+        let crc = 0xffffffff;
+        for (let i = off; i < off + len; i++) {
             crc = (crc >>> 8) ^ Packet.crctable[(crc ^ src[i]) & 0xff];
         }
         return ~crc;
+    }
+
+    static checkcrc(src: Uint8Array, offset: number, length: number, expected: number): boolean {
+        return Packet.getcrc(src, offset, length) === expected;
     }
 
     // constructor
@@ -61,12 +65,15 @@ export default class Packet extends DoublyLinkable {
         if (!src) {
             throw new Error();
         }
+
         super();
+
         if (src instanceof Int8Array) {
             this.data = new Uint8Array(src);
         } else {
             this.data = src;
         }
+
         this.view = new DataView(this.data.buffer, this.data.byteOffset, this.data.byteLength);
     }
 
@@ -75,20 +82,20 @@ export default class Packet extends DoublyLinkable {
     }
 
     get available(): number {
-        return this.length - this.pos;
+        return this.view.byteLength - this.pos;
     }
 
     static alloc(type: number): Packet {
         let cached: Packet | null = null;
         if (type === 0 && Packet.cacheMinCount > 0) {
             Packet.cacheMinCount--;
-            cached = Packet.cacheMin.removeHead() as Packet | null;
+            cached = Packet.cacheMin.pop() as Packet | null;
         } else if (type === 1 && Packet.cacheMidCount > 0) {
             Packet.cacheMidCount--;
-            cached = Packet.cacheMid.removeHead() as Packet | null;
+            cached = Packet.cacheMid.pop() as Packet | null;
         } else if (type === 2 && Packet.cacheMaxCount > 0) {
             Packet.cacheMaxCount--;
-            cached = Packet.cacheMax.removeHead() as Packet | null;
+            cached = Packet.cacheMax.pop() as Packet | null;
         }
 
         if (cached) {
@@ -100,20 +107,22 @@ export default class Packet extends DoublyLinkable {
             return new Packet(new Uint8Array(100));
         } else if (type === 1) {
             return new Packet(new Uint8Array(5000));
+        } else {
+            return new Packet(new Uint8Array(30000));
         }
-        return new Packet(new Uint8Array(30000));
     }
 
     release(): void {
         this.pos = 0;
-        if (this.view.byteLength === 100 && Packet.cacheMinCount < 1000) {
-            Packet.cacheMin.addTail(this);
+
+        if (this.length === 100 && Packet.cacheMinCount < 1000) {
+            Packet.cacheMin.push(this);
             Packet.cacheMinCount++;
-        } else if (this.view.byteLength === 5000 && Packet.cacheMidCount < 250) {
-            Packet.cacheMid.addTail(this);
+        } else if (this.length === 5000 && Packet.cacheMidCount < 250) {
+            Packet.cacheMid.push(this);
             Packet.cacheMidCount++;
-        } else if (this.view.byteLength === 30000 && Packet.cacheMaxCount < 50) {
-            Packet.cacheMax.addTail(this);
+        } else if (this.length === 30000 && Packet.cacheMaxCount < 50) {
+            Packet.cacheMax.push(this);
             Packet.cacheMaxCount++;
         }
     }

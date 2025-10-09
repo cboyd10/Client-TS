@@ -91,22 +91,22 @@ export default class Pix2D extends DoublyLinkable {
         }
     }
 
-    static drawVerticalLine(x: number, y: number, color: number, width: number): void {
+    static drawVerticalLine(x: number, y: number, color: number, height: number): void {
         if (x < this.left || x >= this.right) {
             return;
         }
 
         if (y < this.top) {
-            width -= this.top - y;
+            height -= this.top - y;
             y = this.top;
         }
 
-        if (y + width > this.bottom) {
-            width = this.bottom - y;
+        if (y + height > this.bottom) {
+            height = this.bottom - y;
         }
 
         const off: number = x + y * this.width2d;
-        for (let i: number = 0; i < width; i++) {
+        for (let i: number = 0; i < height; i++) {
             this.pixels[off + i * this.width2d] = color;
         }
     }

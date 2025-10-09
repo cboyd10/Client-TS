@@ -1,8 +1,8 @@
-import { playWave, setWaveVolume, BZip2, playMidi, stopMidi, setMidiVolume, MobileKeyboard } from '#3rdparty/deps.js';
+import { playWave, setWaveVolume, BZip2, stopMidi, setMidiVolume, playMidi } from '#3rdparty/deps.js';
 
 import GameShell from '#/client/GameShell.js';
 import InputTracking from '#/client/InputTracking.js';
-import { ClientCode } from '#/client/ClientCode.ts';
+import { ClientCode } from '#/client/ClientCode.js';
 
 import FloType from '#/config/FloType.js';
 import SeqType from '#/config/SeqType.js';
@@ -24,16 +24,16 @@ import LocShape from '#/dash3d/LocShape.js';
 import World from '#/dash3d/World.js';
 import World3D from '#/dash3d/World3D.js';
 
-import NpcEntity, { NpcUpdate } from '#/dash3d/entity/NpcEntity.js';
-import PlayerEntity, { PlayerUpdate } from '#/dash3d/entity/PlayerEntity.js';
+import ClientNpc, { NpcUpdate } from '#/dash3d/ClientNpc.js';
+import ClientPlayer, { PlayerUpdate } from '#/dash3d/ClientPlayer.js';
 
-import LocAdd from '#/dash3d/type/LocAdd.js';
+import LocChange from '#/dash3d/LocChange.js';
 
-import LocEntity from '#/dash3d/entity/LocEntity.js';
-import ObjStackEntity from '#/dash3d/entity/ObjStackEntity.js';
-import PathingEntity from '#/dash3d/entity/PathingEntity.js';
-import ProjectileEntity from '#/dash3d/entity/ProjectileEntity.js';
-import SpotAnimEntity from '#/dash3d/entity/SpotAnimEntity.js';
+import ClientLocAnim from '#/dash3d/ClientLocAnim.js';
+import ClientObj from '#/dash3d/ClientObj.js';
+import ClientEntity from '#/dash3d/ClientEntity.js';
+import ClientProj from '#/dash3d/ClientProj.js';
+import MapSpotAnim from '#/dash3d/MapSpotAnim.js';
 
 import JString from '#/datastruct/JString.js';
 import LinkList from '#/datastruct/LinkList.js';
@@ -41,15 +41,15 @@ import LinkList from '#/datastruct/LinkList.js';
 import { Int32Array2d, TypedArray1d, TypedArray3d, Int32Array3d, Uint8Array3d } from '#/util/Arrays.js';
 import { downloadUrl, sleep, arraycopy } from '#/util/JsUtil.js';
 
-import AnimBase from '#/graphics/AnimBase.js';
-import AnimFrame from '#/graphics/AnimFrame.js';
+import AnimBase from '#/dash3d/AnimBase.js';
+import AnimFrame from '#/dash3d/AnimFrame.js';
 import { canvas2d } from '#/graphics/Canvas.js';
 import { Colors } from '#/graphics/Colors.js';
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/graphics/Pix3D.js';
-import Model from '#/graphics/Model.js';
+import Model from '#/dash3d/Model.js';
 import Pix8 from '#/graphics/Pix8.js';
-import Pix24 from '#/graphics/Pix24.js';
+import Pix32 from '#/graphics/Pix32.js';
 import PixFont from '#/graphics/PixFont.js';
 import PixMap from '#/graphics/PixMap.js';
 
@@ -59,12 +59,13 @@ import Database from '#/io/Database.js';
 import Isaac from '#/io/Isaac.js';
 import Jagfile from '#/io/Jagfile.js';
 import Packet from '#/io/Packet.js';
-import { ServerProt, ServerProtSizes } from '#/io/ServerProt.ts';
+import { ServerProt, ServerProtSizes } from '#/io/ServerProt.js';
 
 import WordFilter from '#/wordenc/WordFilter.js';
 import WordPack from '#/wordenc/WordPack.js';
 
 import Wave from '#/sound/Wave.js';
+import MobileKeyboard from '#/client/MobileKeyboard.js';
 
 const enum Constants {
     CLIENT_VERSION = 225,
@@ -74,180 +75,10 @@ const enum Constants {
 }
 
 export class Client extends GameShell {
-    // sorted: (real order)
     static nodeId: number = 10;
-    static members: boolean = true;
+    static membersWorld: boolean = true;
     static lowMemory: boolean = false;
-    static alreadyStarted: boolean = false;
 
-    private loopCycle: number = 0;
-    private systemUpdateTimer: number = 0;
-
-    private hintType: number = 0;
-    private hintNpc: number = 0;
-    private hintTileX: number = 0;
-    private hintTileZ: number = 0;
-    private hintPlayer: number = 0;
-    private hintOffsetX: number = 0;
-    private hintOffsetZ: number = 0;
-    private hintHeight: number = 0;
-
-    private titleScreenState: number = 0;
-
-    private npcs: (NpcEntity | null)[] = new TypedArray1d(8192, null);
-    private npcCount: number = 0;
-    private npcIds: Int32Array = new Int32Array(8192);
-
-    private netStream: ClientStream | null = null;
-    private out: Packet = Packet.alloc(1);
-    private loginout: Packet = Packet.alloc(1);
-    private in: Packet = Packet.alloc(1);
-    private inPacketSize: number = 0;
-    private inPacketType: number = 0;
-    private idleNetCycles: number = 0;
-    private idleTimeout: number = 0;
-    private lastPacketType0: number = 0;
-    private lastPacketType1: number = 0;
-    private lastPacketType2: number = 0;
-
-    private sceneBaseTileX: number = 0;
-    private sceneBaseTileZ: number = 0;
-    private scene: World3D | null = null;
-    private sceneMapLocData: (Uint8Array | null)[] | null = null;
-    private sceneMapLocReady: boolean[] | null = null;
-    private levelTileFlags: Uint8Array[][] | null = null;
-    private levelHeightmap: Int32Array[][] | null = null;
-    private levelCollisionMap: (CollisionMap | null)[] = new TypedArray1d(CollisionConstants.LEVELS, null);
-    private baseX: number = 0;
-    private baseZ: number = 0;
-    private tryMoveNearest: number = 0;
-
-    private cameraAnticheatOffsetX: number = 0;
-    private cameraOffsetXModifier: number = 2;
-    private cameraAnticheatOffsetZ: number = 0;
-    private cameraOffsetZModifier: number = 2;
-    private cameraAnticheatAngle: number = 0;
-    private cameraOffsetYawModifier: number = 1;
-    private cameraOffsetCycle: number = 0;
-
-    private minimapAnticheatAngle: number = 0;
-    private minimapAngleModifier: number = 2;
-    private minimapZoom: number = 0;
-    private minimapZoomModifier: number = 1;
-    private minimapOffsetCycle: number = 0;
-
-    private sceneDelta: number = 0;
-
-    private imageCompass: Pix24 | null = null;
-    private imageMapscene: (Pix8 | null)[] = new TypedArray1d(50, null);
-    private imageMapfunction: (Pix24 | null)[] = new TypedArray1d(50, null);
-    private imageHitmarks: (Pix24 | null)[] = new TypedArray1d(20, null);
-    private imageHeadicons: (Pix24 | null)[] = new TypedArray1d(20, null);
-    private imageMapflag: Pix24 | null = null;
-    private imageCrosses: (Pix24 | null)[] = new TypedArray1d(8, null);
-    private imageMapdot0: Pix24 | null = null;
-    private imageMapdot1: Pix24 | null = null;
-    private imageMapdot2: Pix24 | null = null;
-    private imageMapdot3: Pix24 | null = null;
-    private imageScrollbar0: Pix8 | null = null;
-    private imageScrollbar1: Pix8 | null = null;
-    private imageMapback: Pix8 | null = null;
-    private compassMaskLineOffsets: Int32Array = new Int32Array(33);
-    private compassMaskLineLengths: Int32Array = new Int32Array(33);
-    private minimapMaskLineOffsets: Int32Array = new Int32Array(151);
-    private minimapMaskLineLengths: Int32Array = new Int32Array(151);
-
-    private cameraX: number = 0;
-    private cameraY: number = 0;
-    private cameraZ: number = 0;
-    private cameraPitch: number = 0;
-    private cameraYaw: number = 0;
-
-    private orbitCameraX: number = 0;
-    private orbitCameraZ: number = 0;
-    private orbitCameraPitch: number = 128;
-    private orbitCameraPitchVelocity: number = 0;
-    private orbitCameraYaw: number = 0;
-    private orbitCameraYawVelocity: number = 0;
-    private cameraPitchClamp: number = 0;
-
-    private tileLastOccupiedCycle: Int32Array[] = new Int32Array2d(CollisionConstants.SIZE, CollisionConstants.SIZE);
-    private sceneCycle: number = 0;
-
-    private projectX: number = 0;
-    private projectY: number = 0;
-
-    private crossX: number = 0;
-    private crossY: number = 0;
-    private crossCycle: number = 0;
-    private crossMode: number = 0;
-
-    private objDragArea: number = 0;
-    private objGrabX: number = 0;
-    private objGrabY: number = 0;
-    private objDragSlot: number = 0;
-    private objGrabThreshold: boolean = false;
-
-    private overrideChat: number = 0;
-
-    private players: (PlayerEntity | null)[] = new TypedArray1d(Constants.MAX_PLAYER_COUNT, null);
-    private playerCount: number = 0;
-    private playerIds: Int32Array = new Int32Array(Constants.MAX_PLAYER_COUNT);
-    private entityUpdateCount: number = 0;
-    private entityUpdateIds: Int32Array = new Int32Array(Constants.MAX_PLAYER_COUNT);
-    private playerAppearanceBuffer: (Packet | null)[] = new TypedArray1d(Constants.MAX_PLAYER_COUNT, null);
-    private entityRemovalCount: number = 0;
-    private entityRemovalIds: Int32Array = new Int32Array(1000);
-
-    private projectiles: LinkList = new LinkList();
-    private spotanims: LinkList = new LinkList();
-    private objStacks: (LinkList | null)[][][] = new TypedArray3d(CollisionConstants.LEVELS, CollisionConstants.SIZE, CollisionConstants.SIZE, null);
-    private addedLocs: LinkList = new LinkList();
-    private locList: LinkList = new LinkList();
-
-    private skillLevel: number[] = [];
-    private skillBaseLevel: number[] = [];
-    private skillExperience: number[] = [];
-
-    private mouseButtonsOption: number = 0;
-    private menuVisible: boolean = false;
-    private menuSize: number = 0;
-    private menuParamB: Int32Array = new Int32Array(500);
-    private menuParamC: Int32Array = new Int32Array(500);
-    private menuAction: Int32Array = new Int32Array(500);
-    private menuParamA: Int32Array = new Int32Array(500);
-    private chatEffects: number = 0;
-    private energy: number = 0;
-    private weightCarried: number = 0;
-    private rights: boolean = false;
-
-    private messageTextType: Int32Array = new Int32Array(100);
-    private messageTextSender: (string | null)[] = new TypedArray1d(100, null);
-    private messageText: (string | null)[] = new TypedArray1d(100, null);
-    private publicChatSetting: number = 0;
-    private privateChatSetting: number = 0;
-    private tradeChatSetting: number = 0;
-
-    private minimapLevel: number = -1;
-    private activeMapFunctionCount: number = 0;
-    private activeMapFunctionX: Int32Array = new Int32Array(1000);
-    private activeMapFunctionZ: Int32Array = new Int32Array(1000);
-    private activeMapFunctions: (Pix24 | null)[] = new TypedArray1d(1000, null);
-
-    private flagSceneTileX: number = 0;
-    private flagSceneTileZ: number = 0;
-
-    private waveDelay: Int32Array = new Int32Array(50);
-    private waveCount: number = 0;
-
-    private cutscene: boolean = false;
-    private cameraModifierEnabled: boolean[] = new TypedArray1d(5, false);
-    private cameraModifierJitter: Int32Array = new Int32Array(5);
-    private cameraModifierWobbleScale: Int32Array = new Int32Array(5);
-    private cameraModifierWobbleSpeed: Int32Array = new Int32Array(5);
-    private cameraModifierCycle: Int32Array = new Int32Array(5);
-
-    // unsorted:
     static cyclelogic1: number = 0;
     static cyclelogic2: number = 0;
     static cyclelogic3: number = 0;
@@ -265,8 +96,7 @@ export class Client extends GameShell {
     static oplogic8: number = 0;
     static oplogic9: number = 0;
 
-    static levelExperience: number[] = [];
-
+    private alreadyStarted: boolean = false;
     private errorStarted: boolean = false;
     private errorLoading: boolean = false;
     private errorHost: boolean = false;
@@ -274,15 +104,29 @@ export class Client extends GameShell {
 
     // important client stuff
     private db: Database | null = null;
-    private archiveChecksums: number[] = [];
+    private loopCycle: number = 0;
+    private jagChecksum: number[] = [];
+    private stream: ClientStream | null = null;
+    private in: Packet = Packet.alloc(1);
+    private out: Packet = Packet.alloc(1);
+    private loginout: Packet = Packet.alloc(1);
     private serverSeed: bigint = 0n;
+    private idleNetCycles: number = 0;
+    private idleTimeout: number = 0;
+    private systemUpdateTimer: number = 0;
     private randomIn: Isaac | null = null;
+    private ptype: number = 0;
+    private psize: number = 0;
+    private ptype0: number = 0;
+    private ptype1: number = 0;
+    private ptype2: number = 0;
 
     // archives
-    private titleArchive: Jagfile | null = null;
+    private jagTitle: Jagfile | null = null;
 
     // login screen properties
-    private redrawTitleBackground: boolean = true;
+    private redrawFrame: boolean = true;
+    private titleScreenState: number = 0;
     private titleLoginField: number = 0;
     private imageTitle2: PixMap | null = null;
     private imageTitle3: PixMap | null = null;
@@ -297,8 +141,8 @@ export class Client extends GameShell {
     private imageTitlebutton: Pix8 | null = null;
     private loginMessage0: string = '';
     private loginMessage1: string = '';
-    private usernameInput: string = '';
-    private passwordInput: string = '';
+    private username: string = '';
+    private password: string = '';
 
     // fonts
     private fontPlain11: PixFont | null = null;
@@ -309,8 +153,8 @@ export class Client extends GameShell {
     // login screen pillar flames properties
     private imageRunes: Pix8[] = [];
     private flameActive: boolean = false;
-    private imageFlamesLeft: Pix24 | null = null;
-    private imageFlamesRight: Pix24 | null = null;
+    private imageFlamesLeft: Pix32 | null = null;
+    private imageFlamesRight: Pix32 | null = null;
     private flameBuffer1: Int32Array | null = null;
     private flameBuffer0: Int32Array | null = null;
     private flameBuffer3: Int32Array | null = null;
@@ -346,14 +190,32 @@ export class Client extends GameShell {
     private areaChatbackOffsets: Int32Array | null = null;
     private areaSidebarOffsets: Int32Array | null = null;
     private areaViewportOffsets: Int32Array | null = null;
+    private compassMaskLineOffsets: Int32Array = new Int32Array(33);
+    private compassMaskLineLengths: Int32Array = new Int32Array(33);
+    private minimapMaskLineOffsets: Int32Array = new Int32Array(151);
+    private minimapMaskLineLengths: Int32Array = new Int32Array(151);
 
     private imageInvback: Pix8 | null = null;
     private imageChatback: Pix8 | null = null;
+    private imageMapback: Pix8 | null = null;
     private imageBackbase1: Pix8 | null = null;
     private imageBackbase2: Pix8 | null = null;
     private imageBackhmid1: Pix8 | null = null;
     private imageSideicons: (Pix8 | null)[] = new TypedArray1d(13, null);
-    private imageMinimap: Pix24 | null = null;
+    private imageMinimap: Pix32 | null = null;
+    private imageCompass: Pix32 | null = null;
+    private imageMapscene: (Pix8 | null)[] = new TypedArray1d(50, null);
+    private imageMapfunction: (Pix32 | null)[] = new TypedArray1d(50, null);
+    private imageHitmarks: (Pix32 | null)[] = new TypedArray1d(20, null);
+    private imageHeadicon: (Pix32 | null)[] = new TypedArray1d(20, null);
+    private imageMapflag: Pix32 | null = null;
+    private imageCrosses: (Pix32 | null)[] = new TypedArray1d(8, null);
+    private imageMapdot0: Pix32 | null = null;
+    private imageMapdot1: Pix32 | null = null;
+    private imageMapdot2: Pix32 | null = null;
+    private imageMapdot3: Pix32 | null = null;
+    private imageScrollbar0: Pix8 | null = null;
+    private imageScrollbar1: Pix8 | null = null;
     private imageRedstone1: Pix8 | null = null;
     private imageRedstone2: Pix8 | null = null;
     private imageRedstone3: Pix8 | null = null;
@@ -365,8 +227,10 @@ export class Client extends GameShell {
     private imageRedstone1hv: Pix8 | null = null;
     private imageRedstone2hv: Pix8 | null = null;
 
-    private genderButtonImage0: Pix24 | null = null;
-    private genderButtonImage1: Pix24 | null = null;
+    private genderButtonImage0: Pix32 | null = null;
+    private genderButtonImage1: Pix32 | null = null;
+
+    private activeMapFunctions: (Pix32 | null)[] = new TypedArray1d(1000, null);
 
     private redrawSidebar: boolean = false;
     private redrawChatback: boolean = false;
@@ -374,11 +238,18 @@ export class Client extends GameShell {
     private redrawPrivacySettings: boolean = false;
     private viewportInterfaceId: number = -1;
     private dragCycles: number = 0;
+    private crossMode: number = 0;
+    private crossCycle: number = 0;
+    private crossX: number = 0;
+    private crossY: number = 0;
+    private overrideChat: number = 0;
+    private menuVisible: boolean = false;
     private menuArea: number = 0;
     private menuX: number = 0;
     private menuY: number = 0;
     private menuWidth: number = 0;
     private menuHeight: number = 0;
+    private menuSize: number = 0;
     private menuOption: string[] = [];
     private sidebarInterfaceId: number = -1;
     private chatInterfaceId: number = -1;
@@ -387,28 +258,52 @@ export class Client extends GameShell {
     private chatScrollOffset: number = 0;
     private ignoreCount: number = 0;
     private ignoreName37: bigint[] = [];
+    private hintType: number = 0;
+    private hintNpc: number = 0;
+    private hintOffsetX: number = 0;
+    private hintOffsetZ: number = 0;
+    private hintPlayer: number = 0;
+    private hintTileX: number = 0;
+    private hintTileZ: number = 0;
+    private hintHeight: number = 0;
+    private skillExperience: number[] = [];
+    private skillLevel: number[] = [];
+    private skillBaseLevel: number[] = [];
+    private levelExperience: number[] = [];
     private modalMessage: string | null = null;
     private flashingTab: number = -1;
     private selectedTab: number = 3;
     private tabInterfaceId: number[] = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+    private chatPublicMode: number = 0;
+    private chatPrivateMode: number = 0;
+    private chatTradeMode: number = 0;
     private scrollGrabbed: boolean = false;
     private scrollInputPadding: number = 0;
     private showSocialInput: boolean = false;
     private socialMessage: string = '';
     private socialInput: string = '';
-    private socialAction: number = 0;
+    private socialInputType: number = 0;
     private chatbackInput: string = '';
     private chatbackInputOpen: boolean = false;
     private stickyChatInterfaceId: number = -1;
-    private privateMessageCount: number = 0;
+    private messageText: (string | null)[] = new TypedArray1d(100, null);
+    private messageSender: (string | null)[] = new TypedArray1d(100, null);
+    private messageType: Int32Array = new Int32Array(100);
     private messageTextIds: Int32Array = new Int32Array(100);
+    private privateMessageCount: number = 0;
     private splitPrivateChat: number = 0;
+    private chatEffects: number = 0;
     private chatTyped: string = '';
     private viewportHoveredInterfaceIndex: number = 0;
     private sidebarHoveredInterfaceIndex: number = 0;
     private chatHoveredInterfaceIndex: number = 0;
     private objDragInterfaceId: number = 0;
+    private objDragSlot: number = 0;
+    private objDragArea: number = 0;
+    private objGrabX: number = 0;
+    private objGrabY: number = 0;
     private objDragCycles: number = 0;
+    private objGrabThreshold: boolean = false;
     private objSelected: number = 0;
     private objSelectedSlot: number = 0;
     private objSelectedInterface: number = 0;
@@ -425,29 +320,85 @@ export class Client extends GameShell {
     private activeSpellId: number = 0;
     private activeSpellFlags: number = 0;
     private spellCaption: string | null = null;
+    private oneMouseButton: number = 0;
+    private menuAction: Int32Array = new Int32Array(500);
+    private menuParamA: Int32Array = new Int32Array(500);
+    private menuParamB: Int32Array = new Int32Array(500);
+    private menuParamC: Int32Array = new Int32Array(500);
     private hoveredSlotParentId: number = 0;
     private hoveredSlot: number = 0;
     private lastHoveredInterfaceId: number = 0;
     private reportAbuseInput: string = '';
     private reportAbuseMuteOption: boolean = false;
-    private reportAbuseInterfaceID: number = -1;
+    private reportAbuseInterfaceId: number = -1;
     private lastAddress: number = 0;
     private daysSinceLastLogin: number = 0;
     private daysSinceRecoveriesChanged: number = 0;
     private unreadMessages: number = 0;
+    private activeMapFunctionCount: number = 0;
+    private activeMapFunctionX: Int32Array = new Int32Array(1000);
+    private activeMapFunctionZ: Int32Array = new Int32Array(1000);
 
     // scene
+    private scene: World3D | null = null;
     private sceneState: number = 0;
+    private sceneDelta: number = 0;
+    private sceneCycle: number = 0;
+    private flagSceneTileX: number = 0;
+    private flagSceneTileZ: number = 0;
+    private cutscene: boolean = false;
+    private macroCameraCycle: number = 0;
+    private macroCameraX: number = 0;
+    private macroCameraZ: number = 0;
+    private macroCameraAngle: number = 0;
+    private macroCameraXModifier: number = 2;
+    private macroCameraZModifier: number = 2;
+    private macroCameraAngleModifier: number = 1;
+    private cameraModifierCycle: Int32Array = new Int32Array(5);
+    private cameraModifierEnabled: boolean[] = new TypedArray1d(5, false);
+    private cameraModifierJitter: Int32Array = new Int32Array(5);
+    private cameraModifierWobbleScale: Int32Array = new Int32Array(5);
+    private cameraModifierWobbleSpeed: Int32Array = new Int32Array(5);
+    private cameraX: number = 0;
+    private cameraY: number = 0;
+    private cameraZ: number = 0;
+    private cameraPitch: number = 0;
+    private cameraYaw: number = 0;
+    private cameraPitchClamp: number = 0;
+    private macroMinimapCycle: number = 0;
+    private macroMinimapAngle: number = 0;
+    private macroMinimapZoom: number = 0;
+    private macroMinimapZoomModifier: number = 1;
+    private macroMinimapAngleModifier: number = 2;
+    private minimapLevel: number = -1;
+    private baseX: number = 0;
+    private baseZ: number = 0;
     private sceneCenterZoneX: number = 0;
     private sceneCenterZoneZ: number = 0;
+    private sceneBaseTileX: number = 0;
+    private sceneBaseTileZ: number = 0;
     private sceneMapLandData: (Uint8Array | null)[] | null = null;
     private sceneMapLandReady: boolean[] | null = null;
+    private sceneMapLocData: (Uint8Array | null)[] | null = null;
+    private sceneMapLocReady: boolean[] | null = null;
     private sceneMapIndex: Int32Array | null = null;
-    private sceneAwaitingSync: boolean = false;
+    private awaitingSync: boolean = false;
     private scenePrevBaseTileX: number = 0;
     private scenePrevBaseTileZ: number = 0;
     private textureBuffer: Int8Array = new Int8Array(16384);
+    private levelCollisionMap: (CollisionMap | null)[] = new TypedArray1d(CollisionConstants.LEVELS, null);
     private currentLevel: number = 0;
+    private orbitCameraPitch: number = 128;
+    private orbitCameraYaw: number = 0;
+    private orbitCameraYawVelocity: number = 0;
+    private orbitCameraPitchVelocity: number = 0;
+    private orbitCameraX: number = 0;
+    private orbitCameraZ: number = 0;
+    private levelHeightmap: Int32Array[][] | null = null;
+    private levelTileFlags: Uint8Array[][] | null = null;
+    private tileLastOccupiedCycle: Int32Array[] = new Int32Array2d(CollisionConstants.SIZE, CollisionConstants.SIZE);
+    private projectX: number = 0;
+    private projectY: number = 0;
     private cameraMovedWrite: number = 0;
     private cutsceneDstLocalTileX: number = 0;
     private cutsceneDstLocalTileZ: number = 0;
@@ -460,23 +411,45 @@ export class Client extends GameShell {
     private cutsceneMoveSpeed: number = 0;
     private cutsceneMoveAcceleration: number = 0;
 
+    // entities
+    private players: (ClientPlayer | null)[] = new TypedArray1d(Constants.MAX_PLAYER_COUNT, null);
+    private playerCount: number = 0;
+    private playerIds: Int32Array = new Int32Array(Constants.MAX_PLAYER_COUNT);
+    private entityUpdateCount: number = 0;
+    private entityRemovalCount: number = 0;
+    private entityUpdateIds: Int32Array = new Int32Array(Constants.MAX_PLAYER_COUNT);
+    private entityRemovalIds: Int32Array = new Int32Array(1000);
+    private playerAppearanceBuffer: (Packet | null)[] = new TypedArray1d(Constants.MAX_PLAYER_COUNT, null);
+    private npcs: (ClientNpc | null)[] = new TypedArray1d(8192, null);
+    private npcCount: number = 0;
+    private npcIds: Int32Array = new Int32Array(8192);
+    private projectiles: LinkList = new LinkList();
+    private spotanims: LinkList = new LinkList();
+    private objStacks: (LinkList | null)[][][] = new TypedArray3d(CollisionConstants.LEVELS, CollisionConstants.SIZE, CollisionConstants.SIZE, null);
+    private locChanges: LinkList = new LinkList();
+    private locList: LinkList = new LinkList();
+
     // bfs pathfinder
     private bfsStepX: Int32Array = new Int32Array(4000);
     private bfsStepZ: Int32Array = new Int32Array(4000);
     private bfsDirection: Int32Array = new Int32Array(CollisionConstants.SIZE * CollisionConstants.SIZE);
     private bfsCost: Int32Array = new Int32Array(CollisionConstants.SIZE * CollisionConstants.SIZE);
+    private tryMoveNearest: number = 0;
 
     // player
-    private localPlayer: PlayerEntity | null = null;
+    private localPlayer: ClientPlayer | null = null;
+    private runenergy: number = 0;
     private inMultizone: number = 0;
     private localPid: number = -1;
-    private heartbeatTimer: number = 0;
+    private runweight: number = 0;
+    private noTimeoutCycle: number = 0;
     private wildernessLevel: number = 0;
     private worldLocationState: number = 0;
-    private designGenderMale: boolean = true;
+    private staffmodlevel: boolean = false;
+    private designGender: boolean = true;
     private updateDesignModel: boolean = false;
-    private designIdentikits: Int32Array = new Int32Array(7);
-    private designColors: Int32Array = new Int32Array(5);
+    private designKits: Int32Array = new Int32Array(7);
+    private designColours: Int32Array = new Int32Array(5);
 
     // friends/chats
     static readonly CHAT_COLORS = Int32Array.of(Colors.YELLOW, Colors.RED, Colors.GREEN, Colors.CYAN, Colors.MAGENTA, Colors.WHITE);
@@ -487,7 +460,7 @@ export class Client extends GameShell {
     private chatHeight: Int32Array = new Int32Array(Constants.MAX_CHATS);
     private chatWidth: Int32Array = new Int32Array(Constants.MAX_CHATS);
     private chatColors: Int32Array = new Int32Array(Constants.MAX_CHATS);
-    private chatStyles: Int32Array = new Int32Array(Constants.MAX_CHATS);
+    private chatEffect: Int32Array = new Int32Array(Constants.MAX_CHATS);
     private chatTimers: Int32Array = new Int32Array(Constants.MAX_CHATS);
     private chats: (string | null)[] = new TypedArray1d(Constants.MAX_CHATS, null);
     private friendName: (string | null)[] = new TypedArray1d(100, null);
@@ -496,9 +469,11 @@ export class Client extends GameShell {
     private socialName37: bigint | null = null;
 
     // audio
+    private waveCount: number = 0;
     private waveEnabled: boolean = true;
     private waveIds: Int32Array = new Int32Array(50);
     private waveLoops: Int32Array = new Int32Array(50);
+    private waveDelay: Int32Array = new Int32Array(50);
     private waveVolume: number = 64;
     private lastWaveId: number = -1;
     private lastWaveLoops: number = -1;
@@ -515,13 +490,13 @@ export class Client extends GameShell {
 
     // ----
 
-    static {
+    private initializeLevelExperience(): void {
         let acc: number = 0;
         for (let i: number = 0; i < 99; i++) {
             const level: number = i + 1;
             const delta: number = (level + Math.pow(2.0, level / 7.0) * 300.0) | 0;
             acc += delta;
-            Client.levelExperience[i] = (acc / 4) | 0;
+            this.levelExperience[i] = (acc / 4) | 0;
         }
     }
 
@@ -535,7 +510,7 @@ export class Client extends GameShell {
         console.log(`RS2 user client - release #${Constants.CLIENT_VERSION}`);
 
         Client.nodeId = nodeid;
-        Client.members = members;
+        Client.membersWorld = members;
 
         if (lowmem) {
             Client.setLowMemory();
@@ -550,13 +525,6 @@ export class Client extends GameShell {
         this.run();
     }
 
-    static setHighMemory(): void {
-        World3D.lowMemory = false;
-        Pix3D.lowMemory = false;
-        Client.lowMemory = false;
-        World.lowMemory = false;
-    }
-
     static setLowMemory(): void {
         World3D.lowMemory = true;
         Pix3D.lowMemory = true;
@@ -564,10 +532,17 @@ export class Client extends GameShell {
         World.lowMemory = true;
     }
 
-    private async setMidi(name: string, crc: number, length: number, fade: boolean): Promise<void> {
+    static setHighMemory(): void {
+        World3D.lowMemory = false;
+        Pix3D.lowMemory = false;
+        Client.lowMemory = false;
+        World.lowMemory = false;
+    }
+
+    private async saveMidi(name: string, crc: number, length: number, fade: boolean): Promise<void> {
         try {
             let data: Uint8Array | undefined = await this.db?.cacheload(name + '.mid');
-            if (data && crc !== 12345678 && Packet.crc32(data) !== crc) {
+            if (data && crc !== 12345678 && Packet.getcrc(data, 0, data.length) !== crc) {
                 data = undefined;
             }
 
@@ -598,31 +573,6 @@ export class Client extends GameShell {
         }
     }
 
-    getTitleScreenState(): number {
-        return this.titleScreenState;
-    }
-
-    isChatBackInputOpen(): boolean {
-        return this.chatbackInputOpen;
-    }
-
-    isShowSocialInput(): boolean {
-        return this.showSocialInput;
-    }
-
-    getChatInterfaceId(): number {
-        return this.chatInterfaceId;
-    }
-
-    getViewportInterfaceId(): number {
-        return this.viewportInterfaceId;
-    }
-
-    getReportAbuseInterfaceId(): number {
-        // custom: for report abuse input on mobile
-        return this.reportAbuseInterfaceID;
-    }
-
     // ----
 
     async load() {
@@ -631,71 +581,73 @@ export class Client extends GameShell {
             this.setTargetedFramerate(30);
         }
 
-        if (Client.alreadyStarted) {
+        if (this.alreadyStarted) {
             this.errorStarted = true;
             return;
         }
 
-        Client.alreadyStarted = true;
+        this.alreadyStarted = true;
 
         try {
-            await this.showProgress(10, 'Connecting to fileserver');
+            this.db = new Database(await Database.openDatabase());
+        } catch (err) {
+            // possibly incognito mode
+            this.db = null;
+        }
 
-            try {
-                this.db = new Database(await Database.openDatabase());
-            } catch (err) {
-                // possibly incognito mode
-                this.db = null;
-            }
+        try {
+            await this.drawProgress(10, 'Connecting to fileserver');
 
             const checksums: Packet = new Packet(await downloadUrl('/crc'));
             for (let i: number = 0; i < 9; i++) {
-                this.archiveChecksums[i] = checksums.g4();
+                this.jagChecksum[i] = checksums.g4();
             }
 
             if (!Client.lowMemory) {
-                await this.setMidi('scape_main', 12345678, 40000, false);
+                await this.saveMidi('scape_main', 12345678, 40000, false);
             }
 
-            const title: Jagfile = await this.loadArchive('title', 'title screen', this.archiveChecksums[1], 10);
-            this.titleArchive = title;
+            this.jagTitle = await this.getJagFile('title', 'title screen', this.jagChecksum[1], 10);
 
-            this.fontPlain11 = PixFont.fromArchive(title, 'p11');
-            this.fontPlain12 = PixFont.fromArchive(title, 'p12');
-            this.fontBold12 = PixFont.fromArchive(title, 'b12');
-            this.fontQuill8 = PixFont.fromArchive(title, 'q8');
+            this.fontPlain11 = PixFont.fromArchive(this.jagTitle, 'p11');
+            this.fontPlain12 = PixFont.fromArchive(this.jagTitle, 'p12');
+            this.fontBold12 = PixFont.fromArchive(this.jagTitle, 'b12');
+            this.fontQuill8 = PixFont.fromArchive(this.jagTitle, 'q8');
 
             await this.loadTitleBackground();
             this.loadTitleImages();
 
-            const config: Jagfile = await this.loadArchive('config', 'config', this.archiveChecksums[2], 15);
-            const interfaces: Jagfile = await this.loadArchive('interface', 'interface', this.archiveChecksums[3], 20);
-            const media: Jagfile = await this.loadArchive('media', '2d graphics', this.archiveChecksums[4], 30);
-            const models: Jagfile = await this.loadArchive('models', '3d graphics', this.archiveChecksums[5], 40);
-            const textures: Jagfile = await this.loadArchive('textures', 'textures', this.archiveChecksums[6], 60);
-            const wordenc: Jagfile = await this.loadArchive('wordenc', 'chat system', this.archiveChecksums[7], 65);
-            const sounds: Jagfile = await this.loadArchive('sounds', 'sound effects', this.archiveChecksums[8], 70);
+            const jagConfig: Jagfile = await this.getJagFile('config', 'config', this.jagChecksum[2], 15);
+            const jagInterface: Jagfile = await this.getJagFile('interface', 'interface', this.jagChecksum[3], 20);
+            const jagMedia: Jagfile = await this.getJagFile('media', '2d graphics', this.jagChecksum[4], 30);
+            const jagModels: Jagfile = await this.getJagFile('models', '3d graphics', this.jagChecksum[5], 40);
+            const jagTextures: Jagfile = await this.getJagFile('textures', 'textures', this.jagChecksum[6], 60);
+            const jagWordenc: Jagfile = await this.getJagFile('wordenc', 'chat system', this.jagChecksum[7], 65);
+            const jagSounds: Jagfile = await this.getJagFile('sounds', 'sound effects', this.jagChecksum[8], 70);
 
             this.levelTileFlags = new Uint8Array3d(CollisionConstants.LEVELS, CollisionConstants.SIZE, CollisionConstants.SIZE);
             this.levelHeightmap = new Int32Array3d(CollisionConstants.LEVELS, CollisionConstants.SIZE + 1, CollisionConstants.SIZE + 1);
-            if (this.levelHeightmap) {
-                this.scene = new World3D(this.levelHeightmap, CollisionConstants.SIZE, CollisionConstants.LEVELS, CollisionConstants.SIZE);
-            }
+            this.scene = new World3D(this.levelHeightmap, CollisionConstants.SIZE, CollisionConstants.LEVELS, CollisionConstants.SIZE);
             for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
                 this.levelCollisionMap[level] = new CollisionMap();
             }
-            this.imageMinimap = new Pix24(512, 512);
-            await this.showProgress(75, 'Unpacking media');
-            this.imageInvback = Pix8.fromArchive(media, 'invback', 0);
-            this.imageChatback = Pix8.fromArchive(media, 'chatback', 0);
-            this.imageMapback = Pix8.fromArchive(media, 'mapback', 0);
-            this.imageBackbase1 = Pix8.fromArchive(media, 'backbase1', 0);
-            this.imageBackbase2 = Pix8.fromArchive(media, 'backbase2', 0);
-            this.imageBackhmid1 = Pix8.fromArchive(media, 'backhmid1', 0);
+            this.imageMinimap = new Pix32(512, 512);
+
+            await this.drawProgress(75, 'Unpacking media');
+
+            this.imageInvback = Pix8.fromArchive(jagMedia, 'invback', 0);
+            this.imageChatback = Pix8.fromArchive(jagMedia, 'chatback', 0);
+            this.imageMapback = Pix8.fromArchive(jagMedia, 'mapback', 0);
+
+            this.imageBackbase1 = Pix8.fromArchive(jagMedia, 'backbase1', 0);
+            this.imageBackbase2 = Pix8.fromArchive(jagMedia, 'backbase2', 0);
+            this.imageBackhmid1 = Pix8.fromArchive(jagMedia, 'backhmid1', 0);
+
             for (let i: number = 0; i < 13; i++) {
-                this.imageSideicons[i] = Pix8.fromArchive(media, 'sideicons', i);
+                this.imageSideicons[i] = Pix8.fromArchive(jagMedia, 'sideicons', i);
             }
-            this.imageCompass = Pix24.fromArchive(media, 'compass', 0);
+
+            this.imageCompass = Pix32.fromArchive(jagMedia, 'compass', 0);
 
             try {
                 for (let i: number = 0; i < 50; i++) {
@@ -704,7 +656,7 @@ export class Client extends GameShell {
                         continue;
                     }
 
-                    this.imageMapscene[i] = Pix8.fromArchive(media, 'mapscene', i);
+                    this.imageMapscene[i] = Pix8.fromArchive(jagMedia, 'mapscene', i);
                 }
             } catch (e) {
                 /* empty */
@@ -712,7 +664,7 @@ export class Client extends GameShell {
 
             try {
                 for (let i: number = 0; i < 50; i++) {
-                    this.imageMapfunction[i] = Pix24.fromArchive(media, 'mapfunction', i);
+                    this.imageMapfunction[i] = Pix32.fromArchive(jagMedia, 'mapfunction', i);
                 }
             } catch (e) {
                 /* empty */
@@ -720,7 +672,7 @@ export class Client extends GameShell {
 
             try {
                 for (let i: number = 0; i < 20; i++) {
-                    this.imageHitmarks[i] = Pix24.fromArchive(media, 'hitmarks', i);
+                    this.imageHitmarks[i] = Pix32.fromArchive(jagMedia, 'hitmarks', i);
                 }
             } catch (e) {
                 /* empty */
@@ -728,76 +680,98 @@ export class Client extends GameShell {
 
             try {
                 for (let i: number = 0; i < 20; i++) {
-                    this.imageHeadicons[i] = Pix24.fromArchive(media, 'headicons', i);
+                    this.imageHeadicon[i] = Pix32.fromArchive(jagMedia, 'headicons', i);
                 }
             } catch (e) {
                 /* empty */
             }
 
-            this.imageMapflag = Pix24.fromArchive(media, 'mapflag', 0);
+            this.imageMapflag = Pix32.fromArchive(jagMedia, 'mapflag', 0);
+
             for (let i: number = 0; i < 8; i++) {
-                this.imageCrosses[i] = Pix24.fromArchive(media, 'cross', i);
+                this.imageCrosses[i] = Pix32.fromArchive(jagMedia, 'cross', i);
             }
-            this.imageMapdot0 = Pix24.fromArchive(media, 'mapdots', 0);
-            this.imageMapdot1 = Pix24.fromArchive(media, 'mapdots', 1);
-            this.imageMapdot2 = Pix24.fromArchive(media, 'mapdots', 2);
-            this.imageMapdot3 = Pix24.fromArchive(media, 'mapdots', 3);
-            this.imageScrollbar0 = Pix8.fromArchive(media, 'scrollbar', 0);
-            this.imageScrollbar1 = Pix8.fromArchive(media, 'scrollbar', 1);
-            this.imageRedstone1 = Pix8.fromArchive(media, 'redstone1', 0);
-            this.imageRedstone2 = Pix8.fromArchive(media, 'redstone2', 0);
-            this.imageRedstone3 = Pix8.fromArchive(media, 'redstone3', 0);
-            this.imageRedstone1h = Pix8.fromArchive(media, 'redstone1', 0);
+
+            this.imageMapdot0 = Pix32.fromArchive(jagMedia, 'mapdots', 0);
+            this.imageMapdot1 = Pix32.fromArchive(jagMedia, 'mapdots', 1);
+            this.imageMapdot2 = Pix32.fromArchive(jagMedia, 'mapdots', 2);
+            this.imageMapdot3 = Pix32.fromArchive(jagMedia, 'mapdots', 3);
+
+            this.imageScrollbar0 = Pix8.fromArchive(jagMedia, 'scrollbar', 0);
+            this.imageScrollbar1 = Pix8.fromArchive(jagMedia, 'scrollbar', 1);
+
+            this.imageRedstone1 = Pix8.fromArchive(jagMedia, 'redstone1', 0);
+            this.imageRedstone2 = Pix8.fromArchive(jagMedia, 'redstone2', 0);
+            this.imageRedstone3 = Pix8.fromArchive(jagMedia, 'redstone3', 0);
+
+            this.imageRedstone1h = Pix8.fromArchive(jagMedia, 'redstone1', 0);
             this.imageRedstone1h?.flipHorizontally();
-            this.imageRedstone2h = Pix8.fromArchive(media, 'redstone2', 0);
+
+            this.imageRedstone2h = Pix8.fromArchive(jagMedia, 'redstone2', 0);
             this.imageRedstone2h?.flipHorizontally();
-            this.imageRedstone1v = Pix8.fromArchive(media, 'redstone1', 0);
+
+            this.imageRedstone1v = Pix8.fromArchive(jagMedia, 'redstone1', 0);
             this.imageRedstone1v?.flipVertically();
-            this.imageRedstone2v = Pix8.fromArchive(media, 'redstone2', 0);
+
+            this.imageRedstone2v = Pix8.fromArchive(jagMedia, 'redstone2', 0);
             this.imageRedstone2v?.flipVertically();
-            this.imageRedstone3v = Pix8.fromArchive(media, 'redstone3', 0);
+
+            this.imageRedstone3v = Pix8.fromArchive(jagMedia, 'redstone3', 0);
             this.imageRedstone3v?.flipVertically();
-            this.imageRedstone1hv = Pix8.fromArchive(media, 'redstone1', 0);
+
+            this.imageRedstone1hv = Pix8.fromArchive(jagMedia, 'redstone1', 0);
             this.imageRedstone1hv?.flipHorizontally();
             this.imageRedstone1hv?.flipVertically();
-            this.imageRedstone2hv = Pix8.fromArchive(media, 'redstone2', 0);
+
+            this.imageRedstone2hv = Pix8.fromArchive(jagMedia, 'redstone2', 0);
             this.imageRedstone2hv?.flipHorizontally();
             this.imageRedstone2hv?.flipVertically();
-            const backleft1: Pix24 = Pix24.fromArchive(media, 'backleft1', 0);
-            this.areaBackleft1 = new PixMap(backleft1.width2d, backleft1.height2d);
+
+            const backleft1: Pix32 = Pix32.fromArchive(jagMedia, 'backleft1', 0);
+            this.areaBackleft1 = new PixMap(backleft1.cropRight, backleft1.cropBottom);
             backleft1.blitOpaque(0, 0);
-            const backleft2: Pix24 = Pix24.fromArchive(media, 'backleft2', 0);
-            this.areaBackleft2 = new PixMap(backleft2.width2d, backleft2.height2d);
+
+            const backleft2: Pix32 = Pix32.fromArchive(jagMedia, 'backleft2', 0);
+            this.areaBackleft2 = new PixMap(backleft2.cropRight, backleft2.cropBottom);
             backleft2.blitOpaque(0, 0);
-            const backright1: Pix24 = Pix24.fromArchive(media, 'backright1', 0);
-            this.areaBackright1 = new PixMap(backright1.width2d, backright1.height2d);
+
+            const backright1: Pix32 = Pix32.fromArchive(jagMedia, 'backright1', 0);
+            this.areaBackright1 = new PixMap(backright1.cropRight, backright1.cropBottom);
             backright1.blitOpaque(0, 0);
-            const backright2: Pix24 = Pix24.fromArchive(media, 'backright2', 0);
-            this.areaBackright2 = new PixMap(backright2.width2d, backright2.height2d);
+
+            const backright2: Pix32 = Pix32.fromArchive(jagMedia, 'backright2', 0);
+            this.areaBackright2 = new PixMap(backright2.cropRight, backright2.cropBottom);
             backright2.blitOpaque(0, 0);
-            const backtop1: Pix24 = Pix24.fromArchive(media, 'backtop1', 0);
-            this.areaBacktop1 = new PixMap(backtop1.width2d, backtop1.height2d);
+
+            const backtop1: Pix32 = Pix32.fromArchive(jagMedia, 'backtop1', 0);
+            this.areaBacktop1 = new PixMap(backtop1.cropRight, backtop1.cropBottom);
             backtop1.blitOpaque(0, 0);
-            const backtop2: Pix24 = Pix24.fromArchive(media, 'backtop2', 0);
-            this.areaBacktop2 = new PixMap(backtop2.width2d, backtop2.height2d);
+
+            const backtop2: Pix32 = Pix32.fromArchive(jagMedia, 'backtop2', 0);
+            this.areaBacktop2 = new PixMap(backtop2.cropRight, backtop2.cropBottom);
             backtop2.blitOpaque(0, 0);
-            const backvmid1: Pix24 = Pix24.fromArchive(media, 'backvmid1', 0);
-            this.areaBackvmid1 = new PixMap(backvmid1.width2d, backvmid1.height2d);
+
+            const backvmid1: Pix32 = Pix32.fromArchive(jagMedia, 'backvmid1', 0);
+            this.areaBackvmid1 = new PixMap(backvmid1.cropRight, backvmid1.cropBottom);
             backvmid1.blitOpaque(0, 0);
-            const backvmid2: Pix24 = Pix24.fromArchive(media, 'backvmid2', 0);
-            this.areaBackvmid2 = new PixMap(backvmid2.width2d, backvmid2.height2d);
+
+            const backvmid2: Pix32 = Pix32.fromArchive(jagMedia, 'backvmid2', 0);
+            this.areaBackvmid2 = new PixMap(backvmid2.cropRight, backvmid2.cropBottom);
             backvmid2.blitOpaque(0, 0);
-            const backvmid3: Pix24 = Pix24.fromArchive(media, 'backvmid3', 0);
-            this.areaBackvmid3 = new PixMap(backvmid3.width2d, backvmid3.height2d);
+
+            const backvmid3: Pix32 = Pix32.fromArchive(jagMedia, 'backvmid3', 0);
+            this.areaBackvmid3 = new PixMap(backvmid3.cropRight, backvmid3.cropBottom);
             backvmid3.blitOpaque(0, 0);
-            const backhmid2: Pix24 = Pix24.fromArchive(media, 'backhmid2', 0);
-            this.areaBackhmid2 = new PixMap(backhmid2.width2d, backhmid2.height2d);
+
+            const backhmid2: Pix32 = Pix32.fromArchive(jagMedia, 'backhmid2', 0);
+            this.areaBackhmid2 = new PixMap(backhmid2.cropRight, backhmid2.cropBottom);
             backhmid2.blitOpaque(0, 0);
 
             const randR: number = ((Math.random() * 21.0) | 0) - 10;
             const randG: number = ((Math.random() * 21.0) | 0) - 10;
             const randB: number = ((Math.random() * 21.0) | 0) - 10;
             const rand: number = ((Math.random() * 41.0) | 0) - 20;
+
             for (let i: number = 0; i < 50; i++) {
                 if (this.imageMapfunction[i]) {
                     this.imageMapfunction[i]?.translate2d(randR + rand, randG + rand, randB + rand);
@@ -808,38 +782,44 @@ export class Client extends GameShell {
                 }
             }
 
-            await this.showProgress(80, 'Unpacking textures');
-            Pix3D.unpackTextures(textures);
-            Pix3D.setBrightness(0.8);
+            await this.drawProgress(80, 'Unpacking textures');
+
+            Pix3D.unpackTextures(jagTextures);
+            Pix3D.initColourTable(0.8);
             Pix3D.initPool(20);
 
-            await this.showProgress(83, 'Unpacking models');
-            Model.unpack(models);
-            AnimBase.unpack(models);
-            AnimFrame.unpack(models);
+            await this.drawProgress(83, 'Unpacking models');
 
-            await this.showProgress(86, 'Unpacking config');
-            SeqType.unpack(config);
-            LocType.unpack(config);
-            FloType.unpack(config);
-            ObjType.unpack(config, Client.members);
-            NpcType.unpack(config);
-            IdkType.unpack(config);
-            SpotAnimType.unpack(config);
-            VarpType.unpack(config);
+            Model.unpack(jagModels);
+            AnimBase.unpack(jagModels);
+            AnimFrame.unpack(jagModels);
+
+            await this.drawProgress(86, 'Unpacking config');
+
+            SeqType.unpack(jagConfig);
+            LocType.unpack(jagConfig);
+            FloType.unpack(jagConfig);
+            ObjType.unpack(jagConfig, Client.membersWorld);
+            NpcType.unpack(jagConfig);
+            IdkType.unpack(jagConfig);
+            SpotAnimType.unpack(jagConfig);
+            VarpType.unpack(jagConfig);
 
             if (!Client.lowMemory) {
-                await this.showProgress(90, 'Unpacking sounds');
-                Wave.unpack(sounds);
+                await this.drawProgress(90, 'Unpacking sounds');
+                Wave.unpack(jagSounds);
             }
 
-            await this.showProgress(92, 'Unpacking interfaces');
-            Component.unpack(interfaces, media, [this.fontPlain11, this.fontPlain12, this.fontBold12, this.fontQuill8]);
+            await this.drawProgress(92, 'Unpacking interfaces');
 
-            await this.showProgress(97, 'Preparing game engine');
+            Component.unpack(jagInterface, jagMedia, [this.fontPlain11, this.fontPlain12, this.fontBold12, this.fontQuill8]);
+
+            await this.drawProgress(97, 'Preparing game engine');
+
             for (let y: number = 0; y < 33; y++) {
                 let left: number = 999;
                 let right: number = 0;
+
                 for (let x: number = 0; x < 35; x++) {
                     if (this.imageMapback.pixels[x + y * this.imageMapback.width2d] === 0) {
                         if (left === 999) {
@@ -850,6 +830,7 @@ export class Client extends GameShell {
                         break;
                     }
                 }
+
                 this.compassMaskLineOffsets[y] = left;
                 this.compassMaskLineLengths[y] = right - left;
             }
@@ -857,6 +838,7 @@ export class Client extends GameShell {
             for (let y: number = 9; y < 160; y++) {
                 let left: number = 999;
                 let right: number = 0;
+
                 for (let x: number = 10; x < 168; x++) {
                     if (this.imageMapback.pixels[x + y * this.imageMapback.width2d] === 0 && (x > 34 || y > 34)) {
                         if (left === 999) {
@@ -867,14 +849,17 @@ export class Client extends GameShell {
                         break;
                     }
                 }
+
                 this.minimapMaskLineOffsets[y - 9] = left - 21;
                 this.minimapMaskLineLengths[y - 9] = right - left;
             }
 
             Pix3D.init3D(479, 96);
             this.areaChatbackOffsets = Pix3D.lineOffset;
+
             Pix3D.init3D(190, 261);
             this.areaSidebarOffsets = Pix3D.lineOffset;
+
             Pix3D.init3D(512, 334);
             this.areaViewportOffsets = Pix3D.lineOffset;
 
@@ -882,19 +867,22 @@ export class Client extends GameShell {
             for (let x: number = 0; x < 9; x++) {
                 const angle: number = x * 32 + 128 + 15;
                 const offset: number = angle * 3 + 600;
-                const sin: number = Pix3D.sin[angle];
+                const sin: number = Pix3D.sinTable[angle];
                 distance[x] = (offset * sin) >> 16;
             }
 
             World3D.init(512, 334, 500, 800, distance);
-            WordFilter.unpack(wordenc);
-        } catch (err) {
-            this.errorLoading = true;
+            WordFilter.unpack(jagWordenc);
 
+            this.initializeLevelExperience();
+        } catch (err) {
             console.error(err);
+
             if (err instanceof Error) {
                 this.errorMessage = err.message;
             }
+
+            this.errorLoading = true;
         }
     }
 
@@ -902,11 +890,13 @@ export class Client extends GameShell {
         if (this.errorStarted || this.errorLoading || this.errorHost) {
             return;
         }
+
         this.loopCycle++;
+
         if (this.ingame) {
             await this.updateGame();
         } else {
-            await this.updateTitleScreen();
+            await this.updateTitle();
         }
     }
 
@@ -919,24 +909,25 @@ export class Client extends GameShell {
         if (this.ingame) {
             this.drawGame();
         } else {
-            await this.drawTitleScreen();
+            await this.drawTitle();
         }
 
         this.dragCycles = 0;
     }
 
-    async refresh() {
-        this.redrawTitleBackground = true;
+    refresh() {
+        this.redrawFrame = true;
     }
 
 	// ----
 
-    async showProgress(progress: number, str: string): Promise<void> {
-        console.log(`${progress}%: ${str}`);
+    async drawProgress(percent: number, message: string): Promise<void> {
+        console.log(`${percent}%: ${message}`);
 
         await this.loadTitle();
-        if (!this.titleArchive) {
-            await super.showProgress(progress, str);
+
+        if (!this.jagTitle) {
+            await super.drawProgress(percent, message);
             return;
         }
 
@@ -947,22 +938,24 @@ export class Client extends GameShell {
 
         const offsetY: number = 20;
         this.fontBold12?.drawStringCenter((x / 2) | 0, ((y / 2) | 0) - offsetY - 26, 'RuneScape is loading - please wait...', Colors.WHITE);
-        const midY: number = ((y / 2) | 0) - 18 - offsetY;
 
+        const midY: number = ((y / 2) | 0) - 18 - offsetY;
         Pix2D.drawRect(((x / 2) | 0) - 152, midY, 304, 34, Colors.PROGRESS_RED);
         Pix2D.drawRect(((x / 2) | 0) - 151, midY + 1, 302, 32, Colors.BLACK);
-        Pix2D.fillRect2d(((x / 2) | 0) - 150, midY + 2, progress * 3, 30, Colors.PROGRESS_RED);
-        Pix2D.fillRect2d(((x / 2) | 0) - 150 + progress * 3, midY + 2, 300 - progress * 3, 30, Colors.BLACK);
+        Pix2D.fillRect2d(((x / 2) | 0) - 150, midY + 2, percent * 3, 30, Colors.PROGRESS_RED);
+        Pix2D.fillRect2d(((x / 2) | 0) - 150 + percent * 3, midY + 2, 300 - percent * 3, 30, Colors.BLACK);
+        this.fontBold12?.drawStringCenter((x / 2) | 0, ((y / 2) | 0) + 5 - offsetY, message, Colors.WHITE);
 
-        this.fontBold12?.drawStringCenter((x / 2) | 0, ((y / 2) | 0) + 5 - offsetY, str, Colors.WHITE);
         this.imageTitle4?.draw(214, 186);
 
-        if (this.redrawTitleBackground) {
-            this.redrawTitleBackground = false;
+        if (this.redrawFrame) {
+            this.redrawFrame = false;
+
             if (!this.flameActive) {
                 this.imageTitle0?.draw(0, 0);
                 this.imageTitle1?.draw(661, 0);
             }
+
             this.imageTitle2?.draw(128, 0);
             this.imageTitle3?.draw(214, 386);
             this.imageTitle5?.draw(0, 265);
@@ -981,13 +974,13 @@ export class Client extends GameShell {
         this.setFramerate(1);
 
         this.flameActive = false;
-        let y: number = 35;
+        let y: number = 0;
 
         if (this.errorLoading) {
             canvas2d.font = 'bold 16px helvetica, sans-serif';
             canvas2d.textAlign = 'left';
             canvas2d.fillStyle = 'yellow';
-
+            y = 35;
             canvas2d.fillText('Sorry, an error has occured whilst loading RuneScape', 30, y);
 
             y += 50;
@@ -999,25 +992,35 @@ export class Client extends GameShell {
             canvas2d.fillText('1: Try closing ALL open web-browser windows, and reloading', 30, y);
 
             y += 30;
-            canvas2d.fillText('2: Try clearing your web-browsers cache', 30, y);
+            canvas2d.fillText('2: Try clearing your web-browsers cache', 30, y); // "2: Try clearing your web-browsers cache from tools->internet options"
 
             y += 30;
             canvas2d.fillText('3: Try using a different game-world', 30, y);
 
             y += 30;
             canvas2d.fillText('4: Try rebooting your computer', 30, y);
+
+            y += 30;
+            canvas2d.fillText('5: Try selecting a different method from the play-game menu', 30, y); // "5: Try selecting a different version of Java from the play-game menu"
         } else if (this.errorHost) {
             canvas2d.font = 'bold 20px helvetica, sans-serif';
             canvas2d.textAlign = 'left';
             canvas2d.fillStyle = 'white';
 
-            canvas2d.fillText('Error - unable to load game!', 50, 50);
-            canvas2d.fillText('To play RuneScape make sure you play from an approved domain', 50, 100);
+            y = 50;
+            canvas2d.fillText('Error - unable to load game!', 50, y);
+
+            y += 50;
+            canvas2d.fillText('To play RuneScape make sure you play from', 50, y);
+
+            y += 50;
+            canvas2d.fillText('An approved domain', 50, y); // "http://www.runescape.com"
         } else if (this.errorStarted) {
             canvas2d.font = 'bold 13px helvetica, sans-serif';
             canvas2d.textAlign = 'left';
             canvas2d.fillStyle = 'yellow';
 
+            y = 35;
             canvas2d.fillText('Error a copy of RuneScape already appears to be loaded', 30, y);
 
             y += 50;
@@ -1039,10 +1042,10 @@ export class Client extends GameShell {
         }
     }
 
-    private async loadArchive(filename: string, displayName: string, crc: number, progress: number): Promise<Jagfile> {
+    private async getJagFile(filename: string, displayName: string, crc: number, progress: number): Promise<Jagfile> {
         let retry: number = 5;
         let data: Uint8Array | undefined = await this.db?.cacheload(filename);
-        if (data && Packet.crc32(data) !== crc) {
+        if (data && Packet.getcrc(data, 0, data.length) !== crc) {
             data = undefined;
         }
 
@@ -1051,14 +1054,14 @@ export class Client extends GameShell {
         }
 
         while (!data) {
-            await this.showProgress(progress, `Requesting ${displayName}`);
+            await this.drawProgress(progress, `Requesting ${displayName}`);
 
             try {
                 data = await downloadUrl(`/${filename}${crc}`);
             } catch (e) {
                 data = undefined;
                 for (let i: number = retry; i > 0; i--) {
-                    await this.showProgress(progress, `Error loading - Will retry in ${i} secs.`);
+                    await this.drawProgress(progress, `Error loading - Will retry in ${i} secs.`);
                     await sleep(1000);
                 }
                 retry *= 2;
@@ -1067,11 +1070,12 @@ export class Client extends GameShell {
                 }
             }
         }
+
         await this.db?.cachesave(filename, data);
         return new Jagfile(data);
     }
 
-    private async updateTitleScreen(): Promise<void> {
+    private async updateTitle(): Promise<void> {
         if (this.titleScreenState === 0) {
             let x: number = ((this.width / 2) | 0) - 80;
             let y: number = ((this.height / 2) | 0) + 20;
@@ -1092,31 +1096,31 @@ export class Client extends GameShell {
         } else if (this.titleScreenState === 2) {
             let y: number = ((this.height / 2) | 0) - 40;
             y += 30;
-            y += 25;
 
+            y += 25;
             if (this.mouseClickButton === 1 && this.mouseClickY >= y - 15 && this.mouseClickY < y) {
                 this.titleLoginField = 0;
             }
-            y += 15;
 
+            y += 15;
             if (this.mouseClickButton === 1 && this.mouseClickY >= y - 15 && this.mouseClickY < y) {
                 this.titleLoginField = 1;
             }
             // y += 15; dead code
 
-            let buttonX: number = ((this.width / 2) | 0) - 80;
-            let buttonY: number = ((this.height / 2) | 0) + 50;
-            buttonY += 20;
+            let x = ((this.width / 2) | 0) - 80;
+            y = ((this.height / 2) | 0) + 50;
+            y += 20;
 
-            if (this.mouseClickButton === 1 && this.mouseClickX >= buttonX - 75 && this.mouseClickX <= buttonX + 75 && this.mouseClickY >= buttonY - 20 && this.mouseClickY <= buttonY + 20) {
-                await this.tryLogin(this.usernameInput, this.passwordInput, false);
+            if (this.mouseClickButton === 1 && this.mouseClickX >= x - 75 && this.mouseClickX <= x + 75 && this.mouseClickY >= y - 20 && this.mouseClickY <= y + 20) {
+                await this.login(this.username, this.password, false);
             }
 
-            buttonX = ((this.width / 2) | 0) + 80;
-            if (this.mouseClickButton === 1 && this.mouseClickX >= buttonX - 75 && this.mouseClickX <= buttonX + 75 && this.mouseClickY >= buttonY - 20 && this.mouseClickY <= buttonY + 20) {
+            x = ((this.width / 2) | 0) + 80;
+            if (this.mouseClickButton === 1 && this.mouseClickX >= x - 75 && this.mouseClickX <= x + 75 && this.mouseClickY >= y - 20 && this.mouseClickY <= y + 20) {
                 this.titleScreenState = 0;
-                this.usernameInput = '';
-                this.passwordInput = '';
+                this.username = '';
+                this.password = '';
             }
 
             // eslint-disable-next-line no-constant-condition
@@ -1135,8 +1139,8 @@ export class Client extends GameShell {
                 }
 
                 if (this.titleLoginField === 0) {
-                    if (key === 8 && this.usernameInput.length > 0) {
-                        this.usernameInput = this.usernameInput.substring(0, this.usernameInput.length - 1);
+                    if (key === 8 && this.username.length > 0) {
+                        this.username = this.username.substring(0, this.username.length - 1);
                     }
 
                     if (key === 9 || key === 10 || key === 13) {
@@ -1144,15 +1148,15 @@ export class Client extends GameShell {
                     }
 
                     if (valid) {
-                        this.usernameInput = this.usernameInput + String.fromCharCode(key);
+                        this.username = this.username + String.fromCharCode(key);
                     }
 
-                    if (this.usernameInput.length > 12) {
-                        this.usernameInput = this.usernameInput.substring(0, 12);
+                    if (this.username.length > 12) {
+                        this.username = this.username.substring(0, 12);
                     }
                 } else if (this.titleLoginField === 1) {
-                    if (key === 8 && this.passwordInput.length > 0) {
-                        this.passwordInput = this.passwordInput.substring(0, this.passwordInput.length - 1);
+                    if (key === 8 && this.password.length > 0) {
+                        this.password = this.password.substring(0, this.password.length - 1);
                     }
 
                     if (key === 9 || key === 10 || key === 13) {
@@ -1160,86 +1164,91 @@ export class Client extends GameShell {
                     }
 
                     if (valid) {
-                        this.passwordInput = this.passwordInput + String.fromCharCode(key);
+                        this.password = this.password + String.fromCharCode(key);
                     }
 
-                    if (this.passwordInput.length > 20) {
-                        this.passwordInput = this.passwordInput.substring(0, 20);
+                    if (this.password.length > 20) {
+                        this.password = this.password.substring(0, 20);
                     }
                 }
             }
         } else if (this.titleScreenState === 3) {
             const x: number = (this.width / 2) | 0;
             let y: number = ((this.height / 2) | 0) + 50;
-            y += 20;
 
+            y += 20;
             if (this.mouseClickButton === 1 && this.mouseClickX >= x - 75 && this.mouseClickX <= x + 75 && this.mouseClickY >= y - 20 && this.mouseClickY <= y + 20) {
                 this.titleScreenState = 0;
             }
         }
     }
 
-    private async tryLogin(username: string, password: string, reconnect: boolean): Promise<void> {
+    private async login(username: string, password: string, reconnect: boolean): Promise<void> {
         try {
             if (!reconnect) {
                 this.loginMessage0 = '';
                 this.loginMessage1 = 'Connecting to server...';
-                await this.drawTitleScreen();
+                await this.drawTitle();
             }
 
-            this.netStream = new ClientStream(await ClientStream.openSocket(window.location.host, window.location.protocol === 'https:'));
-            await this.netStream.readBytes(this.in.data, 0, 8);
+            this.stream = new ClientStream(await ClientStream.openSocket(window.location.host, window.location.protocol === 'https:'));
+
+            await this.stream.readBytes(this.in.data, 0, 8);
             this.in.pos = 0;
+
             this.serverSeed = this.in.g8();
             const seed: Int32Array = new Int32Array([Math.floor(Math.random() * 99999999), Math.floor(Math.random() * 99999999), Number(this.serverSeed >> 32n), Number(this.serverSeed & BigInt(0xffffffff))]);
+
             this.out.pos = 0;
             this.out.p1(10);
             this.out.p4(seed[0]);
             this.out.p4(seed[1]);
             this.out.p4(seed[2]);
             this.out.p4(seed[3]);
-            this.out.p4(1337);
+            this.out.p4(1337); // uid
             this.out.pjstr(username);
             this.out.pjstr(password);
             this.out.rsaenc(BigInt(process.env.LOGIN_RSAN!), BigInt(process.env.LOGIN_RSAE!));
+
             this.loginout.pos = 0;
             if (reconnect) {
                 this.loginout.p1(18);
             } else {
                 this.loginout.p1(16);
             }
+
             this.loginout.p1(this.out.pos + 36 + 1 + 1);
-            this.loginout.p1(225);
+            this.loginout.p1(Constants.CLIENT_VERSION);
             this.loginout.p1(Client.lowMemory ? 1 : 0);
+
             for (let i: number = 0; i < 9; i++) {
-                this.loginout.p4(this.archiveChecksums[i]);
+                this.loginout.p4(this.jagChecksum[i]);
             }
+
             this.loginout.pdata(this.out.data, this.out.pos, 0);
             this.out.random = new Isaac(seed);
             for (let i: number = 0; i < 4; i++) {
                 seed[i] += 50;
             }
             this.randomIn = new Isaac(seed);
-            this.netStream?.write(this.loginout.data, this.loginout.pos);
-            const reply: number = await this.netStream.read();
+            this.stream?.write(this.loginout.data, this.loginout.pos);
 
+            const reply: number = await this.stream.read();
             if (reply === 1) {
                 await sleep(2000);
-                await this.tryLogin(username, password, reconnect);
-                return;
-            }
-            if (reply === 2 || reply === 18) {
-                this.rights = reply === 18;
-                InputTracking.setDisabled();
+                await this.login(username, password, reconnect);
+            } else if (reply === 2 || reply === 18) {
+                this.staffmodlevel = reply === 18;
 
+                InputTracking.setDisabled();
                 this.ingame = true;
                 this.out.pos = 0;
                 this.in.pos = 0;
-                this.inPacketType = -1;
-                this.lastPacketType0 = -1;
-                this.lastPacketType1 = -1;
-                this.lastPacketType2 = -1;
-                this.inPacketSize = 0;
+                this.ptype = -1;
+                this.ptype0 = -1;
+                this.ptype1 = -1;
+                this.ptype2 = -1;
+                this.psize = 0;
                 this.idleNetCycles = 0;
                 this.systemUpdateTimer = 0;
                 this.idleTimeout = 0;
@@ -1257,11 +1266,11 @@ export class Client extends GameShell {
                 this.sceneState = 0;
                 this.waveCount = 0;
 
-                this.cameraAnticheatOffsetX = ((Math.random() * 100.0) | 0) - 50;
-                this.cameraAnticheatOffsetZ = ((Math.random() * 110.0) | 0) - 55;
-                this.cameraAnticheatAngle = ((Math.random() * 80.0) | 0) - 40;
-                this.minimapAnticheatAngle = ((Math.random() * 120.0) | 0) - 60;
-                this.minimapZoom = ((Math.random() * 30.0) | 0) - 20;
+                this.macroCameraX = ((Math.random() * 100.0) | 0) - 50;
+                this.macroCameraZ = ((Math.random() * 110.0) | 0) - 55;
+                this.macroCameraAngle = ((Math.random() * 80.0) | 0) - 40;
+                this.macroMinimapAngle = ((Math.random() * 120.0) | 0) - 60;
+                this.macroMinimapZoom = ((Math.random() * 30.0) | 0) - 20;
                 this.orbitCameraYaw = (((Math.random() * 20.0) | 0) - 10) & 0x7ff;
 
                 this.minimapLevel = -1;
@@ -1280,7 +1289,7 @@ export class Client extends GameShell {
                     this.npcs[i] = null;
                 }
 
-                this.localPlayer = this.players[Constants.LOCAL_PLAYER_INDEX] = new PlayerEntity();
+                this.localPlayer = this.players[Constants.LOCAL_PLAYER_INDEX] = new ClientPlayer();
 
                 this.projectiles.clear();
                 this.spotanims.clear();
@@ -1293,7 +1302,7 @@ export class Client extends GameShell {
                     }
                 }
 
-                this.addedLocs = new LinkList();
+                this.locChanges = new LinkList();
                 this.friendCount = 0;
                 this.stickyChatInterfaceId = -1;
                 this.chatInterfaceId = -1;
@@ -1307,11 +1316,11 @@ export class Client extends GameShell {
                 this.modalMessage = null;
                 this.inMultizone = 0;
                 this.flashingTab = -1;
-                this.designGenderMale = true;
 
+                this.designGender = true;
                 this.validateCharacterDesign();
                 for (let i: number = 0; i < 5; i++) {
-                    this.designColors[i] = 0;
+                    this.designColours[i] = 0;
                 }
 
                 Client.oplogic1 = 0;
@@ -1324,90 +1333,60 @@ export class Client extends GameShell {
                 Client.oplogic8 = 0;
                 Client.oplogic9 = 0;
 
-                this.prepareGameScreen();
-                return;
-            }
-            if (reply === 3) {
+                this.prepareGame();
+            } else if (reply === 3) {
                 this.loginMessage0 = '';
                 this.loginMessage1 = 'Invalid username or password.';
-                return;
-            }
-            if (reply === 4) {
+            } else if (reply === 4) {
                 this.loginMessage0 = 'Your account has been disabled.';
                 this.loginMessage1 = 'Please check your message-centre for details.';
-                return;
-            }
-            if (reply === 5) {
+            } else if (reply === 5) {
                 this.loginMessage0 = 'Your account is already logged in.';
                 this.loginMessage1 = 'Try again in 60 secs...';
-                return;
-            }
-            if (reply === 6) {
+            } else if (reply === 6) {
                 this.loginMessage0 = 'RuneScape has been updated!';
                 this.loginMessage1 = 'Please reload this page.';
-                return;
-            }
-            if (reply === 7) {
+            } else if (reply === 7) {
                 this.loginMessage0 = 'This world is full.';
                 this.loginMessage1 = 'Please use a different world.';
-                return;
-            }
-            if (reply === 8) {
+            } else if (reply === 8) {
                 this.loginMessage0 = 'Unable to connect.';
                 this.loginMessage1 = 'Login server offline.';
-                return;
-            }
-            if (reply === 9) {
+            } else if (reply === 9) {
                 this.loginMessage0 = 'Login limit exceeded.';
                 this.loginMessage1 = 'Too many connections from your address.';
-                return;
-            }
-            if (reply === 10) {
+            } else if (reply === 10) {
                 this.loginMessage0 = 'Unable to connect.';
                 this.loginMessage1 = 'Bad session id.';
-                return;
-            }
-            if (reply === 11) {
-                this.loginMessage1 = 'Login server rejected session.';
+            } else if (reply === 11) {
+                this.loginMessage1 = 'Login server rejected session.'; // intentionally loginMessage1
                 this.loginMessage1 = 'Please try again.';
-                return;
-            }
-            if (reply === 12) {
+            } else if (reply === 12) {
                 this.loginMessage0 = 'You need a members account to login to this world.';
                 this.loginMessage1 = 'Please subscribe, or use a different world.';
-                return;
-            }
-            if (reply === 13) {
+            } else if (reply === 13) {
                 this.loginMessage0 = 'Could not complete login.';
                 this.loginMessage1 = 'Please try using a different world.';
-                return;
-            }
-            if (reply === 14) {
+            } else if (reply === 14) {
                 this.loginMessage0 = 'The server is being updated.';
                 this.loginMessage1 = 'Please wait 1 minute and try again.';
-                return;
-            }
-            if (reply === 15) {
+            } else if (reply === 15) {
                 this.ingame = true;
                 this.out.pos = 0;
                 this.in.pos = 0;
-                this.inPacketType = -1;
-                this.lastPacketType0 = -1;
-                this.lastPacketType1 = -1;
-                this.lastPacketType2 = -1;
-                this.inPacketSize = 0;
+                this.ptype = -1;
+                this.ptype0 = -1;
+                this.ptype1 = -1;
+                this.ptype2 = -1;
+                this.psize = 0;
                 this.idleNetCycles = 0;
                 this.systemUpdateTimer = 0;
                 this.menuSize = 0;
                 this.menuVisible = false;
-                return;
-            }
-            if (reply === 16) {
+            } else if (reply === 16) {
                 this.loginMessage0 = 'Login attempts exceeded.';
                 this.loginMessage1 = 'Please wait 1 minute and try again.';
-                return;
-            }
-            if (reply === 17) {
+            } else if (reply === 17) {
                 this.loginMessage0 = 'You are standing in a members-only area.';
                 this.loginMessage1 = 'To play on this world move to a free area first';
             }
@@ -1420,18 +1399,18 @@ export class Client extends GameShell {
     }
 
     private async logout(): Promise<void> {
-        if (this.netStream) {
-            this.netStream.close();
+        if (this.stream) {
+            this.stream.close();
         }
 
-        this.netStream = null;
+        this.stream = null;
         this.ingame = false;
         this.titleScreenState = 0;
-        this.usernameInput = '';
-        this.passwordInput = '';
+        this.username = '';
+        this.password = '';
 
         InputTracking.setDisabled();
-        this.clearCaches();
+        this.clearCache();
         this.scene?.reset();
 
         for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
@@ -1443,41 +1422,50 @@ export class Client extends GameShell {
         this.nextMusicDelay = 0;
     }
 
-    private clearCaches(): void {
+    private clearCache(): void {
         LocType.modelCacheStatic?.clear();
         LocType.modelCacheDynamic?.clear();
         NpcType.modelCache?.clear();
         ObjType.modelCache?.clear();
         ObjType.iconCache?.clear();
-        PlayerEntity.modelCache?.clear();
+        ClientPlayer.modelCache?.clear();
         SpotAnimType.modelCache?.clear();
     }
 
-    private prepareGameScreen(): void {
-        if (!this.areaChatback) {
-            this.unloadTitle();
-            this.drawArea = null;
-            this.imageTitle2 = null;
-            this.imageTitle3 = null;
-            this.imageTitle4 = null;
-            this.imageTitle0 = null;
-            this.imageTitle1 = null;
-            this.imageTitle5 = null;
-            this.imageTitle6 = null;
-            this.imageTitle7 = null;
-            this.imageTitle8 = null;
-            this.areaChatback = new PixMap(479, 96);
-            this.areaMapback = new PixMap(168, 160);
-            Pix2D.clear();
-            this.imageMapback?.draw(0, 0);
-            this.areaSidebar = new PixMap(190, 261);
-            this.areaViewport = new PixMap(512, 334);
-            Pix2D.clear();
-            this.areaBackbase1 = new PixMap(501, 61);
-            this.areaBackbase2 = new PixMap(288, 40);
-            this.areaBackhmid1 = new PixMap(269, 66);
-            this.redrawTitleBackground = true;
+    private prepareGame(): void {
+        if (this.areaChatback) {
+            return;
         }
+
+        this.unloadTitle();
+ 
+        this.drawArea = null;
+        this.imageTitle2 = null;
+        this.imageTitle3 = null;
+        this.imageTitle4 = null;
+        this.imageTitle0 = null;
+        this.imageTitle1 = null;
+        this.imageTitle5 = null;
+        this.imageTitle6 = null;
+        this.imageTitle7 = null;
+        this.imageTitle8 = null;
+ 
+        this.areaChatback = new PixMap(479, 96);
+ 
+        this.areaMapback = new PixMap(168, 160);
+        Pix2D.clear();
+        this.imageMapback?.draw(0, 0);
+ 
+        this.areaSidebar = new PixMap(190, 261);
+ 
+        this.areaViewport = new PixMap(512, 334);
+        Pix2D.clear();
+ 
+        this.areaBackbase1 = new PixMap(501, 61);
+        this.areaBackbase2 = new PixMap(288, 40);
+        this.areaBackhmid1 = new PixMap(269, 66);
+ 
+        this.redrawFrame = true;
     }
 
     private async updateGame(): Promise<void> {
@@ -1494,58 +1482,12 @@ export class Client extends GameShell {
             this.idleTimeout--;
         }
 
-        for (let i: number = 0; i < 5 && (await this.read()); i++) {
+        for (let i: number = 0; i < 5 && (await this.readPacket()); i++) {
             /* empty */
         }
 
         if (this.ingame) {
-            for (let wave: number = 0; wave < this.waveCount; wave++) {
-                if (this.waveDelay[wave] <= 0) {
-                    try {
-                        // if (this.waveIds[wave] !== this.lastWaveId || this.waveLoops[wave] !== this.lastWaveLoops) {
-                        // todo: reuse buffer?
-                        const buf: Packet | null = Wave.generate(this.waveIds[wave], this.waveLoops[wave]);
-                        if (!buf) {
-                            throw new Error();
-                        }
-
-                        if (performance.now() + ((buf.pos / 22) | 0) > this.lastWaveStartTime + ((this.lastWaveLength / 22) | 0)) {
-                            this.lastWaveLength = buf.pos;
-                            this.lastWaveStartTime = performance.now();
-                            this.lastWaveId = this.waveIds[wave];
-                            this.lastWaveLoops = this.waveLoops[wave];
-                            await playWave(buf.data.slice(0, buf.pos));
-                        }
-                        // else if (!this.waveReplay()) { // this logic just re-plays the old buffer
-                    } catch (e) {
-                        console.error(e);
-                        /* empty */
-                    }
-
-                    // remove current wave
-                    this.waveCount--;
-                    for (let i: number = wave; i < this.waveCount; i++) {
-                        this.waveIds[i] = this.waveIds[i + 1];
-                        this.waveLoops[i] = this.waveLoops[i + 1];
-                        this.waveDelay[i] = this.waveDelay[i + 1];
-                    }
-                    wave--;
-                } else {
-                    this.waveDelay[wave]--;
-                }
-            }
-
-            if (this.nextMusicDelay > 0) {
-                this.nextMusicDelay -= 20;
-
-                if (this.nextMusicDelay < 0) {
-                    this.nextMusicDelay = 0;
-                }
-
-                if (this.nextMusicDelay === 0 && this.midiActive && !Client.lowMemory && this.currentMidi) {
-                    await this.setMidi(this.currentMidi, this.midiCrc, this.midiSize, false);
-                }
-            }
+            await this.updateAudio();
 
             const tracking: Packet | null = InputTracking.flush();
             if (tracking) {
@@ -1556,11 +1498,11 @@ export class Client extends GameShell {
             }
 
             this.updateSceneState();
-            this.updateAddedLocs();
+            this.updateLocChanges();
 
             this.idleNetCycles++;
             if (this.idleNetCycles > 250) {
-                // originally 15s (750) but due to a socket issue, lowered to 5s as a temp patch
+                // custom: originally 15s (750) but due to a cloudflare issue, lowered to 5s as a patch
                 await this.tryReconnect();
             }
 
@@ -1573,13 +1515,15 @@ export class Client extends GameShell {
                 this.out.p1isaac(ClientProt.EVENT_CAMERA_POSITION);
                 this.out.p2(this.orbitCameraPitch);
                 this.out.p2(this.orbitCameraYaw);
-                this.out.p1(this.minimapAnticheatAngle);
-                this.out.p1(this.minimapZoom);
+                this.out.p1(this.macroMinimapAngle);
+                this.out.p1(this.macroMinimapZoom);
             }
 
             this.sceneDelta++;
+
             if (this.crossMode !== 0) {
                 this.crossCycle += 20;
+
                 if (this.crossCycle >= 400) {
                     this.crossMode = 0;
                 }
@@ -1587,19 +1531,21 @@ export class Client extends GameShell {
 
             if (this.selectedArea !== 0) {
                 this.selectedCycle++;
+
                 if (this.selectedCycle >= 15) {
                     if (this.selectedArea === 2) {
                         this.redrawSidebar = true;
-                    }
-                    if (this.selectedArea === 3) {
+                    } else if (this.selectedArea === 3) {
                         this.redrawChatback = true;
                     }
+
                     this.selectedArea = 0;
                 }
             }
 
             if (this.objDragArea !== 0) {
                 this.objDragCycles++;
+
                 if (this.mouseX > this.objGrabX + 5 || this.mouseX < this.objGrabX - 5 || this.mouseY > this.objGrabY + 5 || this.mouseY < this.objGrabY - 5) {
                     this.objGrabThreshold = true;
                 }
@@ -1607,17 +1553,19 @@ export class Client extends GameShell {
                 if (this.mouseButton === 0) {
                     if (this.objDragArea === 2) {
                         this.redrawSidebar = true;
-                    }
-                    if (this.objDragArea === 3) {
+                    } else if (this.objDragArea === 3) {
                         this.redrawChatback = true;
                     }
 
                     this.objDragArea = 0;
+
                     if (this.objGrabThreshold && this.objDragCycles >= 5) {
                         this.hoveredSlotParentId = -1;
                         this.handleInput();
+
                         if (this.hoveredSlotParentId === this.objDragInterfaceId && this.hoveredSlot !== this.objDragSlot) {
-                            const com: Component = Component.instances[this.objDragInterfaceId];
+                            const com: Component = Component.types[this.objDragInterfaceId];
+
                             if (com.invSlotObjId) {
                                 const obj: number = com.invSlotObjId[this.hoveredSlot];
                                 com.invSlotObjId[this.hoveredSlot] = com.invSlotObjId[this.objDragSlot];
@@ -1635,7 +1583,7 @@ export class Client extends GameShell {
                             this.out.p2(this.objDragSlot);
                             this.out.p2(this.hoveredSlot);
                         }
-                    } else if ((this.mouseButtonsOption === 1 || this.isAddFriendOption(this.menuSize - 1)) && this.menuSize > 2) {
+                    } else if ((this.oneMouseButton === 1 || this.isAddFriendOption(this.menuSize - 1)) && this.menuSize > 2) {
                         this.showContextMenu();
                     } else if (this.menuSize > 0) {
                         await this.useMenuOption(this.menuSize - 1);
@@ -1657,7 +1605,7 @@ export class Client extends GameShell {
                 if (this.localPlayer) {
                     const x: number = World3D.clickTileX;
                     const z: number = World3D.clickTileZ;
-                    const success: boolean = this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], x, z, 0, 0, 0, 0, 0, 0, true);
+                    const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], x, z, 0, 0, 0, 0, 0, 0, true);
                     World3D.clickTileX = -1;
 
                     if (success) {
@@ -1675,10 +1623,10 @@ export class Client extends GameShell {
                 this.mouseClickButton = 0;
             }
 
-            await this.handleMouseInput(); // this is because of varps that set midi that we have to wait...
+            await this.handleMouseInput();
             this.handleMinimapInput();
             this.handleTabInput();
-            this.handleChatSettingsInput();
+            this.handleChatModeInput();
 
             if (this.mouseButton === 1 || this.mouseClickButton === 1) {
                 this.dragCycles++;
@@ -1697,6 +1645,7 @@ export class Client extends GameShell {
             }
 
             await this.handleInputKey();
+
             // idlecycles refactored to use date to circumvent browser throttling the
             // timers when a different tab is active, or the window has been minimized.
             // afk logout has to still happen after 90s of no activity (if allowed).
@@ -1706,74 +1655,67 @@ export class Client extends GameShell {
                 this.idleTimeout = 250;
                 // 500 ticks * 20ms = 10000ms
                 this.idleCycles = performance.now() - 10_000;
+
                 this.out.p1isaac(ClientProt.IDLE_TIMER);
             }
-            // === original code ===
-            // this.idleCycles++;
-            // if (this.idleCycles > 4500) {
-            //     this.idleTimeout = 250;
-            //     this.idleCycles -= 500;
-            //     this.out.p1isaac(ClientProt.IDLE_TIMER);
-            // }
 
-            this.cameraOffsetCycle++;
-            if (this.cameraOffsetCycle > 500) {
-                this.cameraOffsetCycle = 0;
+            this.macroCameraCycle++;
+            if (this.macroCameraCycle > 500) {
+                this.macroCameraCycle = 0;
+
                 const rand: number = (Math.random() * 8.0) | 0;
                 if ((rand & 0x1) === 1) {
-                    this.cameraAnticheatOffsetX += this.cameraOffsetXModifier;
+                    this.macroCameraX += this.macroCameraXModifier;
                 }
                 if ((rand & 0x2) === 2) {
-                    this.cameraAnticheatOffsetZ += this.cameraOffsetZModifier;
+                    this.macroCameraZ += this.macroCameraZModifier;
                 }
                 if ((rand & 0x4) === 4) {
-                    this.cameraAnticheatAngle += this.cameraOffsetYawModifier;
+                    this.macroCameraAngle += this.macroCameraAngleModifier;
                 }
             }
 
-            if (this.cameraAnticheatOffsetX < -50) {
-                this.cameraOffsetXModifier = 2;
-            }
-            if (this.cameraAnticheatOffsetX > 50) {
-                this.cameraOffsetXModifier = -2;
-            }
-            if (this.cameraAnticheatOffsetZ < -55) {
-                this.cameraOffsetZModifier = 2;
-            }
-            if (this.cameraAnticheatOffsetZ > 55) {
-                this.cameraOffsetZModifier = -2;
-            }
-            if (this.cameraAnticheatAngle < -40) {
-                this.cameraOffsetYawModifier = 1;
-            }
-            if (this.cameraAnticheatAngle > 40) {
-                this.cameraOffsetYawModifier = -1;
+            if (this.macroCameraX < -50) {
+                this.macroCameraXModifier = 2;
+            } else if (this.macroCameraX > 50) {
+                this.macroCameraXModifier = -2;
             }
 
-            this.minimapOffsetCycle++;
-            if (this.minimapOffsetCycle > 500) {
-                this.minimapOffsetCycle = 0;
+            if (this.macroCameraZ < -55) {
+                this.macroCameraZModifier = 2;
+            } else if (this.macroCameraZ > 55) {
+                this.macroCameraZModifier = -2;
+            }
+
+            if (this.macroCameraAngle < -40) {
+                this.macroCameraAngleModifier = 1;
+            } else if (this.macroCameraAngle > 40) {
+                this.macroCameraAngleModifier = -1;
+            }
+
+            this.macroMinimapCycle++;
+            if (this.macroMinimapCycle > 500) {
+                this.macroMinimapCycle = 0;
+
                 const rand: number = (Math.random() * 8.0) | 0;
                 if ((rand & 0x1) === 1) {
-                    this.minimapAnticheatAngle += this.minimapAngleModifier;
+                    this.macroMinimapAngle += this.macroMinimapAngleModifier;
                 }
                 if ((rand & 0x2) === 2) {
-                    this.minimapZoom += this.minimapZoomModifier;
+                    this.macroMinimapZoom += this.macroMinimapZoomModifier;
                 }
             }
 
-            if (this.minimapAnticheatAngle < -60) {
-                this.minimapAngleModifier = 2;
-            }
-            if (this.minimapAnticheatAngle > 60) {
-                this.minimapAngleModifier = -2;
+            if (this.macroMinimapAngle < -60) {
+                this.macroMinimapAngleModifier = 2;
+            } else if (this.macroMinimapAngle > 60) {
+                this.macroMinimapAngleModifier = -2;
             }
 
-            if (this.minimapZoom < -20) {
-                this.minimapZoomModifier = 1;
-            }
-            if (this.minimapZoom > 10) {
-                this.minimapZoomModifier = -1;
+            if (this.macroMinimapZoom < -20) {
+                this.macroMinimapZoomModifier = 1;
+            } else if (this.macroMinimapZoom > 10) {
+                this.macroMinimapZoomModifier = -1;
             }
 
             Client.cyclelogic4++;
@@ -1783,20 +1725,21 @@ export class Client extends GameShell {
                 this.out.p4(0);
             }
 
-            this.heartbeatTimer++;
-            if (this.heartbeatTimer > 50) {
+            this.noTimeoutCycle++;
+            if (this.noTimeoutCycle > 50) {
                 this.out.p1isaac(ClientProt.NO_TIMEOUT);
             }
 
             try {
-                if (this.netStream && this.out.pos > 0) {
-                    this.netStream.write(this.out.data, this.out.pos);
+                if (this.stream && this.out.pos > 0) {
+                    this.stream.write(this.out.data, this.out.pos);
                     this.out.pos = 0;
-                    this.heartbeatTimer = 0;
+                    this.noTimeoutCycle = 0;
                 }
             } catch (e) {
                 console.error(e);
 
+                // todo: reconnect on IO error, logout on other error
                 await this.tryReconnect();
             }
         }
@@ -1805,22 +1748,24 @@ export class Client extends GameShell {
     private async tryReconnect() {
         if (this.idleTimeout > 0) {
             await this.logout();
-        } else {
-            this.areaViewport?.bind();
-            this.fontPlain12?.drawStringCenter(257, 144, 'Connection lost', Colors.BLACK);
-            this.fontPlain12?.drawStringCenter(256, 143, 'Connection lost', Colors.WHITE);
-            this.fontPlain12?.drawStringCenter(257, 159, 'Please wait - attempting to reestablish', Colors.BLACK);
-            this.fontPlain12?.drawStringCenter(256, 158, 'Please wait - attempting to reestablish', Colors.WHITE);
-            this.areaViewport?.draw(8, 11);
-            this.flagSceneTileX = 0;
-            this.netStream?.close();
-            this.ingame = false;
+            return;
+        }
 
-            await this.tryLogin(this.usernameInput, this.passwordInput, true);
+        this.areaViewport?.bind();
+        this.fontPlain12?.drawStringCenter(257, 144, 'Connection lost', Colors.BLACK);
+        this.fontPlain12?.drawStringCenter(256, 143, 'Connection lost', Colors.WHITE);
+        this.fontPlain12?.drawStringCenter(257, 159, 'Please wait - attempting to reestablish', Colors.BLACK);
+        this.fontPlain12?.drawStringCenter(256, 158, 'Please wait - attempting to reestablish', Colors.WHITE);
+        this.areaViewport?.draw(8, 11);
 
-            if (!this.ingame) {
-                await this.logout();
-            }
+        this.flagSceneTileX = 0;
+
+        this.stream?.close();
+
+        this.ingame = false;
+        await this.login(this.username, this.password, true);
+        if (!this.ingame) {
+            await this.logout();
         }
     }
 
@@ -1858,7 +1803,7 @@ export class Client extends GameShell {
             }
         }
 
-        if (this.sceneAwaitingSync) {
+        if (this.awaitingSync) {
             return -3;
         }
 
@@ -1875,7 +1820,7 @@ export class Client extends GameShell {
             this.spotanims.clear();
             this.projectiles.clear();
             Pix3D.clearTexels();
-            this.clearCaches();
+            this.clearCache();
             this.scene?.reset();
 
             for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
@@ -1883,17 +1828,17 @@ export class Client extends GameShell {
             }
 
             const world: World = new World(CollisionConstants.SIZE, CollisionConstants.SIZE, this.levelHeightmap!, this.levelTileFlags!);
-            World.lowMemory = Client.lowMemory;
+            World.lowMemory = World3D.lowMemory;
 
             const maps: number = this.sceneMapLandData?.length ?? 0;
 
             if (this.sceneMapIndex) {
                 for (let index: number = 0; index < maps; index++) {
-                    const mapsquareX: number = this.sceneMapIndex[index] >> 8;
-                    const mapsquareZ: number = this.sceneMapIndex[index] & 0xff;
+                    const x: number = this.sceneMapIndex[index] >> 8;
+                    const z: number = this.sceneMapIndex[index] & 0xff;
 
                     // underground pass check
-                    if (mapsquareX === 33 && mapsquareZ >= 71 && mapsquareZ <= 73) {
+                    if (x === 33 && z >= 71 && z <= 73) {
                         World.lowMemory = false;
                         break;
                     }
@@ -1916,7 +1861,7 @@ export class Client extends GameShell {
 
                     if (src) {
                         const data = BZip2.decompress(src, -1, false, true);
-                        world.readLandscape((this.sceneCenterZoneX - 6) * 8, (this.sceneCenterZoneZ - 6) * 8, x, z, data);
+                        world.loadGround((this.sceneCenterZoneX - 6) * 8, (this.sceneCenterZoneZ - 6) * 8, x, z, data);
                     } else if (this.sceneCenterZoneZ < 800) {
                         world.clearLandscape(z, x, 64, 64);
                     }
@@ -1933,17 +1878,19 @@ export class Client extends GameShell {
 
                     if (src) {
                         const data = BZip2.decompress(src, -1, false, true);
-                        world.readLocs(this.scene, this.locList, this.levelCollisionMap, data, x, z);
+                        world.loadLocations(this.scene, this.locList, this.levelCollisionMap, data, x, z);
                     }
                 }
             }
 
             this.out.p1isaac(ClientProt.NO_TIMEOUT);
+
             world.build(this.scene, this.levelCollisionMap);
             this.areaViewport?.bind();
 
             this.out.p1isaac(ClientProt.NO_TIMEOUT);
-            for (let loc: LocEntity | null = this.locList.head() as LocEntity | null; loc; loc = this.locList.next() as LocEntity | null) {
+
+            for (let loc: ClientLocAnim | null = this.locList.head() as ClientLocAnim | null; loc; loc = this.locList.next() as ClientLocAnim | null) {
                 if ((this.levelTileFlags && this.levelTileFlags[1][loc.heightmapNE][loc.heightmapNW] & 0x2) === 2) {
                     loc.heightmapSW--;
 
@@ -1959,7 +1906,7 @@ export class Client extends GameShell {
                 }
             }
 
-            this.clearAddedLocs();
+            this.clearLocChanges();
         } catch (err) {
             console.error(err);
         }
@@ -1968,10 +1915,10 @@ export class Client extends GameShell {
         Pix3D.initPool(20);
     }
 
-    private clearAddedLocs(): void {
-        for (let loc: LocAdd | null = this.addedLocs.head() as LocAdd | null; loc; loc = this.addedLocs.next() as LocAdd | null) {
-            if (loc.duration === -1) {
-                loc.delay = 0;
+    private clearLocChanges(): void {
+        for (let loc: LocChange | null = this.locChanges.head() as LocChange | null; loc; loc = this.locChanges.next() as LocChange | null) {
+            if (loc.endTime === -1) {
+                loc.startTime = 0;
                 this.storeLoc(loc);
             } else {
                 loc.unlink();
@@ -2024,6 +1971,7 @@ export class Client extends GameShell {
         }
 
         this.areaViewport?.bind();
+
         this.activeMapFunctionCount = 0;
 
         for (let x: number = 0; x < CollisionConstants.SIZE; x++) {
@@ -2033,9 +1981,8 @@ export class Client extends GameShell {
                     continue;
                 }
 
-                typecode = (typecode >> 14) & 0x7fff;
-
-                const func: number = LocType.get(typecode).mapfunction;
+                const locId = (typecode >> 14) & 0x7fff;
+                const func: number = LocType.get(locId).mapfunction;
                 if (func < 0) {
                     continue;
                 }
@@ -2047,6 +1994,7 @@ export class Client extends GameShell {
                     const maxX: number = CollisionConstants.SIZE;
                     const maxZ: number = CollisionConstants.SIZE;
                     const collisionmap: CollisionMap | null = this.levelCollisionMap[this.currentLevel];
+
                     if (collisionmap) {
                         const flags: Int32Array = collisionmap.flags;
 
@@ -2079,33 +2027,33 @@ export class Client extends GameShell {
         }
     }
 
-    private updateAddedLocs(): void {
+    private updateLocChanges(): void {
         if (this.sceneState !== 2) {
             return;
         }
 
-        for (let loc: LocAdd | null = this.addedLocs.head() as LocAdd | null; loc; loc = this.addedLocs.next() as LocAdd | null) {
-            if (loc.duration > 0) {
-                loc.duration--;
+        for (let loc: LocChange | null = this.locChanges.head() as LocChange | null; loc; loc = this.locChanges.next() as LocChange | null) {
+            if (loc.endTime > 0) {
+                loc.endTime--;
             }
 
-            if (loc.duration != 0) {
-                if (loc.delay > 0) {
-                    loc.delay--;
+            if (loc.endTime != 0) {
+                if (loc.startTime > 0) {
+                    loc.startTime--;
                 }
 
-                if (loc.delay === 0 && loc.x >= 1 && loc.z >= 1 && loc.x <= 102 && loc.z <= 102) {
-                    this.addLoc(loc.plane, loc.x, loc.z, loc.locIndex, loc.locAngle, loc.shape, loc.layer);
-                    loc.delay = -1;
+                if (loc.startTime === 0 && loc.x >= 1 && loc.z >= 1 && loc.x <= 102 && loc.z <= 102) {
+                    this.addLoc(loc.level, loc.x, loc.z, loc.newType, loc.newAngle, loc.newShape, loc.layer);
+                    loc.startTime = -1;
 
-                    if (loc.lastLocIndex === loc.locIndex && loc.lastLocIndex === -1) {
+                    if (loc.oldType === loc.newType && loc.oldType === -1) {
                         loc.unlink();
-                    } else if (loc.lastLocIndex === loc.locIndex && loc.lastAngle === loc.locAngle && loc.lastShape === loc.shape) {
+                    } else if (loc.oldType === loc.newType && loc.oldAngle === loc.newAngle && loc.oldShape === loc.newShape) {
                         loc.unlink();
                     }
                 }
             } else {
-                this.addLoc(loc.plane, loc.x, loc.z, loc.lastLocIndex, loc.lastAngle, loc.lastShape, loc.layer);
+                this.addLoc(loc.level, loc.x, loc.z, loc.oldType, loc.oldAngle, loc.oldShape, loc.layer);
                 loc.unlink();
             }
         }
@@ -2117,130 +2065,179 @@ export class Client extends GameShell {
         }
     }
 
-    private handleInput(): void {
-        if (this.objDragArea === 0) {
-            this.menuOption[0] = 'Cancel';
-            this.menuAction[0] = 1252;
-            this.menuSize = 1;
-            this.handlePrivateChatInput(this.mouseY);
-            this.lastHoveredInterfaceId = 0;
-
-            // the main viewport area
-            if (this.mouseX > 8 && this.mouseY > 11 && this.mouseX < 520 && this.mouseY < 345) {
-                if (this.viewportInterfaceId === -1) {
-                    this.handleViewportOptions();
-                } else {
-                    this.handleInterfaceInput(Component.instances[this.viewportInterfaceId], this.mouseX, this.mouseY, 8, 11, 0);
-                }
-            }
-
-            if (this.lastHoveredInterfaceId !== this.viewportHoveredInterfaceIndex) {
-                this.viewportHoveredInterfaceIndex = this.lastHoveredInterfaceId;
-            }
-
-            this.lastHoveredInterfaceId = 0;
-
-            // the sidebar/tabs area
-            if (this.mouseX > 562 && this.mouseY > 231 && this.mouseX < 752 && this.mouseY < 492) {
-                if (this.sidebarInterfaceId !== -1) {
-                    this.handleInterfaceInput(Component.instances[this.sidebarInterfaceId], this.mouseX, this.mouseY, 562, 231, 0);
-                } else if (this.tabInterfaceId[this.selectedTab] !== -1) {
-                    this.handleInterfaceInput(Component.instances[this.tabInterfaceId[this.selectedTab]], this.mouseX, this.mouseY, 562, 231, 0);
-                }
-            }
-
-            if (this.lastHoveredInterfaceId !== this.sidebarHoveredInterfaceIndex) {
-                this.redrawSidebar = true;
-                this.sidebarHoveredInterfaceIndex = this.lastHoveredInterfaceId;
-            }
-
-            this.lastHoveredInterfaceId = 0;
-
-            // the chatbox area
-            if (this.mouseX > 22 && this.mouseY > 375 && this.mouseX < 431 && this.mouseY < 471) {
-                if (this.chatInterfaceId === -1) {
-                    this.handleChatMouseInput(this.mouseX - 22, this.mouseY - 375);
-                } else {
-                    this.handleInterfaceInput(Component.instances[this.chatInterfaceId], this.mouseX, this.mouseY, 22, 375, 0);
-                }
-            }
-
-            if (this.chatInterfaceId !== -1 && this.lastHoveredInterfaceId !== this.chatHoveredInterfaceIndex) {
-                this.redrawChatback = true;
-                this.chatHoveredInterfaceIndex = this.lastHoveredInterfaceId;
-            }
-
-            let done: boolean = false;
-            while (!done) {
-                done = true;
-
-                for (let i: number = 0; i < this.menuSize - 1; i++) {
-                    if (this.menuAction[i] < 1000 && this.menuAction[i + 1] > 1000) {
-                        const tmp0: string = this.menuOption[i];
-                        this.menuOption[i] = this.menuOption[i + 1];
-                        this.menuOption[i + 1] = tmp0;
-
-                        const tmp1: number = this.menuAction[i];
-                        this.menuAction[i] = this.menuAction[i + 1];
-                        this.menuAction[i + 1] = tmp1;
-
-                        const tmp2: number = this.menuParamB[i];
-                        this.menuParamB[i] = this.menuParamB[i + 1];
-                        this.menuParamB[i + 1] = tmp2;
-
-                        const tmp3: number = this.menuParamC[i];
-                        this.menuParamC[i] = this.menuParamC[i + 1];
-                        this.menuParamC[i + 1] = tmp3;
-
-                        const tmp4: number = this.menuParamA[i];
-                        this.menuParamA[i] = this.menuParamA[i + 1];
-                        this.menuParamA[i + 1] = tmp4;
-
-                        done = false;
+    async updateAudio() {
+        for (let wave: number = 0; wave < this.waveCount; wave++) {
+            if (this.waveDelay[wave] <= 0) {
+                try {
+                    const buf: Packet | null = Wave.generate(this.waveIds[wave], this.waveLoops[wave]);
+                    if (!buf) {
+                        throw new Error();
                     }
+
+                    if (performance.now() + ((buf.pos / 22) | 0) > this.lastWaveStartTime + ((this.lastWaveLength / 22) | 0)) {
+                        this.lastWaveLength = buf.pos;
+                        this.lastWaveStartTime = performance.now();
+                        this.lastWaveId = this.waveIds[wave];
+                        this.lastWaveLoops = this.waveLoops[wave];
+                        await playWave(buf.data.slice(0, buf.pos));
+                    }
+                } catch (e) {
+                }
+
+                this.waveCount--;
+                for (let i: number = wave; i < this.waveCount; i++) {
+                    this.waveIds[i] = this.waveIds[i + 1];
+                    this.waveLoops[i] = this.waveLoops[i + 1];
+                    this.waveDelay[i] = this.waveDelay[i + 1];
+                }
+                wave--;
+            } else {
+                this.waveDelay[wave]--;
+            }
+        }
+
+        if (this.nextMusicDelay > 0) {
+            this.nextMusicDelay -= 20;
+
+            if (this.nextMusicDelay < 0) {
+                this.nextMusicDelay = 0;
+            }
+
+            if (this.nextMusicDelay === 0 && this.midiActive && !Client.lowMemory && this.currentMidi) {
+                await this.saveMidi(this.currentMidi, this.midiCrc, this.midiSize, false);
+            }
+        }
+    }
+
+    private handleInput(): void {
+        if (this.objDragArea !== 0) {
+            return;
+        }
+
+        this.menuOption[0] = 'Cancel';
+        this.menuAction[0] = 1252;
+        this.menuSize = 1;
+
+        this.handlePrivateChatInput();
+        this.lastHoveredInterfaceId = 0;
+
+        // the main viewport area
+        if (this.mouseX > 8 && this.mouseY > 11 && this.mouseX < 520 && this.mouseY < 345) {
+            if (this.viewportInterfaceId === -1) {
+                this.handleViewportOptions();
+            } else {
+                this.handleInterfaceInput(Component.types[this.viewportInterfaceId], this.mouseX, this.mouseY, 8, 11, 0);
+            }
+        }
+
+        if (this.lastHoveredInterfaceId !== this.viewportHoveredInterfaceIndex) {
+            this.viewportHoveredInterfaceIndex = this.lastHoveredInterfaceId;
+        }
+
+        this.lastHoveredInterfaceId = 0;
+
+        // the sidebar/tabs area
+        if (this.mouseX > 562 && this.mouseY > 231 && this.mouseX < 752 && this.mouseY < 492) {
+            if (this.sidebarInterfaceId !== -1) {
+                this.handleInterfaceInput(Component.types[this.sidebarInterfaceId], this.mouseX, this.mouseY, 562, 231, 0);
+            } else if (this.tabInterfaceId[this.selectedTab] !== -1) {
+                this.handleInterfaceInput(Component.types[this.tabInterfaceId[this.selectedTab]], this.mouseX, this.mouseY, 562, 231, 0);
+            }
+        }
+
+        if (this.lastHoveredInterfaceId !== this.sidebarHoveredInterfaceIndex) {
+            this.redrawSidebar = true;
+            this.sidebarHoveredInterfaceIndex = this.lastHoveredInterfaceId;
+        }
+
+        this.lastHoveredInterfaceId = 0;
+
+        // the chatbox area
+        if (this.mouseX > 22 && this.mouseY > 375 && this.mouseX < 431 && this.mouseY < 471) {
+            if (this.chatInterfaceId !== -1) {
+                this.handleInterfaceInput(Component.types[this.chatInterfaceId], this.mouseX, this.mouseY, 22, 375, 0);
+            } else {
+                this.handleChatMouseInput(this.mouseX - 22, this.mouseY - 375);
+            }
+        }
+
+        if (this.chatInterfaceId !== -1 && this.lastHoveredInterfaceId !== this.chatHoveredInterfaceIndex) {
+            this.redrawChatback = true;
+            this.chatHoveredInterfaceIndex = this.lastHoveredInterfaceId;
+        }
+
+        let done: boolean = false;
+        while (!done) {
+            done = true;
+
+            for (let i: number = 0; i < this.menuSize - 1; i++) {
+                if (this.menuAction[i] < 1000 && this.menuAction[i + 1] > 1000) {
+                    const tmp0: string = this.menuOption[i];
+                    this.menuOption[i] = this.menuOption[i + 1];
+                    this.menuOption[i + 1] = tmp0;
+
+                    const tmp1: number = this.menuAction[i];
+                    this.menuAction[i] = this.menuAction[i + 1];
+                    this.menuAction[i + 1] = tmp1;
+
+                    const tmp2: number = this.menuParamB[i];
+                    this.menuParamB[i] = this.menuParamB[i + 1];
+                    this.menuParamB[i + 1] = tmp2;
+
+                    const tmp3: number = this.menuParamC[i];
+                    this.menuParamC[i] = this.menuParamC[i + 1];
+                    this.menuParamC[i + 1] = tmp3;
+
+                    const tmp4: number = this.menuParamA[i];
+                    this.menuParamA[i] = this.menuParamA[i + 1];
+                    this.menuParamA[i + 1] = tmp4;
+
+                    done = false;
                 }
             }
         }
     }
 
-    private handlePrivateChatInput(mouseY: number): void {
+    private handlePrivateChatInput(): void {
         if (this.splitPrivateChat === 0) {
             return;
         }
 
-        let lineOffset: number = 0;
+        let line: number = 0;
         if (this.systemUpdateTimer !== 0) {
-            lineOffset = 1;
+            line = 1;
         }
 
         for (let i: number = 0; i < 100; i++) {
             if (this.messageText[i] !== null) {
-                const type: number = this.messageTextType[i];
-                if ((type === 3 || type === 7) && (type === 7 || this.privateChatSetting === 0 || (this.privateChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
-                    const y: number = 329 - lineOffset * 13;
-                    if (this.mouseX > 8 && this.mouseX < 520 && mouseY - 11 > y - 10 && mouseY - 11 <= y + 3) {
-                        if (this.rights) {
-                            this.menuOption[this.menuSize] = 'Report abuse @whi@' + this.messageTextSender[i];
+                const type: number = this.messageType[i];
+
+                if ((type === 3 || type === 7) && (type === 7 || this.chatPrivateMode === 0 || (this.chatPrivateMode === 1 && this.isFriend(this.messageSender[i])))) {
+                    const y: number = 329 - line * 13;
+
+                    if (this.mouseX > 8 && this.mouseX < 520 && this.mouseY - 11 > y - 10 && this.mouseY - 11 <= y + 3) {
+                        if (this.staffmodlevel) {
+                            this.menuOption[this.menuSize] = 'Report abuse @whi@' + this.messageSender[i];
                             this.menuAction[this.menuSize] = 2034;
                             this.menuSize++;
                         }
-                        this.menuOption[this.menuSize] = 'Add ignore @whi@' + this.messageTextSender[i];
+
+                        this.menuOption[this.menuSize] = 'Add ignore @whi@' + this.messageSender[i];
                         this.menuAction[this.menuSize] = 2436;
                         this.menuSize++;
-                        this.menuOption[this.menuSize] = 'Add friend @whi@' + this.messageTextSender[i];
+
+                        this.menuOption[this.menuSize] = 'Add friend @whi@' + this.messageSender[i];
                         this.menuAction[this.menuSize] = 2406;
                         this.menuSize++;
                     }
 
-                    lineOffset++;
-                    if (lineOffset >= 5) {
+                    line++;
+                    if (line >= 5) {
                         return;
                     }
-                }
-
-                if ((type === 5 || type === 6) && this.privateChatSetting < 2) {
-                    lineOffset++;
-                    if (lineOffset >= 5) {
+                } else if ((type === 5 || type === 6) && this.chatPrivateMode < 2) {
+                    line++;
+                    if (line >= 5) {
                         return;
                     }
                 }
@@ -2255,7 +2252,7 @@ export class Client extends GameShell {
                 continue;
             }
 
-            const type: number = this.messageTextType[i];
+            const type: number = this.messageType[i];
             const y: number = this.chatScrollOffset + 70 + 4 - line * 14;
             if (y < -20) {
                 break;
@@ -2263,63 +2260,55 @@ export class Client extends GameShell {
 
             if (type === 0) {
                 line++;
-            }
-
-            if ((type === 1 || type === 2) && (type === 1 || this.publicChatSetting === 0 || (this.publicChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
-                if (mouseY > y - 14 && mouseY <= y && this.localPlayer && this.messageTextSender[i] !== this.localPlayer.name) {
-                    if (this.rights) {
-                        this.menuOption[this.menuSize] = 'Report abuse @whi@' + this.messageTextSender[i];
+            } else if ((type == 1 || type == 2) && (type == 1 || this.chatPublicMode == 0 || (this.chatPublicMode === 1 && this.isFriend(this.messageSender[i])))) {
+                if (mouseY > y - 14 && mouseY <= y && this.localPlayer && this.messageSender[i] !== this.localPlayer.name) {
+                    if (this.staffmodlevel) {
+                        this.menuOption[this.menuSize] = 'Report abuse @whi@' + this.messageSender[i];
                         this.menuAction[this.menuSize] = 34;
                         this.menuSize++;
                     }
 
-                    this.menuOption[this.menuSize] = 'Add ignore @whi@' + this.messageTextSender[i];
+                    this.menuOption[this.menuSize] = 'Add ignore @whi@' + this.messageSender[i];
                     this.menuAction[this.menuSize] = 436;
                     this.menuSize++;
-                    this.menuOption[this.menuSize] = 'Add friend @whi@' + this.messageTextSender[i];
+
+                    this.menuOption[this.menuSize] = 'Add friend @whi@' + this.messageSender[i];
                     this.menuAction[this.menuSize] = 406;
                     this.menuSize++;
                 }
 
                 line++;
-            }
-
-            if ((type === 3 || type === 7) && this.splitPrivateChat === 0 && (type === 7 || this.privateChatSetting === 0 || (this.privateChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
+            } else if ((type === 3 || type === 7) && this.splitPrivateChat === 0 && (type === 7 || this.chatPrivateMode === 0 || (this.chatPrivateMode === 1 && this.isFriend(this.messageSender[i])))) {
                 if (mouseY > y - 14 && mouseY <= y) {
-                    if (this.rights) {
-                        this.menuOption[this.menuSize] = 'Report abuse @whi@' + this.messageTextSender[i];
+                    if (this.staffmodlevel) {
+                        this.menuOption[this.menuSize] = 'Report abuse @whi@' + this.messageSender[i];
                         this.menuAction[this.menuSize] = 34;
                         this.menuSize++;
                     }
 
-                    this.menuOption[this.menuSize] = 'Add ignore @whi@' + this.messageTextSender[i];
+                    this.menuOption[this.menuSize] = 'Add ignore @whi@' + this.messageSender[i];
                     this.menuAction[this.menuSize] = 436;
                     this.menuSize++;
-                    this.menuOption[this.menuSize] = 'Add friend @whi@' + this.messageTextSender[i];
+
+                    this.menuOption[this.menuSize] = 'Add friend @whi@' + this.messageSender[i];
                     this.menuAction[this.menuSize] = 406;
                     this.menuSize++;
                 }
 
                 line++;
-            }
-
-            if (type === 4 && (this.tradeChatSetting === 0 || (this.tradeChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
+            } else if (type === 4 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.messageSender[i])))) {
                 if (mouseY > y - 14 && mouseY <= y) {
-                    this.menuOption[this.menuSize] = 'Accept trade @whi@' + this.messageTextSender[i];
+                    this.menuOption[this.menuSize] = 'Accept trade @whi@' + this.messageSender[i];
                     this.menuAction[this.menuSize] = 903;
                     this.menuSize++;
                 }
 
                 line++;
-            }
-
-            if ((type === 5 || type === 6) && this.splitPrivateChat === 0 && this.privateChatSetting < 2) {
+            } else if ((type === 5 || type === 6) && this.splitPrivateChat === 0 && this.chatPrivateMode < 2) {
                 line++;
-            }
-
-            if (type === 8 && (this.tradeChatSetting === 0 || (this.tradeChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
+            } else if (type === 8 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.messageSender[i])))) {
                 if (mouseY > y - 14 && mouseY <= y) {
-                    this.menuOption[this.menuSize] = 'Accept duel @whi@' + this.messageTextSender[i];
+                    this.menuOption[this.menuSize] = 'Accept duel @whi@' + this.messageSender[i];
                     this.menuAction[this.menuSize] = 363;
                     this.menuSize++;
                 }
@@ -2340,7 +2329,7 @@ export class Client extends GameShell {
 
         let lastTypecode: number = -1;
         for (let picked: number = 0; picked < Model.pickedCount; picked++) {
-            const typecode: number = Model.picked[picked];
+            const typecode: number = Model.pickedBitsets[picked];
             const x: number = typecode & 0x7f;
             const z: number = (typecode >> 7) & 0x7f;
             const entityType: number = (typecode >> 29) & 0x3;
@@ -2354,6 +2343,7 @@ export class Client extends GameShell {
 
             if (entityType === 2 && this.scene && this.scene.getInfo(this.currentLevel, x, z, typecode) >= 0) {
                 const loc: LocType = LocType.get(typeId);
+
                 if (this.objSelected === 1) {
                     this.menuOption[this.menuSize] = 'Use ' + this.objSelectedName + ' with @cya@' + loc.name;
                     this.menuAction[this.menuSize] = 450;
@@ -2363,26 +2353,19 @@ export class Client extends GameShell {
                     this.menuSize++;
                 } else if (this.spellSelected !== 1) {
                     if (loc.op) {
-                        for (let op: number = 4; op >= 0; op--) {
-                            if (loc.op[op]) {
-                                this.menuOption[this.menuSize] = loc.op[op] + ' @cya@' + loc.name;
-                                if (op === 0) {
+                        for (let i: number = 4; i >= 0; i--) {
+                            if (loc.op[i]) {
+                                this.menuOption[this.menuSize] = loc.op[i] + ' @cya@' + loc.name;
+
+                                if (i === 0) {
                                     this.menuAction[this.menuSize] = 285;
-                                }
-
-                                if (op === 1) {
+                                } else if (i === 1) {
                                     this.menuAction[this.menuSize] = 504;
-                                }
-
-                                if (op === 2) {
+                                } else if (i === 2) {
                                     this.menuAction[this.menuSize] = 364;
-                                }
-
-                                if (op === 3) {
+                                } else if (i === 3) {
                                     this.menuAction[this.menuSize] = 581;
-                                }
-
-                                if (op === 4) {
+                                } else if (i === 4) {
                                     this.menuAction[this.menuSize] = 1501;
                                 }
 
@@ -2394,11 +2377,7 @@ export class Client extends GameShell {
                         }
                     }
 
-                    if (process.env.DEV_CLIENT === 'true') {
-                        this.menuOption[this.menuSize] = 'Examine @cya@' + loc.name + ' @whi@(@gre@' + loc.id + '@whi@)';
-                    } else {
-                        this.menuOption[this.menuSize] = 'Examine @cya@' + loc.name;
-                    }
+                    this.menuOption[this.menuSize] = 'Examine @cya@' + loc.name;
                     this.menuAction[this.menuSize] = 1175;
                     this.menuParamA[this.menuSize] = typecode;
                     this.menuParamB[this.menuSize] = x;
@@ -2412,38 +2391,36 @@ export class Client extends GameShell {
                     this.menuParamC[this.menuSize] = z;
                     this.menuSize++;
                 }
-            }
+            } else if (entityType === 1) {
+                const npc: ClientNpc | null = this.npcs[typeId];
 
-            if (entityType === 1) {
-                const npc: NpcEntity | null = this.npcs[typeId];
-                if (npc && npc.npcType && npc.npcType.size === 1 && (npc.x & 0x7f) === 64 && (npc.z & 0x7f) === 64) {
+                if (npc && npc.type && npc.type.size === 1 && (npc.x & 0x7f) === 64 && (npc.z & 0x7f) === 64) {
                     for (let i: number = 0; i < this.npcCount; i++) {
-                        const other: NpcEntity | null = this.npcs[this.npcIds[i]];
+                        const other: ClientNpc | null = this.npcs[this.npcIds[i]];
 
-                        if (other && other !== npc && other.npcType && other.npcType.size === 1 && other.x === npc.x && other.z === npc.z) {
-                            this.addNpcOptions(other.npcType, this.npcIds[i], x, z);
+                        if (other && other !== npc && other.type && other.type.size === 1 && other.x === npc.x && other.z === npc.z) {
+                            this.addNpcOptions(other.type, this.npcIds[i], x, z);
                         }
                     }
                 }
 
-                if (npc && npc.npcType) {
-                    this.addNpcOptions(npc.npcType, typeId, x, z);
+                if (npc && npc.type) {
+                    this.addNpcOptions(npc.type, typeId, x, z);
                 }
-            }
+            } else if (entityType === 0) {
+                const player: ClientPlayer | null = this.players[typeId];
 
-            if (entityType === 0) {
-                const player: PlayerEntity | null = this.players[typeId];
                 if (player && (player.x & 0x7f) === 64 && (player.z & 0x7f) === 64) {
                     for (let i: number = 0; i < this.npcCount; i++) {
-                        const other: NpcEntity | null = this.npcs[this.npcIds[i]];
+                        const other: ClientNpc | null = this.npcs[this.npcIds[i]];
 
-                        if (other && other.npcType && other.npcType.size === 1 && other.x === player.x && other.z === player.z) {
-                            this.addNpcOptions(other.npcType, this.npcIds[i], x, z);
+                        if (other && other.type && other.type.size === 1 && other.x === player.x && other.z === player.z) {
+                            this.addNpcOptions(other.type, this.npcIds[i], x, z);
                         }
                     }
 
                     for (let i: number = 0; i < this.playerCount; i++) {
-                        const other: PlayerEntity | null = this.players[this.playerIds[i]];
+                        const other: ClientPlayer | null = this.players[this.playerIds[i]];
 
                         if (other && other !== player && other.x === player.x && other.z === player.z) {
                             this.addPlayerOptions(other, this.playerIds[i], x, z);
@@ -2454,15 +2431,13 @@ export class Client extends GameShell {
                 if (player) {
                     this.addPlayerOptions(player, typeId, x, z);
                 }
-            }
-
-            if (entityType === 3) {
+            } else if (entityType === 3) {
                 const objs: LinkList | null = this.objStacks[this.currentLevel][x][z];
                 if (!objs) {
                     continue;
                 }
 
-                for (let obj: ObjStackEntity | null = objs.tail() as ObjStackEntity | null; obj; obj = objs.prev() as ObjStackEntity | null) {
+                for (let obj: ClientObj | null = objs.tail() as ClientObj | null; obj; obj = objs.prev() as ClientObj | null) {
                     const type: ObjType = ObjType.get(obj.index);
                     if (this.objSelected === 1) {
                         this.menuOption[this.menuSize] = 'Use ' + this.objSelectedName + ' with @lre@' + type.name;
@@ -2475,23 +2450,16 @@ export class Client extends GameShell {
                         for (let op: number = 4; op >= 0; op--) {
                             if (type.op && type.op[op]) {
                                 this.menuOption[this.menuSize] = type.op[op] + ' @lre@' + type.name;
+
                                 if (op === 0) {
                                     this.menuAction[this.menuSize] = 224;
-                                }
-
-                                if (op === 1) {
+                                } else if (op === 1) {
                                     this.menuAction[this.menuSize] = 993;
-                                }
-
-                                if (op === 2) {
+                                } else if (op === 2) {
                                     this.menuAction[this.menuSize] = 99;
-                                }
-
-                                if (op === 3) {
+                                } else if (op === 3) {
                                     this.menuAction[this.menuSize] = 746;
-                                }
-
-                                if (op === 4) {
+                                } else if (op === 4) {
                                     this.menuAction[this.menuSize] = 877;
                                 }
 
@@ -2509,11 +2477,7 @@ export class Client extends GameShell {
                             }
                         }
 
-                        if (process.env.DEV_CLIENT === 'true') {
-                            this.menuOption[this.menuSize] = 'Examine @lre@' + type.name + ' @whi@(@gre@' + type.id + '@whi@)';
-                        } else {
-                            this.menuOption[this.menuSize] = 'Examine @lre@' + type.name;
-                        }
+                        this.menuOption[this.menuSize] = 'Examine @lre@' + type.name;
                         this.menuAction[this.menuSize] = 1102;
                         this.menuParamA[this.menuSize] = obj.index;
                         this.menuParamB[this.menuSize] = x;
@@ -2614,7 +2578,7 @@ export class Client extends GameShell {
                 if (action === 602 || action === 596 || action === 22 || action === 892 || action === 415 || action === 405 || action === 38 || action === 422 || action === 478 || action === 347 || action === 188) {
                     const slot: number = this.menuParamB[this.menuSize - 1];
                     const comId: number = this.menuParamC[this.menuSize - 1];
-                    const com: Component = Component.instances[comId];
+                    const com: Component = Component.types[comId];
 
                     if (com.draggable) {
                         this.objGrabThreshold = false;
@@ -2625,11 +2589,11 @@ export class Client extends GameShell {
                         this.objGrabX = this.mouseClickX;
                         this.objGrabY = this.mouseClickY;
 
-                        if (Component.instances[comId].layer === this.viewportInterfaceId) {
+                        if (Component.types[comId].layer === this.viewportInterfaceId) {
                             this.objDragArea = 1;
                         }
 
-                        if (Component.instances[comId].layer === this.chatInterfaceId) {
+                        if (Component.types[comId].layer === this.chatInterfaceId) {
                             this.objDragArea = 3;
                         }
 
@@ -2638,7 +2602,7 @@ export class Client extends GameShell {
                 }
             }
 
-            if (button === 1 && (this.mouseButtonsOption === 1 || this.isAddFriendOption(this.menuSize - 1)) && this.menuSize > 2) {
+            if (button === 1 && (this.oneMouseButton === 1 || this.isAddFriendOption(this.menuSize - 1)) && this.menuSize > 2) {
                 button = 2;
             }
 
@@ -2655,155 +2619,167 @@ export class Client extends GameShell {
     }
 
     handleMinimapInput(): void {
-        if (this.mouseClickButton === 1 && this.localPlayer) {
-            let x: number = this.mouseClickX - 21 - 561;
-            let y: number = this.mouseClickY - 9 - 5;
+        if (this.mouseClickButton !== 1 || !this.localPlayer) {
+            return;
+        }
 
-            if (x >= 0 && y >= 0 && x < 146 && y < 151) {
-                x -= 73;
-                y -= 75;
+        let x: number = this.mouseClickX - 21 - 561;
+        let y: number = this.mouseClickY - 9 - 5;
 
-                const yaw: number = (this.orbitCameraYaw + this.minimapAnticheatAngle) & 0x7ff;
-                let sinYaw: number = Pix3D.sin[yaw];
-                let cosYaw: number = Pix3D.cos[yaw];
+        if (x < 0 || y < 0 || x >= 146 || y >= 151) {
+            return;
+        }
 
-                sinYaw = (sinYaw * (this.minimapZoom + 256)) >> 8;
-                cosYaw = (cosYaw * (this.minimapZoom + 256)) >> 8;
+        x -= 73;
+        y -= 75;
 
-                const relX: number = (y * sinYaw + x * cosYaw) >> 11;
-                const relY: number = (y * cosYaw - x * sinYaw) >> 11;
+        const yaw: number = (this.orbitCameraYaw + this.macroMinimapAngle) & 0x7ff;
+        let sinYaw: number = Pix3D.sinTable[yaw];
+        let cosYaw: number = Pix3D.cosTable[yaw];
 
-                const tileX: number = (this.localPlayer.x + relX) >> 7;
-                const tileZ: number = (this.localPlayer.z - relY) >> 7;
+        sinYaw = (sinYaw * (this.macroMinimapZoom + 256)) >> 8;
+        cosYaw = (cosYaw * (this.macroMinimapZoom + 256)) >> 8;
 
-                if (this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], tileX, tileZ, 1, 0, 0, 0, 0, 0, true)) {
-                    // the additional 14-bytes in MOVE_MINIMAPCLICK
-                    this.out.p1(x);
-                    this.out.p1(y);
-                    this.out.p2(this.orbitCameraYaw);
-                    this.out.p1(57);
-                    this.out.p1(this.minimapAnticheatAngle);
-                    this.out.p1(this.minimapZoom);
-                    this.out.p1(89);
-                    this.out.p2(this.localPlayer.x);
-                    this.out.p2(this.localPlayer.z);
-                    this.out.p1(this.tryMoveNearest);
-                    this.out.p1(63);
-                }
-            }
+        const relX: number = (y * sinYaw + x * cosYaw) >> 11;
+        const relY: number = (y * cosYaw - x * sinYaw) >> 11;
+
+        const tileX: number = (this.localPlayer.x + relX) >> 7;
+        const tileZ: number = (this.localPlayer.z - relY) >> 7;
+
+        if (this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], tileX, tileZ, 1, 0, 0, 0, 0, 0, true)) {
+            // the additional 14-bytes in MOVE_MINIMAPCLICK
+            this.out.p1(x);
+            this.out.p1(y);
+            this.out.p2(this.orbitCameraYaw);
+            this.out.p1(57);
+            this.out.p1(this.macroMinimapAngle);
+            this.out.p1(this.macroMinimapZoom);
+            this.out.p1(89);
+            this.out.p2(this.localPlayer.x);
+            this.out.p2(this.localPlayer.z);
+            this.out.p1(this.tryMoveNearest);
+            this.out.p1(63);
         }
     }
 
     private handleTabInput(): void {
-        if (this.mouseClickButton === 1) {
-            if (this.mouseClickX >= 549 && this.mouseClickX <= 583 && this.mouseClickY >= 195 && this.mouseClickY < 231 && this.tabInterfaceId[0] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 0;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 579 && this.mouseClickX <= 609 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[1] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 1;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 607 && this.mouseClickX <= 637 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[2] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 2;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 635 && this.mouseClickX <= 679 && this.mouseClickY >= 194 && this.mouseClickY < 229 && this.tabInterfaceId[3] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 3;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 676 && this.mouseClickX <= 706 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[4] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 4;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 704 && this.mouseClickX <= 734 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[5] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 5;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 732 && this.mouseClickX <= 766 && this.mouseClickY >= 195 && this.mouseClickY < 231 && this.tabInterfaceId[6] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 6;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 550 && this.mouseClickX <= 584 && this.mouseClickY >= 492 && this.mouseClickY < 528 && this.tabInterfaceId[7] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 7;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 582 && this.mouseClickX <= 612 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[8] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 8;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 609 && this.mouseClickX <= 639 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[9] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 9;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 637 && this.mouseClickX <= 681 && this.mouseClickY >= 493 && this.mouseClickY < 528 && this.tabInterfaceId[10] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 10;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 679 && this.mouseClickX <= 709 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[11] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 11;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 706 && this.mouseClickX <= 736 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[12] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 12;
-                this.redrawSideicons = true;
-            } else if (this.mouseClickX >= 734 && this.mouseClickX <= 768 && this.mouseClickY >= 492 && this.mouseClickY < 528 && this.tabInterfaceId[13] !== -1) {
-                this.redrawSidebar = true;
-                this.selectedTab = 13;
-                this.redrawSideicons = true;
-            }
+        if (this.mouseClickButton !== 1) {
+            return;
+        }
 
-            Client.cyclelogic1++;
-            if (Client.cyclelogic1 > 150) {
-                Client.cyclelogic1 = 0;
-                this.out.p1isaac(ClientProt.ANTICHEAT_CYCLELOGIC1);
-                this.out.p1(43);
-            }
+        if (this.mouseClickX >= 549 && this.mouseClickX <= 583 && this.mouseClickY >= 195 && this.mouseClickY < 231 && this.tabInterfaceId[0] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 0;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 579 && this.mouseClickX <= 609 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[1] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 1;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 607 && this.mouseClickX <= 637 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[2] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 2;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 635 && this.mouseClickX <= 679 && this.mouseClickY >= 194 && this.mouseClickY < 229 && this.tabInterfaceId[3] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 3;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 676 && this.mouseClickX <= 706 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[4] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 4;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 704 && this.mouseClickX <= 734 && this.mouseClickY >= 194 && this.mouseClickY < 231 && this.tabInterfaceId[5] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 5;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 732 && this.mouseClickX <= 766 && this.mouseClickY >= 195 && this.mouseClickY < 231 && this.tabInterfaceId[6] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 6;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 550 && this.mouseClickX <= 584 && this.mouseClickY >= 492 && this.mouseClickY < 528 && this.tabInterfaceId[7] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 7;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 582 && this.mouseClickX <= 612 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[8] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 8;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 609 && this.mouseClickX <= 639 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[9] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 9;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 637 && this.mouseClickX <= 681 && this.mouseClickY >= 493 && this.mouseClickY < 528 && this.tabInterfaceId[10] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 10;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 679 && this.mouseClickX <= 709 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[11] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 11;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 706 && this.mouseClickX <= 736 && this.mouseClickY >= 492 && this.mouseClickY < 529 && this.tabInterfaceId[12] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 12;
+            this.redrawSideicons = true;
+        } else if (this.mouseClickX >= 734 && this.mouseClickX <= 768 && this.mouseClickY >= 492 && this.mouseClickY < 528 && this.tabInterfaceId[13] !== -1) {
+            this.redrawSidebar = true;
+            this.selectedTab = 13;
+            this.redrawSideicons = true;
+        }
+
+        Client.cyclelogic1++;
+        if (Client.cyclelogic1 > 150) {
+            Client.cyclelogic1 = 0;
+            this.out.p1isaac(ClientProt.ANTICHEAT_CYCLELOGIC1);
+            this.out.p1(43);
         }
     }
 
-    private handleChatSettingsInput(): void {
-        if (this.mouseClickButton === 1) {
-            if (this.mouseClickX >= 8 && this.mouseClickX <= 108 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
-                this.publicChatSetting = (this.publicChatSetting + 1) % 4;
-                this.redrawPrivacySettings = true;
-                this.redrawChatback = true;
+    private handleChatModeInput(): void {
+        if (this.mouseClickButton !== 1) {
+            return;
+        }
 
-                this.out.p1isaac(ClientProt.CHAT_SETMODE);
-                this.out.p1(this.publicChatSetting);
-                this.out.p1(this.privateChatSetting);
-                this.out.p1(this.tradeChatSetting);
-            } else if (this.mouseClickX >= 137 && this.mouseClickX <= 237 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
-                this.privateChatSetting = (this.privateChatSetting + 1) % 3;
-                this.redrawPrivacySettings = true;
-                this.redrawChatback = true;
+        if (this.mouseClickX >= 8 && this.mouseClickX <= 108 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
+            this.chatPublicMode = (this.chatPublicMode + 1) % 4;
+            this.redrawPrivacySettings = true;
+            this.redrawChatback = true;
 
-                this.out.p1isaac(ClientProt.CHAT_SETMODE);
-                this.out.p1(this.publicChatSetting);
-                this.out.p1(this.privateChatSetting);
-                this.out.p1(this.tradeChatSetting);
-            } else if (this.mouseClickX >= 275 && this.mouseClickX <= 375 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
-                this.tradeChatSetting = (this.tradeChatSetting + 1) % 3;
-                this.redrawPrivacySettings = true;
-                this.redrawChatback = true;
+            this.out.p1isaac(ClientProt.CHAT_SETMODE);
+            this.out.p1(this.chatPublicMode);
+            this.out.p1(this.chatPrivateMode);
+            this.out.p1(this.chatTradeMode);
+        } else if (this.mouseClickX >= 137 && this.mouseClickX <= 237 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
+            this.chatPrivateMode = (this.chatPrivateMode + 1) % 3;
+            this.redrawPrivacySettings = true;
+            this.redrawChatback = true;
 
-                this.out.p1isaac(ClientProt.CHAT_SETMODE);
-                this.out.p1(this.publicChatSetting);
-                this.out.p1(this.privateChatSetting);
-                this.out.p1(this.tradeChatSetting);
-            } else if (this.mouseClickX >= 416 && this.mouseClickX <= 516 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
-                this.closeInterfaces();
+            this.out.p1isaac(ClientProt.CHAT_SETMODE);
+            this.out.p1(this.chatPublicMode);
+            this.out.p1(this.chatPrivateMode);
+            this.out.p1(this.chatTradeMode);
+        } else if (this.mouseClickX >= 275 && this.mouseClickX <= 375 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
+            this.chatTradeMode = (this.chatTradeMode + 1) % 3;
+            this.redrawPrivacySettings = true;
+            this.redrawChatback = true;
 
-                this.reportAbuseInput = '';
-                this.reportAbuseMuteOption = false;
+            this.out.p1isaac(ClientProt.CHAT_SETMODE);
+            this.out.p1(this.chatPublicMode);
+            this.out.p1(this.chatPrivateMode);
+            this.out.p1(this.chatTradeMode);
+        } else if (this.mouseClickX >= 416 && this.mouseClickX <= 516 && this.mouseClickY >= 490 && this.mouseClickY <= 522) {
+            this.closeInterfaces();
 
-                for (let i: number = 0; i < Component.instances.length; i++) {
-                    if (Component.instances[i] && Component.instances[i].clientCode === 600) {
-                        this.reportAbuseInterfaceID = this.viewportInterfaceId = Component.instances[i].layer;
-                        return;
-                    }
+            this.reportAbuseInput = '';
+            this.reportAbuseMuteOption = false;
+
+            for (let i: number = 0; i < Component.types.length; i++) {
+                if (Component.types[i] && Component.types[i].clientCode === 600) {
+                    this.reportAbuseInterfaceId = this.viewportInterfaceId = Component.types[i].layer;
+                    break;
                 }
+            }
+
+            if (this.isMobile) {
+                MobileKeyboard.show();
             }
         }
     }
@@ -2836,25 +2812,25 @@ export class Client extends GameShell {
                 index = this.playerIds[i];
             }
 
-            const player: PlayerEntity | null = this.players[index];
+            const player: ClientPlayer | null = this.players[index];
             if (player && player.chatTimer > 0) {
                 player.chatTimer--;
 
                 if (player.chatTimer === 0) {
-                    player.chat = null;
+                    player.chatMessage = null;
                 }
             }
         }
 
         for (let i: number = 0; i < this.npcCount; i++) {
             const index: number = this.npcIds[i];
-            const npc: NpcEntity | null = this.npcs[index];
+            const npc: ClientNpc | null = this.npcs[index];
 
             if (npc && npc.chatTimer > 0) {
                 npc.chatTimer--;
 
                 if (npc.chatTimer === 0) {
-                    npc.chat = null;
+                    npc.chatMessage = null;
                 }
             }
         }
@@ -2864,18 +2840,23 @@ export class Client extends GameShell {
         if (!this.localPlayer) {
             return; // custom
         }
-        const orbitX: number = this.localPlayer.x + this.cameraAnticheatOffsetX;
-        const orbitZ: number = this.localPlayer.z + this.cameraAnticheatOffsetZ;
+
+        const orbitX: number = this.localPlayer.x + this.macroCameraX;
+        const orbitZ: number = this.localPlayer.z + this.macroCameraZ;
+
         if (this.orbitCameraX - orbitX < -500 || this.orbitCameraX - orbitX > 500 || this.orbitCameraZ - orbitZ < -500 || this.orbitCameraZ - orbitZ > 500) {
             this.orbitCameraX = orbitX;
             this.orbitCameraZ = orbitZ;
         }
+
         if (this.orbitCameraX !== orbitX) {
             this.orbitCameraX += ((orbitX - this.orbitCameraX) / 16) | 0;
         }
+
         if (this.orbitCameraZ !== orbitZ) {
             this.orbitCameraZ += ((orbitZ - this.orbitCameraZ) / 16) | 0;
         }
+
         if (this.actionKey[1] === 1) {
             this.orbitCameraYawVelocity += ((-this.orbitCameraYawVelocity - 24) / 2) | 0;
         } else if (this.actionKey[2] === 1) {
@@ -2883,6 +2864,7 @@ export class Client extends GameShell {
         } else {
             this.orbitCameraYawVelocity = (this.orbitCameraYawVelocity / 2) | 0;
         }
+
         if (this.actionKey[3] === 1) {
             this.orbitCameraPitchVelocity += ((12 - this.orbitCameraPitchVelocity) / 2) | 0;
         } else if (this.actionKey[4] === 1) {
@@ -2890,12 +2872,13 @@ export class Client extends GameShell {
         } else {
             this.orbitCameraPitchVelocity = (this.orbitCameraPitchVelocity / 2) | 0;
         }
+
         this.orbitCameraYaw = ((this.orbitCameraYaw + this.orbitCameraYawVelocity / 2) | 0) & 0x7ff;
         this.orbitCameraPitch += (this.orbitCameraPitchVelocity / 2) | 0;
+
         if (this.orbitCameraPitch < 128) {
             this.orbitCameraPitch = 128;
-        }
-        if (this.orbitCameraPitch > 383) {
+        } else if (this.orbitCameraPitch > 383) {
             this.orbitCameraPitch = 383;
         }
 
@@ -2925,9 +2908,7 @@ export class Client extends GameShell {
         let clamp: number = maxY * 192;
         if (clamp > 98048) {
             clamp = 98048;
-        }
-
-        if (clamp < 32768) {
+        } else if (clamp < 32768) {
             clamp = 32768;
         }
 
@@ -2989,19 +2970,17 @@ export class Client extends GameShell {
         z = this.cutsceneDstLocalTileZ * 128 + 64;
         y = this.getHeightmapY(this.currentLevel, this.cutsceneDstLocalTileX, this.cutsceneDstLocalTileZ) - this.cutsceneDstHeight;
 
-        const deltaX: number = x - this.cameraX;
-        const deltaY: number = y - this.cameraY;
-        const deltaZ: number = z - this.cameraZ;
+        const dx: number = x - this.cameraX;
+        const dy: number = y - this.cameraY;
+        const dz: number = z - this.cameraZ;
 
-        const distance: number = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ) | 0;
-        let pitch: number = ((Math.atan2(deltaY, distance) * 325.949) | 0) & 0x7ff;
-        const yaw: number = ((Math.atan2(deltaX, deltaZ) * -325.949) | 0) & 0x7ff;
+        const distance: number = Math.sqrt(dx * dx + dz * dz) | 0;
+        let pitch: number = ((Math.atan2(dy, distance) * 325.949) | 0) & 0x7ff;
+        const yaw: number = ((Math.atan2(dx, dz) * -325.949) | 0) & 0x7ff;
 
         if (pitch < 128) {
             pitch = 128;
-        }
-
-        if (pitch > 383) {
+        } else if (pitch > 383) {
             pitch = 383;
         }
 
@@ -3022,9 +3001,7 @@ export class Client extends GameShell {
         let deltaYaw: number = yaw - this.cameraYaw;
         if (deltaYaw > 1024) {
             deltaYaw -= 2048;
-        }
-
-        if (deltaYaw < -1024) {
+        } else if (deltaYaw < -1024) {
             deltaYaw += 2048;
         }
 
@@ -3041,9 +3018,7 @@ export class Client extends GameShell {
         let tmp: number = yaw - this.cameraYaw;
         if (tmp > 1024) {
             tmp -= 2048;
-        }
-
-        if (tmp < -1024) {
+        } else if (tmp < -1024) {
             tmp += 2048;
         }
 
@@ -3064,7 +3039,7 @@ export class Client extends GameShell {
                         return;
                     }
 
-                    if (this.viewportInterfaceId !== -1 && this.viewportInterfaceId === this.reportAbuseInterfaceID) {
+                    if (this.viewportInterfaceId !== -1 && this.viewportInterfaceId === this.reportAbuseInterfaceId) {
                         if (key === 8 && this.reportAbuseInput.length > 0) {
                             this.reportAbuseInput = this.reportAbuseInput.substring(0, this.reportAbuseInput.length - 1);
                         }
@@ -3087,17 +3062,17 @@ export class Client extends GameShell {
                             this.redrawChatback = true;
 
                             let username: bigint;
-                            if (this.socialAction === 1) {
+                            if (this.socialInputType === 1) {
                                 username = JString.toBase37(this.socialInput);
                                 this.addFriend(username);
                             }
 
-                            if (this.socialAction === 2 && this.friendCount > 0) {
+                            if (this.socialInputType === 2 && this.friendCount > 0) {
                                 username = JString.toBase37(this.socialInput);
                                 this.removeFriend(username);
                             }
 
-                            if (this.socialAction === 3 && this.socialInput.length > 0 && this.socialName37) {
+                            if (this.socialInputType === 3 && this.socialInput.length > 0 && this.socialName37) {
                                 this.out.p1isaac(ClientProt.MESSAGE_PRIVATE);
                                 this.out.p1(0);
                                 const start: number = this.out.pos;
@@ -3110,23 +3085,23 @@ export class Client extends GameShell {
                                 this.socialInput = WordFilter.filter(this.socialInput);
                                 this.addMessage(6, this.socialInput, JString.formatName(JString.fromBase37(this.socialName37)));
 
-                                if (this.privateChatSetting === 2) {
-                                    this.privateChatSetting = 1;
+                                if (this.chatPrivateMode === 2) {
+                                    this.chatPrivateMode = 1;
                                     this.redrawPrivacySettings = true;
 
                                     this.out.p1isaac(ClientProt.CHAT_SETMODE);
-                                    this.out.p1(this.publicChatSetting);
-                                    this.out.p1(this.privateChatSetting);
-                                    this.out.p1(this.tradeChatSetting);
+                                    this.out.p1(this.chatPublicMode);
+                                    this.out.p1(this.chatPrivateMode);
+                                    this.out.p1(this.chatTradeMode);
                                 }
                             }
 
-                            if (this.socialAction === 4 && this.ignoreCount < 100) {
+                            if (this.socialInputType === 4 && this.ignoreCount < 100) {
                                 username = JString.toBase37(this.socialInput);
                                 this.addIgnore(username);
                             }
 
-                            if (this.socialAction === 5 && this.ignoreCount > 0) {
+                            if (this.socialInputType === 5 && this.ignoreCount > 0) {
                                 username = JString.toBase37(this.socialInput);
                                 this.removeIgnore(username);
                             }
@@ -3148,17 +3123,17 @@ export class Client extends GameShell {
                                 try {
                                     value = parseInt(this.chatbackInput, 10);
                                 } catch (e) {
-                                    /* empty */
                                 }
+
                                 this.out.p1isaac(ClientProt.RESUME_P_COUNTDIALOG);
                                 this.out.p4(value);
                             }
+
                             this.chatbackInputOpen = false;
                             this.redrawChatback = true;
                         }
                     } else if (this.chatInterfaceId === -1) {
-                        // CUSTOM: the original client checked `key <= 122`
-                        // however we support "debugprocs" (came much later) and they need to start with a special character
+                        // custom: when typing a command, you can use the debugproc character (tilde)
                         if (key >= 32 && (key <= 122 || (this.chatTyped.startsWith('::') && key <= 126)) && this.chatTyped.length < 80) {
                             this.chatTyped = this.chatTyped + String.fromCharCode(key);
                             this.redrawChatback = true;
@@ -3170,24 +3145,29 @@ export class Client extends GameShell {
                         }
 
                         if ((key === 13 || key === 10) && this.chatTyped.length > 0) {
-                            if (this.chatTyped.startsWith('::')) {
-                                if (this.chatTyped === '::fpson') {
-                                    // authentic in later revs
-                                    this.displayFps = true;
-                                } else if (this.chatTyped === '::fpsoff') {
-                                    // authentic in later revs
-                                    this.displayFps = false;
-                                } else if (this.chatTyped.startsWith('::fps ')) {
-                                    // custom ::fps command for setting a target framerate
-                                    try {
-                                        const desiredFps = parseInt(this.chatTyped.substring(6)) || 50;
-                                        this.setTargetedFramerate(desiredFps);
-                                    } catch (e) { }
-                                } else {
-                                    this.out.p1isaac(ClientProt.CLIENT_CHEAT);
-                                    this.out.p1(this.chatTyped.length - 1);
-                                    this.out.pjstr(this.chatTyped.substring(2));
+                            if (this.staffmodlevel) {
+                                if (this.chatTyped === '::clientdrop') {
+                                    await this.tryReconnect();
                                 }
+                            }
+
+                            // custom: player-facing commands
+                            if (this.chatTyped === '::fpson') {
+                                // authentic in later revs
+                                this.displayFps = true;
+                            } else if (this.chatTyped === '::fpsoff') {
+                                // authentic in later revs
+                                this.displayFps = false;
+                            } else if (this.chatTyped.startsWith('::fps ')) {
+                                // custom ::fps command for setting a target framerate
+                                try {
+                                    const desiredFps = parseInt(this.chatTyped.substring(6)) || 50;
+                                    this.setTargetedFramerate(desiredFps);
+                                } catch (e) { }
+                            } else if (this.chatTyped.startsWith('::')) {
+                                this.out.p1isaac(ClientProt.CLIENT_CHEAT);
+                                this.out.p1(this.chatTyped.length - 1);
+                                this.out.pjstr(this.chatTyped.substring(2));
                             } else {
                                 let color: number = 0;
                                 if (this.chatTyped.startsWith('yellow:')) {
@@ -3241,6 +3221,7 @@ export class Client extends GameShell {
                                 this.out.p1isaac(ClientProt.MESSAGE_PUBLIC);
                                 this.out.p1(0);
                                 const start: number = this.out.pos;
+
                                 this.out.p1(color);
                                 this.out.p1(effect);
                                 WordPack.pack(this.out, this.chatTyped);
@@ -3250,20 +3231,22 @@ export class Client extends GameShell {
                                 this.chatTyped = WordFilter.filter(this.chatTyped);
 
                                 if (this.localPlayer && this.localPlayer.name) {
-                                    this.localPlayer.chat = this.chatTyped;
-                                    this.localPlayer.chatColor = color;
-                                    this.localPlayer.chatStyle = effect;
+                                    this.localPlayer.chatMessage = this.chatTyped;
+                                    this.localPlayer.chatColour = color;
+                                    this.localPlayer.chatEffect = effect;
                                     this.localPlayer.chatTimer = 150;
-                                    this.addMessage(2, this.localPlayer.chat, this.localPlayer.name);
+
+                                    this.addMessage(2, this.localPlayer.chatMessage, this.localPlayer.name);
                                 }
 
-                                if (this.publicChatSetting === 2) {
-                                    this.publicChatSetting = 3;
+                                if (this.chatPublicMode === 2) {
+                                    this.chatPublicMode = 3;
                                     this.redrawPrivacySettings = true;
+
                                     this.out.p1isaac(ClientProt.CHAT_SETMODE);
-                                    this.out.p1(this.publicChatSetting);
-                                    this.out.p1(this.privateChatSetting);
-                                    this.out.p1(this.tradeChatSetting);
+                                    this.out.p1(this.chatPublicMode);
+                                    this.out.p1(this.chatPrivateMode);
+                                    this.out.p1(this.chatTradeMode);
                                 }
                             }
 
@@ -3289,7 +3272,7 @@ export class Client extends GameShell {
                 index = this.playerIds[i];
             }
 
-            const player: PlayerEntity | null = this.players[index];
+            const player: ClientPlayer | null = this.players[index];
             if (player) {
                 this.updateEntity(player);
             }
@@ -3325,230 +3308,221 @@ export class Client extends GameShell {
     private updateNpcs(): void {
         for (let i: number = 0; i < this.npcCount; i++) {
             const id: number = this.npcIds[i];
-            const npc: NpcEntity | null = this.npcs[id];
-            if (npc && npc.npcType) {
+            const npc: ClientNpc | null = this.npcs[id];
+
+            if (npc && npc.type) {
                 this.updateEntity(npc);
             }
         }
     }
 
-    private updateEntity(entity: PathingEntity): void {
-        if (entity.x < 128 || entity.z < 128 || entity.x >= 13184 || entity.z >= 13184) {
-            entity.primarySeqId = -1;
-            entity.spotanimId = -1;
-            entity.forceMoveEndCycle = 0;
-            entity.forceMoveStartCycle = 0;
-            entity.x = entity.routeFlagX[0] * 128 + entity.size * 64;
-            entity.z = entity.routeFlagZ[0] * 128 + entity.size * 64;
-            entity.routeLength = 0;
+    private updateEntity(e: ClientEntity): void {
+        if (e.x < 128 || e.z < 128 || e.x >= 13184 || e.z >= 13184) {
+            e.primarySeqId = -1;
+            e.spotanimId = -1;
+            e.forceMoveEndCycle = 0;
+            e.forceMoveStartCycle = 0;
+            e.x = e.routeTileX[0] * 128 + e.size * 64;
+            e.z = e.routeTileZ[0] * 128 + e.size * 64;
+            e.routeLength = 0;
         }
 
-        if (entity === this.localPlayer && (entity.x < 1536 || entity.z < 1536 || entity.x >= 11776 || entity.z >= 11776)) {
-            entity.primarySeqId = -1;
-            entity.spotanimId = -1;
-            entity.forceMoveEndCycle = 0;
-            entity.forceMoveStartCycle = 0;
-            entity.x = entity.routeFlagX[0] * 128 + entity.size * 64;
-            entity.z = entity.routeFlagZ[0] * 128 + entity.size * 64;
-            entity.routeLength = 0;
+        if (e === this.localPlayer && (e.x < 1536 || e.z < 1536 || e.x >= 11776 || e.z >= 11776)) {
+            e.primarySeqId = -1;
+            e.spotanimId = -1;
+            e.forceMoveEndCycle = 0;
+            e.forceMoveStartCycle = 0;
+            e.x = e.routeTileX[0] * 128 + e.size * 64;
+            e.z = e.routeTileZ[0] * 128 + e.size * 64;
+            e.routeLength = 0;
         }
 
-        if (entity.forceMoveEndCycle > this.loopCycle) {
-            this.updateForceMovement(entity);
-        } else if (entity.forceMoveStartCycle >= this.loopCycle) {
-            this.startForceMovement(entity);
+        if (e.forceMoveEndCycle > this.loopCycle) {
+            this.updateForceMovement(e);
+        } else if (e.forceMoveStartCycle >= this.loopCycle) {
+            this.startForceMovement(e);
         } else {
-            this.updateMovement(entity);
+            this.updateMovement(e);
         }
 
-        this.updateFacingDirection(entity);
-        this.updateSequences(entity);
+        this.updateFacingDirection(e);
+        this.updateSequences(e);
     }
 
-    private updateForceMovement(entity: PathingEntity): void {
-        const delta: number = entity.forceMoveEndCycle - this.loopCycle;
-        const dstX: number = entity.forceMoveStartSceneTileX * 128 + entity.size * 64;
-        const dstZ: number = entity.forceMoveStartSceneTileZ * 128 + entity.size * 64;
+    private updateForceMovement(e: ClientEntity): void {
+        const delta: number = e.forceMoveEndCycle - this.loopCycle;
+        const dstX: number = e.forceMoveStartSceneTileX * 128 + e.size * 64;
+        const dstZ: number = e.forceMoveStartSceneTileZ * 128 + e.size * 64;
 
-        entity.x += ((dstX - entity.x) / delta) | 0;
-        entity.z += ((dstZ - entity.z) / delta) | 0;
+        e.x += ((dstX - e.x) / delta) | 0;
+        e.z += ((dstZ - e.z) / delta) | 0;
 
-        entity.seqTrigger = 0;
+        e.seqDelayMove = 0;
 
-        if (entity.forceMoveFaceDirection === 0) {
-            entity.dstYaw = 1024;
-        }
-
-        if (entity.forceMoveFaceDirection === 1) {
-            entity.dstYaw = 1536;
-        }
-
-        if (entity.forceMoveFaceDirection === 2) {
-            entity.dstYaw = 0;
-        }
-
-        if (entity.forceMoveFaceDirection === 3) {
-            entity.dstYaw = 512;
+        if (e.forceMoveFaceDirection === 0) {
+            e.dstYaw = 1024;
+        } else if (e.forceMoveFaceDirection === 1) {
+            e.dstYaw = 1536;
+        } else if (e.forceMoveFaceDirection === 2) {
+            e.dstYaw = 0;
+        } else if (e.forceMoveFaceDirection === 3) {
+            e.dstYaw = 512;
         }
     }
 
-    private startForceMovement(entity: PathingEntity): void {
-        if (entity.forceMoveStartCycle === this.loopCycle || entity.primarySeqId === -1 || entity.primarySeqDelay !== 0 || entity.primarySeqCycle + 1 > SeqType.instances[entity.primarySeqId].seqDelay![entity.primarySeqFrame]) {
-            const duration: number = entity.forceMoveStartCycle - entity.forceMoveEndCycle;
-            const delta: number = this.loopCycle - entity.forceMoveEndCycle;
-            const dx0: number = entity.forceMoveStartSceneTileX * 128 + entity.size * 64;
-            const dz0: number = entity.forceMoveStartSceneTileZ * 128 + entity.size * 64;
-            const dx1: number = entity.forceMoveEndSceneTileX * 128 + entity.size * 64;
-            const dz1: number = entity.forceMoveEndSceneTileZ * 128 + entity.size * 64;
-            entity.x = ((dx0 * (duration - delta) + dx1 * delta) / duration) | 0;
-            entity.z = ((dz0 * (duration - delta) + dz1 * delta) / duration) | 0;
+    private startForceMovement(e: ClientEntity): void {
+        if (e.forceMoveStartCycle === this.loopCycle || e.primarySeqId === -1 || e.primarySeqDelay !== 0 || e.primarySeqCycle + 1 > SeqType.types[e.primarySeqId].delay![e.primarySeqFrame]) {
+            const duration: number = e.forceMoveStartCycle - e.forceMoveEndCycle;
+            const delta: number = this.loopCycle - e.forceMoveEndCycle;
+            const dx0: number = e.forceMoveStartSceneTileX * 128 + e.size * 64;
+            const dz0: number = e.forceMoveStartSceneTileZ * 128 + e.size * 64;
+            const dx1: number = e.forceMoveEndSceneTileX * 128 + e.size * 64;
+            const dz1: number = e.forceMoveEndSceneTileZ * 128 + e.size * 64;
+            e.x = ((dx0 * (duration - delta) + dx1 * delta) / duration) | 0;
+            e.z = ((dz0 * (duration - delta) + dz1 * delta) / duration) | 0;
         }
 
-        entity.seqTrigger = 0;
+        e.seqDelayMove = 0;
 
-        if (entity.forceMoveFaceDirection === 0) {
-            entity.dstYaw = 1024;
+        if (e.forceMoveFaceDirection === 0) {
+            e.dstYaw = 1024;
+        } else if (e.forceMoveFaceDirection === 1) {
+            e.dstYaw = 1536;
+        } else if (e.forceMoveFaceDirection === 2) {
+            e.dstYaw = 0;
+        } else if (e.forceMoveFaceDirection === 3) {
+            e.dstYaw = 512;
         }
 
-        if (entity.forceMoveFaceDirection === 1) {
-            entity.dstYaw = 1536;
-        }
-
-        if (entity.forceMoveFaceDirection === 2) {
-            entity.dstYaw = 0;
-        }
-
-        if (entity.forceMoveFaceDirection === 3) {
-            entity.dstYaw = 512;
-        }
-
-        entity.yaw = entity.dstYaw;
+        e.yaw = e.dstYaw;
     }
 
-    private updateMovement(entity: PathingEntity): void {
-        entity.secondarySeqId = entity.seqStandId;
+    private updateMovement(e: ClientEntity): void {
+        e.secondarySeqId = e.readyanim;
 
-        if (entity.routeLength === 0) {
-            entity.seqTrigger = 0;
+        if (e.routeLength === 0) {
+            e.seqDelayMove = 0;
             return;
         }
 
-        if (entity.primarySeqId !== -1 && entity.primarySeqDelay === 0) {
-            const seq: SeqType = SeqType.instances[entity.primarySeqId];
+        if (e.primarySeqId !== -1 && e.primarySeqDelay === 0) {
+            const seq: SeqType = SeqType.types[e.primarySeqId];
             if (!seq.walkmerge) {
-                entity.seqTrigger++;
+                e.seqDelayMove++;
                 return;
             }
         }
 
-        const x: number = entity.x;
-        const z: number = entity.z;
-        const dstX: number = entity.routeFlagX[entity.routeLength - 1] * 128 + entity.size * 64;
-        const dstZ: number = entity.routeFlagZ[entity.routeLength - 1] * 128 + entity.size * 64;
+        const x: number = e.x;
+        const z: number = e.z;
+        const dstX: number = e.routeTileX[e.routeLength - 1] * 128 + e.size * 64;
+        const dstZ: number = e.routeTileZ[e.routeLength - 1] * 128 + e.size * 64;
 
-        if (dstX - x <= 256 && dstX - x >= -256 && dstZ - z <= 256 && dstZ - z >= -256) {
-            if (x < dstX) {
-                if (z < dstZ) {
-                    entity.dstYaw = 1280;
-                } else if (z > dstZ) {
-                    entity.dstYaw = 1792;
-                } else {
-                    entity.dstYaw = 1536;
-                }
-            } else if (x > dstX) {
-                if (z < dstZ) {
-                    entity.dstYaw = 768;
-                } else if (z > dstZ) {
-                    entity.dstYaw = 256;
-                } else {
-                    entity.dstYaw = 512;
-                }
-            } else if (z < dstZ) {
-                entity.dstYaw = 1024;
-            } else {
-                entity.dstYaw = 0;
-            }
+        if (dstX - x > 256 || dstX - x < -256 || dstZ - z > 256 || dstZ - z < -256) {
+            e.x = dstX;
+            e.z = dstZ;
+            return;
+        }
 
-            let deltaYaw: number = (entity.dstYaw - entity.yaw) & 0x7ff;
-            if (deltaYaw > 1024) {
-                deltaYaw -= 2048;
-            }
-
-            let seqId: number = entity.seqTurnAroundId;
-            if (deltaYaw >= -256 && deltaYaw <= 256) {
-                seqId = entity.seqWalkId;
-            } else if (deltaYaw >= 256 && deltaYaw < 768) {
-                seqId = entity.seqTurnRightId;
-            } else if (deltaYaw >= -768 && deltaYaw <= -256) {
-                seqId = entity.seqTurnLeftId;
-            }
-
-            if (seqId === -1) {
-                seqId = entity.seqWalkId;
-            }
-
-            entity.secondarySeqId = seqId;
-            let moveSpeed: number = 4;
-            if (entity.yaw !== entity.dstYaw && entity.targetId === -1) {
-                moveSpeed = 2;
-            }
-
-            if (entity.routeLength > 2) {
-                moveSpeed = 6;
-            }
-
-            if (entity.routeLength > 3) {
-                moveSpeed = 8;
-            }
-
-            if (entity.seqTrigger > 0 && entity.routeLength > 1) {
-                moveSpeed = 8;
-                entity.seqTrigger--;
-            }
-
-            if (entity.routeRun[entity.routeLength - 1]) {
-                moveSpeed <<= 0x1;
-            }
-
-            if (moveSpeed >= 8 && entity.secondarySeqId === entity.seqWalkId && entity.seqRunId !== -1) {
-                entity.secondarySeqId = entity.seqRunId;
-            }
-
-            if (x < dstX) {
-                entity.x += moveSpeed;
-                if (entity.x > dstX) {
-                    entity.x = dstX;
-                }
-            } else if (x > dstX) {
-                entity.x -= moveSpeed;
-                if (entity.x < dstX) {
-                    entity.x = dstX;
-                }
-            }
+        if (x < dstX) {
             if (z < dstZ) {
-                entity.z += moveSpeed;
-                if (entity.z > dstZ) {
-                    entity.z = dstZ;
-                }
+                e.dstYaw = 1280;
             } else if (z > dstZ) {
-                entity.z -= moveSpeed;
-                if (entity.z < dstZ) {
-                    entity.z = dstZ;
-                }
+                e.dstYaw = 1792;
+            } else {
+                e.dstYaw = 1536;
             }
-
-            if (entity.x === dstX && entity.z === dstZ) {
-                entity.routeLength--;
+        } else if (x > dstX) {
+            if (z < dstZ) {
+                e.dstYaw = 768;
+            } else if (z > dstZ) {
+                e.dstYaw = 256;
+            } else {
+                e.dstYaw = 512;
             }
+        } else if (z < dstZ) {
+            e.dstYaw = 1024;
         } else {
-            entity.x = dstX;
-            entity.z = dstZ;
+            e.dstYaw = 0;
+        }
+
+        let deltaYaw: number = (e.dstYaw - e.yaw) & 0x7ff;
+        if (deltaYaw > 1024) {
+            deltaYaw -= 2048;
+        }
+
+        let seqId: number = e.walkanim_b;
+        if (deltaYaw >= -256 && deltaYaw <= 256) {
+            seqId = e.walkanim;
+        } else if (deltaYaw >= 256 && deltaYaw < 768) {
+            seqId = e.walkanim_r;
+        } else if (deltaYaw >= -768 && deltaYaw <= -256) {
+            seqId = e.walkanim_l;
+        }
+
+        if (seqId === -1) {
+            seqId = e.walkanim;
+        }
+
+        e.secondarySeqId = seqId;
+
+        let moveSpeed: number = 4;
+        if (e.yaw !== e.dstYaw && e.targetId === -1) {
+            moveSpeed = 2;
+        }
+
+        if (e.routeLength > 2) {
+            moveSpeed = 6;
+        }
+
+        if (e.routeLength > 3) {
+            moveSpeed = 8;
+        }
+
+        if (e.seqDelayMove > 0 && e.routeLength > 1) {
+            moveSpeed = 8;
+            e.seqDelayMove--;
+        }
+
+        if (e.routeRun[e.routeLength - 1]) {
+            moveSpeed <<= 0x1;
+        }
+
+        if (moveSpeed >= 8 && e.secondarySeqId === e.walkanim && e.runanim !== -1) {
+            e.secondarySeqId = e.runanim;
+        }
+
+        if (x < dstX) {
+            e.x += moveSpeed;
+            if (e.x > dstX) {
+                e.x = dstX;
+            }
+        } else if (x > dstX) {
+            e.x -= moveSpeed;
+            if (e.x < dstX) {
+                e.x = dstX;
+            }
+        }
+        if (z < dstZ) {
+            e.z += moveSpeed;
+            if (e.z > dstZ) {
+                e.z = dstZ;
+            }
+        } else if (z > dstZ) {
+            e.z -= moveSpeed;
+            if (e.z < dstZ) {
+                e.z = dstZ;
+            }
+        }
+
+        if (e.x === dstX && e.z === dstZ) {
+            e.routeLength--;
         }
     }
 
-    private updateFacingDirection(e: PathingEntity): void {
+    private updateFacingDirection(e: ClientEntity): void {
         if (e.targetId !== -1 && e.targetId < 32768) {
-            const npc: NpcEntity | null = this.npcs[e.targetId];
+            const npc: ClientNpc | null = this.npcs[e.targetId];
             if (npc) {
                 const dstX: number = e.x - npc.x;
                 const dstZ: number = e.z - npc.z;
@@ -3565,7 +3539,7 @@ export class Client extends GameShell {
                 index = Constants.LOCAL_PLAYER_INDEX;
             }
 
-            const player: PlayerEntity | null = this.players[index];
+            const player: ClientPlayer | null = this.players[index];
             if (player) {
                 const dstX: number = e.x - player.x;
                 const dstZ: number = e.z - player.z;
@@ -3576,7 +3550,7 @@ export class Client extends GameShell {
             }
         }
 
-        if ((e.targetTileX !== 0 || e.targetTileZ !== 0) && (e.routeLength === 0 || e.seqTrigger > 0)) {
+        if ((e.targetTileX !== 0 || e.targetTileZ !== 0) && (e.routeLength === 0 || e.seqDelayMove > 0)) {
             const dstX: number = e.x - (e.targetTileX - this.sceneBaseTileX - this.sceneBaseTileX) * 64;
             const dstZ: number = e.z - (e.targetTileZ - this.sceneBaseTileZ - this.sceneBaseTileZ) * 64;
 
@@ -3589,7 +3563,6 @@ export class Client extends GameShell {
         }
 
         const remainingYaw: number = (e.dstYaw - e.yaw) & 0x7ff;
-
         if (remainingYaw !== 0) {
             if (remainingYaw < 32 || remainingYaw > 2016) {
                 e.yaw = e.dstYaw;
@@ -3601,54 +3574,58 @@ export class Client extends GameShell {
 
             e.yaw &= 0x7ff;
 
-            if (e.secondarySeqId === e.seqStandId && e.yaw !== e.dstYaw) {
-                if (e.seqTurnId !== -1) {
-                    e.secondarySeqId = e.seqTurnId;
-                    return;
+            if (e.secondarySeqId === e.readyanim && e.yaw !== e.dstYaw) {
+                if (e.turnanim != -1) {
+                    e.secondarySeqId = e.turnanim;
+                } else {
+                    e.secondarySeqId = e.walkanim;
                 }
-
-                e.secondarySeqId = e.seqWalkId;
             }
         }
     }
 
-    private updateSequences(e: PathingEntity): void {
-        e.seqStretches = false;
+    private updateSequences(e: ClientEntity): void {
+        e.needsForwardDrawPadding = false;
 
         let seq: SeqType | null;
         if (e.secondarySeqId !== -1) {
-            seq = SeqType.instances[e.secondarySeqId];
+            seq = SeqType.types[e.secondarySeqId];
             e.secondarySeqCycle++;
-            if (seq.seqDelay && e.secondarySeqFrame < seq.seqFrameCount && e.secondarySeqCycle > seq.seqDelay[e.secondarySeqFrame]) {
+
+            if (seq.delay && e.secondarySeqFrame < seq.frameCount && e.secondarySeqCycle > seq.delay[e.secondarySeqFrame]) {
                 e.secondarySeqCycle = 0;
                 e.secondarySeqFrame++;
             }
-            if (e.secondarySeqFrame >= seq.seqFrameCount) {
+
+            if (e.secondarySeqFrame >= seq.frameCount) {
                 e.secondarySeqCycle = 0;
                 e.secondarySeqFrame = 0;
             }
         }
 
         if (e.primarySeqId !== -1 && e.primarySeqDelay === 0) {
-            seq = SeqType.instances[e.primarySeqId];
+            seq = SeqType.types[e.primarySeqId];
             e.primarySeqCycle++;
-            while (seq.seqDelay && e.primarySeqFrame < seq.seqFrameCount && e.primarySeqCycle > seq.seqDelay[e.primarySeqFrame]) {
-                e.primarySeqCycle -= seq.seqDelay[e.primarySeqFrame];
+
+            while (seq.delay && e.primarySeqFrame < seq.frameCount && e.primarySeqCycle > seq.delay[e.primarySeqFrame]) {
+                e.primarySeqCycle -= seq.delay[e.primarySeqFrame];
                 e.primarySeqFrame++;
             }
 
-            if (e.primarySeqFrame >= seq.seqFrameCount) {
-                e.primarySeqFrame -= seq.replayoff;
+            if (e.primarySeqFrame >= seq.frameCount) {
+                e.primarySeqFrame -= seq.loops;
                 e.primarySeqLoop++;
-                if (e.primarySeqLoop >= seq.replaycount) {
+
+                if (e.primarySeqLoop >= seq.maxloops) {
                     e.primarySeqId = -1;
                 }
-                if (e.primarySeqFrame < 0 || e.primarySeqFrame >= seq.seqFrameCount) {
+
+                if (e.primarySeqFrame < 0 || e.primarySeqFrame >= seq.frameCount) {
                     e.primarySeqId = -1;
                 }
             }
 
-            e.seqStretches = seq.stretches;
+            e.needsForwardDrawPadding = seq.stretches;
         }
 
         if (e.primarySeqDelay > 0) {
@@ -3660,15 +3637,16 @@ export class Client extends GameShell {
                 e.spotanimFrame = 0;
             }
 
-            seq = SpotAnimType.instances[e.spotanimId].seq;
+            seq = SpotAnimType.types[e.spotanimId].seq;
             e.spotanimCycle++;
-            while (seq && seq.seqDelay && e.spotanimFrame < seq.seqFrameCount && e.spotanimCycle > seq.seqDelay[e.spotanimFrame]) {
-                e.spotanimCycle -= seq.seqDelay[e.spotanimFrame];
+
+            while (seq && seq.delay && e.spotanimFrame < seq.frameCount && e.spotanimCycle > seq.delay[e.spotanimFrame]) {
+                e.spotanimCycle -= seq.delay[e.spotanimFrame];
                 e.spotanimFrame++;
             }
 
-            if (seq && e.spotanimFrame >= seq.seqFrameCount) {
-                if (e.spotanimFrame < 0 || e.spotanimFrame >= seq.seqFrameCount) {
+            if (seq && e.spotanimFrame >= seq.frameCount) {
+                if (e.spotanimFrame < 0 || e.spotanimFrame >= seq.frameCount) {
                     e.spotanimId = -1;
                 }
             }
@@ -3676,56 +3654,60 @@ export class Client extends GameShell {
     }
 
     private async loadTitle(): Promise<void> {
-        if (!this.imageTitle2) {
-            this.drawArea = null;
-            this.areaChatback = null;
-            this.areaMapback = null;
-            this.areaSidebar = null;
-            this.areaViewport = null;
-            this.areaBackbase1 = null;
-            this.areaBackbase2 = null;
-            this.areaBackhmid1 = null;
-
-            this.imageTitle0 = new PixMap(128, 265);
-            Pix2D.clear();
-
-            this.imageTitle1 = new PixMap(128, 265);
-            Pix2D.clear();
-
-            this.imageTitle2 = new PixMap(533, 186);
-            Pix2D.clear();
-
-            this.imageTitle3 = new PixMap(360, 146);
-            Pix2D.clear();
-
-            this.imageTitle4 = new PixMap(360, 200);
-            Pix2D.clear();
-
-            this.imageTitle5 = new PixMap(214, 267);
-            Pix2D.clear();
-
-            this.imageTitle6 = new PixMap(215, 267);
-            Pix2D.clear();
-
-            this.imageTitle7 = new PixMap(86, 79);
-            Pix2D.clear();
-
-            this.imageTitle8 = new PixMap(87, 79);
-            Pix2D.clear();
-
-            if (this.titleArchive) {
-                await this.loadTitleBackground();
-                this.loadTitleImages();
-            }
-            this.redrawTitleBackground = true;
+        if (this.imageTitle2) {
+            return;
         }
+
+        this.drawArea = null;
+        this.areaChatback = null;
+        this.areaMapback = null;
+        this.areaSidebar = null;
+        this.areaViewport = null;
+        this.areaBackbase1 = null;
+        this.areaBackbase2 = null;
+        this.areaBackhmid1 = null;
+
+        this.imageTitle0 = new PixMap(128, 265);
+        Pix2D.clear();
+
+        this.imageTitle1 = new PixMap(128, 265);
+        Pix2D.clear();
+
+        this.imageTitle2 = new PixMap(533, 186);
+        Pix2D.clear();
+
+        this.imageTitle3 = new PixMap(360, 146);
+        Pix2D.clear();
+
+        this.imageTitle4 = new PixMap(360, 200);
+        Pix2D.clear();
+
+        this.imageTitle5 = new PixMap(214, 267);
+        Pix2D.clear();
+
+        this.imageTitle6 = new PixMap(215, 267);
+        Pix2D.clear();
+
+        this.imageTitle7 = new PixMap(86, 79);
+        Pix2D.clear();
+
+        this.imageTitle8 = new PixMap(87, 79);
+        Pix2D.clear();
+
+        if (this.jagTitle) {
+            await this.loadTitleBackground();
+            this.loadTitleImages();
+        }
+
+        this.redrawFrame = true;
     }
 
     private async loadTitleBackground(): Promise<void> {
-        if (!this.titleArchive) {
+        if (!this.jagTitle) {
             return;
         }
-        const background: Pix24 = await Pix24.fromJpeg(this.titleArchive, 'title');
+
+        const background: Pix32 = await Pix32.fromJpeg(this.jagTitle, 'title');
 
         this.imageTitle0?.bind();
         background.blitOpaque(0, 0);
@@ -3784,22 +3766,23 @@ export class Client extends GameShell {
         this.imageTitle8?.bind();
         background.blitOpaque(-180, -186);
 
-        const logo: Pix24 = Pix24.fromArchive(this.titleArchive, 'logo');
+        const logo: Pix32 = Pix32.fromArchive(this.jagTitle, 'logo');
         this.imageTitle2?.bind();
-        logo.draw(((this.width / 2) | 0) - ((logo.width2d / 2) | 0) - 128, 18);
+        logo.draw(((this.width / 2) | 0) - ((logo.cropRight / 2) | 0) - 128, 18);
     }
 
     private loadTitleImages(): void {
-        if (!this.titleArchive) {
+        if (!this.jagTitle) {
             return;
         }
-        this.imageTitlebox = Pix8.fromArchive(this.titleArchive, 'titlebox');
-        this.imageTitlebutton = Pix8.fromArchive(this.titleArchive, 'titlebutton');
+
+        this.imageTitlebox = Pix8.fromArchive(this.jagTitle, 'titlebox');
+        this.imageTitlebutton = Pix8.fromArchive(this.jagTitle, 'titlebutton');
         for (let i: number = 0; i < 12; i++) {
-            this.imageRunes[i] = Pix8.fromArchive(this.titleArchive, 'runes', i);
+            this.imageRunes[i] = Pix8.fromArchive(this.jagTitle, 'runes', i);
         }
-        this.imageFlamesLeft = new Pix24(128, 265);
-        this.imageFlamesRight = new Pix24(128, 265);
+        this.imageFlamesLeft = new Pix32(128, 265);
+        this.imageFlamesRight = new Pix32(128, 265);
 
         if (this.imageTitle0) arraycopy(this.imageTitle0.pixels, 0, this.imageFlamesLeft.pixels, 0, 33920);
         if (this.imageTitle1) arraycopy(this.imageTitle1.pixels, 0, this.imageFlamesRight.pixels, 0, 33920);
@@ -3817,6 +3800,7 @@ export class Client extends GameShell {
         for (let index: number = 0; index < 64; index++) {
             this.flameGradient0[index + 192] = Colors.WHITE;
         }
+
         this.flameGradient1 = new Int32Array(256);
         for (let index: number = 0; index < 64; index++) {
             this.flameGradient1[index] = index * 1024;
@@ -3830,6 +3814,7 @@ export class Client extends GameShell {
         for (let index: number = 0; index < 64; index++) {
             this.flameGradient1[index + 192] = Colors.WHITE;
         }
+
         this.flameGradient2 = new Int32Array(256);
         for (let index: number = 0; index < 64; index++) {
             this.flameGradient2[index] = index * 4;
@@ -3851,7 +3836,7 @@ export class Client extends GameShell {
         this.flameBuffer3 = new Int32Array(32768);
         this.flameBuffer2 = new Int32Array(32768);
 
-        this.showProgress(10, 'Connecting to fileserver').then((): void => {
+        this.drawProgress(10, 'Connecting to fileserver').then((): void => {
             if (!this.flameActive) {
                 this.flameActive = true;
                 this.flamesInterval = setInterval(this.runFlames.bind(this), 35);
@@ -3859,7 +3844,7 @@ export class Client extends GameShell {
         });
     }
 
-    private async drawTitleScreen(): Promise<void> {
+    private async drawTitle(): Promise<void> {
         await this.loadTitle();
         this.imageTitle4?.bind();
         this.imageTitlebox?.draw(0, 0);
@@ -3892,12 +3877,13 @@ export class Client extends GameShell {
                 y += 30;
             }
 
-            this.fontBold12?.drawStringTaggable(w / 2 - 90, y, `Username: ${this.usernameInput}${this.titleLoginField === 0 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
+            this.fontBold12?.drawStringTaggable(w / 2 - 90, y, `Username: ${this.username}${this.titleLoginField === 0 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggable(w / 2 - 88, y, `Password: ${JString.toAsterisks(this.passwordInput)}${this.titleLoginField === 1 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
+            this.fontBold12?.drawStringTaggable(w / 2 - 88, y, `Password: ${JString.toAsterisks(this.password)}${this.titleLoginField === 1 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
+            y += 15;
 
-            // x = w / 2 - 80; dead code
+            x = ((w / 2) | 0) - 80;
             y = ((h / 2) | 0) + 50;
             this.imageTitlebutton?.draw(x - 73, y - 20);
             this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'Login', Colors.WHITE, true);
@@ -3906,31 +3892,33 @@ export class Client extends GameShell {
             this.imageTitlebutton?.draw(x - 73, y - 20);
             this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'Cancel', Colors.WHITE, true);
         } else if (this.titleScreenState === 3) {
-            this.fontBold12?.drawStringTaggableCenter(w / 2, h / 2 - 60, 'Create a free account', Colors.YELLOW, true);
+            let x: number = (w / 2) | 0;
+            let y: number = ((h / 2) | 0) - 60;
+            this.fontBold12?.drawStringTaggableCenter(x, y, 'Create a free account', Colors.YELLOW, true);
 
-            const x: number = (w / 2) | 0;
-            let y: number = ((h / 2) | 0) - 35;
-
-            this.fontBold12?.drawStringTaggableCenter((w / 2) | 0, y, 'To create a new account you need to', Colors.WHITE, true);
+            y = ((h / 2) | 0) - 35;
+            this.fontBold12?.drawStringTaggableCenter(x, y, 'To create a new account you need to', Colors.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggableCenter((w / 2) | 0, y, 'go back to the main RuneScape webpage', Colors.WHITE, true);
+            this.fontBold12?.drawStringTaggableCenter(x, y, 'go back to the main RuneScape webpage', Colors.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggableCenter((w / 2) | 0, y, "and choose the red 'create account'", Colors.WHITE, true);
+            this.fontBold12?.drawStringTaggableCenter(x, y, "and choose the red 'create account'", Colors.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggableCenter((w / 2) | 0, y, 'button at the top right of that page.', Colors.WHITE, true);
-            // y += 15; dead code
+            this.fontBold12?.drawStringTaggableCenter(x, y, 'button at the top right of that page.', Colors.WHITE, true);
+            y += 15;
 
+            x = (w / 2) | 0;
             y = ((h / 2) | 0) + 50;
             this.imageTitlebutton?.draw(x - 73, y - 20);
             this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'Cancel', Colors.WHITE, true);
         }
 
         this.imageTitle4?.draw(214, 186);
-        if (this.redrawTitleBackground) {
-            this.redrawTitleBackground = false;
+
+        if (this.redrawFrame) {
+            this.redrawFrame = false;
             this.imageTitle2?.draw(128, 0);
             this.imageTitle3?.draw(214, 386);
             this.imageTitle5?.draw(0, 265);
@@ -3946,8 +3934,9 @@ export class Client extends GameShell {
             return;
         }
 
-        if (this.redrawTitleBackground) {
-            this.redrawTitleBackground = false;
+        if (this.redrawFrame) {
+            this.redrawFrame = false;
+
             this.areaBackleft1?.draw(0, 11);
             this.areaBackleft2?.draw(0, 375);
             this.areaBackright1?.draw(729, 5);
@@ -3958,6 +3947,7 @@ export class Client extends GameShell {
             this.areaBackvmid2?.draw(520, 231);
             this.areaBackvmid3?.draw(501, 375);
             this.areaBackhmid2?.draw(0, 345);
+
             this.redrawSidebar = true;
             this.redrawChatback = true;
             this.redrawSideicons = true;
@@ -3977,9 +3967,8 @@ export class Client extends GameShell {
             this.redrawSidebar = true;
         }
 
-        let redraw: boolean = false;
         if (this.sidebarInterfaceId !== -1) {
-            redraw = this.updateInterfaceAnimation(this.sidebarInterfaceId, this.sceneDelta);
+            let redraw = this.updateInterfaceAnimation(this.sidebarInterfaceId, this.sceneDelta);
             if (redraw) {
                 this.redrawSidebar = true;
             }
@@ -4000,6 +3989,7 @@ export class Client extends GameShell {
 
         if (this.chatInterfaceId === -1) {
             this.chatInterface.scrollPosition = this.chatScrollHeight - this.chatScrollOffset - 77;
+ 
             if (this.mouseX > 453 && this.mouseX < 565 && this.mouseY > 350) {
                 this.handleScrollInput(this.mouseX - 22, this.mouseY - 375, this.chatScrollHeight, 77, false, 463, 0, this.chatInterface);
             }
@@ -4020,7 +4010,7 @@ export class Client extends GameShell {
         }
 
         if (this.chatInterfaceId !== -1) {
-            redraw = this.updateInterfaceAnimation(this.chatInterfaceId, this.sceneDelta);
+            let redraw = this.updateInterfaceAnimation(this.chatInterfaceId, this.sceneDelta);
             if (redraw) {
                 this.redrawChatback = true;
             }
@@ -4043,7 +4033,7 @@ export class Client extends GameShell {
         }
 
         if (this.redrawChatback) {
-            this.drawChatback();
+            this.drawChat();
             this.redrawChatback = false;
         }
 
@@ -4116,6 +4106,7 @@ export class Client extends GameShell {
             }
 
             this.areaBackhmid1?.draw(520, 165);
+
             this.areaBackbase2?.bind();
             this.imageBackbase2?.draw(0, 0);
 
@@ -4162,53 +4153,58 @@ export class Client extends GameShell {
                     this.imageSideicons[12]?.draw(230, 2);
                 }
             }
+
             this.areaBackbase2?.draw(501, 492);
+
             this.areaViewport?.bind();
         }
 
         if (this.redrawPrivacySettings) {
             this.redrawPrivacySettings = false;
+
             this.areaBackbase1?.bind();
             this.imageBackbase1?.draw(0, 0);
 
             this.fontPlain12?.drawStringTaggableCenter(57, 33, 'Public chat', Colors.WHITE, true);
-            if (this.publicChatSetting === 0) {
+            if (this.chatPublicMode === 0) {
                 this.fontPlain12?.drawStringTaggableCenter(57, 46, 'On', Colors.GREEN, true);
             }
-            if (this.publicChatSetting === 1) {
+            if (this.chatPublicMode === 1) {
                 this.fontPlain12?.drawStringTaggableCenter(57, 46, 'Friends', Colors.YELLOW, true);
             }
-            if (this.publicChatSetting === 2) {
+            if (this.chatPublicMode === 2) {
                 this.fontPlain12?.drawStringTaggableCenter(57, 46, 'Off', Colors.RED, true);
             }
-            if (this.publicChatSetting === 3) {
+            if (this.chatPublicMode === 3) {
                 this.fontPlain12?.drawStringTaggableCenter(57, 46, 'Hide', Colors.CYAN, true);
             }
 
             this.fontPlain12?.drawStringTaggableCenter(186, 33, 'Private chat', Colors.WHITE, true);
-            if (this.privateChatSetting === 0) {
+            if (this.chatPrivateMode === 0) {
                 this.fontPlain12?.drawStringTaggableCenter(186, 46, 'On', Colors.GREEN, true);
             }
-            if (this.privateChatSetting === 1) {
+            if (this.chatPrivateMode === 1) {
                 this.fontPlain12?.drawStringTaggableCenter(186, 46, 'Friends', Colors.YELLOW, true);
             }
-            if (this.privateChatSetting === 2) {
+            if (this.chatPrivateMode === 2) {
                 this.fontPlain12?.drawStringTaggableCenter(186, 46, 'Off', Colors.RED, true);
             }
 
             this.fontPlain12?.drawStringTaggableCenter(326, 33, 'Trade/duel', Colors.WHITE, true);
-            if (this.tradeChatSetting === 0) {
+            if (this.chatTradeMode === 0) {
                 this.fontPlain12?.drawStringTaggableCenter(326, 46, 'On', Colors.GREEN, true);
             }
-            if (this.tradeChatSetting === 1) {
+            if (this.chatTradeMode === 1) {
                 this.fontPlain12?.drawStringTaggableCenter(326, 46, 'Friends', Colors.YELLOW, true);
             }
-            if (this.tradeChatSetting === 2) {
+            if (this.chatTradeMode === 2) {
                 this.fontPlain12?.drawStringTaggableCenter(326, 46, 'Off', Colors.RED, true);
             }
 
             this.fontPlain12?.drawStringTaggableCenter(462, 38, 'Report abuse', Colors.WHITE, true);
+
             this.areaBackbase1?.draw(0, 471);
+
             this.areaViewport?.bind();
         }
 
@@ -4217,6 +4213,7 @@ export class Client extends GameShell {
 
     private drawScene(): void {
         this.sceneCycle++;
+
         this.pushPlayers();
         this.pushNpcs();
         this.pushProjectiles();
@@ -4225,16 +4222,15 @@ export class Client extends GameShell {
 
         if (!this.cutscene) {
             let pitch: number = this.orbitCameraPitch;
-
             if (((this.cameraPitchClamp / 256) | 0) > pitch) {
                 pitch = (this.cameraPitchClamp / 256) | 0;
             }
-
             if (this.cameraModifierEnabled[4] && this.cameraModifierWobbleScale[4] + 128 > pitch) {
                 pitch = this.cameraModifierWobbleScale[4] + 128;
             }
 
-            const yaw: number = (this.orbitCameraYaw + this.cameraAnticheatAngle) & 0x7ff;
+            const yaw: number = (this.orbitCameraYaw + this.macroCameraAngle) & 0x7ff;
+
             if (this.localPlayer) {
                 this.orbitCamera(this.orbitCameraX, this.getHeightmapY(this.currentLevel, this.localPlayer.x, this.localPlayer.z) - 50, this.orbitCameraZ, yaw, pitch, pitch * 3 + 600);
             }
@@ -4275,48 +4271,48 @@ export class Client extends GameShell {
         const cameraZ: number = this.cameraZ;
         const cameraPitch: number = this.cameraPitch;
         const cameraYaw: number = this.cameraYaw;
-        let jitter: number;
+
         for (let type: number = 0; type < 5; type++) {
             if (this.cameraModifierEnabled[type]) {
-                jitter =
-                    (Math.random() * (this.cameraModifierJitter[type] * 2 + 1) - this.cameraModifierJitter[type] + Math.sin(this.cameraModifierCycle[type] * (this.cameraModifierWobbleSpeed[type] / 100.0)) * this.cameraModifierWobbleScale[type]) | 0;
+                const jitter = (Math.random() * (this.cameraModifierJitter[type] * 2 + 1) - this.cameraModifierJitter[type] + Math.sin(this.cameraModifierCycle[type] * (this.cameraModifierWobbleSpeed[type] / 100.0)) * this.cameraModifierWobbleScale[type]) | 0;
 
                 if (type === 0) {
                     this.cameraX += jitter;
-                }
-                if (type === 1) {
+                } else if (type === 1) {
                     this.cameraY += jitter;
-                }
-                if (type === 2) {
+                } else if (type === 2) {
                     this.cameraZ += jitter;
-                }
-                if (type === 3) {
+                } else if (type === 3) {
                     this.cameraYaw = (this.cameraYaw + jitter) & 0x7ff;
-                }
-                if (type === 4) {
+                } else if (type === 4) {
                     this.cameraPitch += jitter;
+
                     if (this.cameraPitch < 128) {
                         this.cameraPitch = 128;
                     }
+
                     if (this.cameraPitch > 383) {
                         this.cameraPitch = 383;
                     }
                 }
             }
         }
-        jitter = Pix3D.cycle;
+
+        const cycle = Pix3D.cycle;
         Model.checkHover = true;
         Model.pickedCount = 0;
         Model.mouseX = this.mouseX - 8;
         Model.mouseY = this.mouseY - 11;
+
         Pix2D.clear();
         this.scene?.draw(this.cameraX, this.cameraY, this.cameraZ, level, this.cameraYaw, this.cameraPitch, this.loopCycle);
-        this.scene?.clearTemporaryLocs();
+        this.scene?.clearLocChanges();
         this.draw2DEntityElements();
         this.drawTileHint();
-        this.updateTextures(jitter);
+        this.updateTextures(cycle);
         this.draw3DEntityElements();
         this.areaViewport?.draw(8, 11);
+
         this.cameraX = cameraX;
         this.cameraY = cameraY;
         this.cameraZ = cameraZ;
@@ -4334,7 +4330,7 @@ export class Client extends GameShell {
         }
 
         for (let i: number = -1; i < this.playerCount; i++) {
-            let player: PlayerEntity | null;
+            let player: ClientPlayer | null;
             let id: number;
             if (i === -1) {
                 player = this.localPlayer;
@@ -4344,11 +4340,15 @@ export class Client extends GameShell {
                 id = this.playerIds[i] << 14;
             }
 
-            if (!player || !player.isVisibleNow()) {
+            if (!player || !player.isVisible()) {
                 continue;
             }
 
-            player.lowMemory = ((Client.lowMemory && this.playerCount > 50) || this.playerCount > 200) && i !== -1 && player.secondarySeqId === player.seqStandId;
+            player.lowMemory = false;
+            if ((Client.lowMemory && this.playerCount > 50 || this.playerCount > 200) && i != -1 && player.secondarySeqId == player.readyanim) {
+                player.lowMemory = true;
+            }
+
             const stx: number = player.x >> 7;
             const stz: number = player.z >> 7;
 
@@ -4366,21 +4366,21 @@ export class Client extends GameShell {
                 }
 
                 player.y = this.getHeightmapY(this.currentLevel, player.x, player.z);
-                this.scene?.addTemporary(this.currentLevel, player.x, player.y, player.z, null, player, id, player.yaw, 60, player.seqStretches);
+                this.scene?.changeLoc(this.currentLevel, player.x, player.y, player.z, null, player, id, player.yaw, 60, player.needsForwardDrawPadding);
             } else {
                 player.lowMemory = false;
                 player.y = this.getHeightmapY(this.currentLevel, player.x, player.z);
-                this.scene?.addTemporary2(this.currentLevel, player.x, player.y, player.z, player.minTileX, player.minTileZ, player.maxTileX, player.maxTileZ, null, player, id, player.yaw);
+                this.scene?.changeLoc2(this.currentLevel, player.x, player.y, player.z, player.minTileX, player.minTileZ, player.maxTileX, player.maxTileZ, null, player, id, player.yaw);
             }
         }
     }
 
     private pushNpcs(): void {
         for (let i: number = 0; i < this.npcCount; i++) {
-            const npc: NpcEntity | null = this.npcs[this.npcIds[i]];
-            const typecode: number = ((this.npcIds[i] << 14) + 0x1fff_ffff + 1) | 0;
+            const npc: ClientNpc | null = this.npcs[this.npcIds[i]];
+            const typecode: number = ((this.npcIds[i] << 14) + 0x20000000) | 0;
 
-            if (!npc || !npc.isVisibleNow()) {
+            if (!npc || !npc.isVisible()) {
                 continue;
             }
 
@@ -4399,17 +4399,17 @@ export class Client extends GameShell {
                 this.tileLastOccupiedCycle[x][z] = this.sceneCycle;
             }
 
-            this.scene?.addTemporary(this.currentLevel, npc.x, this.getHeightmapY(this.currentLevel, npc.x, npc.z), npc.z, null, npc, typecode, npc.yaw, (npc.size - 1) * 64 + 60, npc.seqStretches);
+            this.scene?.changeLoc(this.currentLevel, npc.x, this.getHeightmapY(this.currentLevel, npc.x, npc.z), npc.z, null, npc, typecode, npc.yaw, (npc.size - 1) * 64 + 60, npc.needsForwardDrawPadding);
         }
     }
 
     private pushProjectiles(): void {
-        for (let proj: ProjectileEntity | null = this.projectiles.head() as ProjectileEntity | null; proj; proj = this.projectiles.next() as ProjectileEntity | null) {
+        for (let proj: ClientProj | null = this.projectiles.head() as ClientProj | null; proj; proj = this.projectiles.next() as ClientProj | null) {
             if (proj.projLevel !== this.currentLevel || this.loopCycle > proj.lastCycle) {
                 proj.unlink();
             } else if (this.loopCycle >= proj.startCycle) {
                 if (proj.projTarget > 0) {
-                    const npc: NpcEntity | null = this.npcs[proj.projTarget - 1];
+                    const npc: ClientNpc | null = this.npcs[proj.projTarget - 1];
                     if (npc) {
                         proj.updateVelocity(npc.x, this.getHeightmapY(proj.projLevel, npc.x, npc.z) - proj.projOffsetY, npc.z, this.loopCycle);
                     }
@@ -4417,40 +4417,42 @@ export class Client extends GameShell {
 
                 if (proj.projTarget < 0) {
                     const index: number = -proj.projTarget - 1;
-                    let player: PlayerEntity | null;
+                    let player: ClientPlayer | null;
                     if (index === this.localPid) {
                         player = this.localPlayer;
                     } else {
                         player = this.players[index];
                     }
+
                     if (player) {
                         proj.updateVelocity(player.x, this.getHeightmapY(proj.projLevel, player.x, player.z) - proj.projOffsetY, player.z, this.loopCycle);
                     }
                 }
 
                 proj.update(this.sceneDelta);
-                this.scene?.addTemporary(this.currentLevel, proj.x | 0, proj.y | 0, proj.z | 0, null, proj, -1, proj.yaw, 60, false);
+                this.scene?.changeLoc(this.currentLevel, proj.x | 0, proj.y | 0, proj.z | 0, null, proj, -1, proj.yaw, 60, false);
             }
         }
     }
 
     private pushSpotanims(): void {
-        for (let entity: SpotAnimEntity | null = this.spotanims.head() as SpotAnimEntity | null; entity; entity = this.spotanims.next() as SpotAnimEntity | null) {
-            if (entity.spotLevel !== this.currentLevel || entity.seqComplete) {
-                entity.unlink();
-            } else if (this.loopCycle >= entity.startCycle) {
-                entity.update(this.sceneDelta);
-                if (entity.seqComplete) {
-                    entity.unlink();
+        for (let spot: MapSpotAnim | null = this.spotanims.head() as MapSpotAnim | null; spot; spot = this.spotanims.next() as MapSpotAnim | null) {
+            if (spot.spotLevel !== this.currentLevel || spot.seqComplete) {
+                spot.unlink();
+            } else if (this.loopCycle >= spot.startCycle) {
+                spot.update(this.sceneDelta);
+
+                if (spot.seqComplete) {
+                    spot.unlink();
                 } else {
-                    this.scene?.addTemporary(entity.spotLevel, entity.x, entity.y, entity.z, null, entity, -1, 0, 60, false);
+                    this.scene?.changeLoc(spot.spotLevel, spot.x, spot.y, spot.z, null, spot, -1, 0, 60, false);
                 }
             }
         }
     }
 
     private pushLocs(): void {
-        for (let loc: LocEntity | null = this.locList.head() as LocEntity | null; loc; loc = this.locList.next() as LocEntity | null) {
+        for (let loc: ClientLocAnim | null = this.locList.head() as ClientLocAnim | null; loc; loc = this.locList.next() as ClientLocAnim | null) {
             let append: boolean = false;
             loc.seqCycle += this.sceneDelta;
             if (loc.seqFrame === -1) {
@@ -4458,17 +4460,17 @@ export class Client extends GameShell {
                 append = true;
             }
 
-            if (loc.seq.seqDelay) {
-                while (loc.seqCycle > loc.seq.seqDelay[loc.seqFrame]) {
-                    loc.seqCycle -= loc.seq.seqDelay[loc.seqFrame] + 1;
+            if (loc.seq.delay) {
+                while (loc.seqCycle > loc.seq.delay[loc.seqFrame]) {
+                    loc.seqCycle -= loc.seq.delay[loc.seqFrame] + 1;
                     loc.seqFrame++;
 
                     append = true;
 
-                    if (loc.seqFrame >= loc.seq.seqFrameCount) {
-                        loc.seqFrame -= loc.seq.replayoff;
+                    if (loc.seqFrame >= loc.seq.frameCount) {
+                        loc.seqFrame -= loc.seq.loops;
 
-                        if (loc.seqFrame < 0 || loc.seqFrame >= loc.seq.seqFrameCount) {
+                        if (loc.seqFrame < 0 || loc.seqFrame >= loc.seq.frameCount) {
                             loc.unlink();
                             append = false;
                             break;
@@ -4501,8 +4503,8 @@ export class Client extends GameShell {
 
                     const type: LocType = LocType.get(loc.index);
                     let seqId: number = -1;
-                    if (loc.seqFrame !== -1 && loc.seq.seqFrames) {
-                        seqId = loc.seq.seqFrames[loc.seqFrame];
+                    if (loc.seqFrame !== -1 && loc.seq.frames) {
+                        seqId = loc.seq.frames[loc.seqFrame];
                     }
 
                     if (loc.heightmapSE === 2) {
@@ -4549,32 +4551,34 @@ export class Client extends GameShell {
     private orbitCamera(targetX: number, targetY: number, targetZ: number, yaw: number, pitch: number, distance: number): void {
         const invPitch: number = (2048 - pitch) & 0x7ff;
         const invYaw: number = (2048 - yaw) & 0x7ff;
+
         let x: number = 0;
-        let z: number = 0;
-        let y: number = distance;
+        let y: number = 0;
+        let z: number = distance;
+
         let sin: number;
         let cos: number;
         let tmp: number;
 
         if (invPitch !== 0) {
-            sin = Pix3D.sin[invPitch];
-            cos = Pix3D.cos[invPitch];
-            tmp = (z * cos - distance * sin) >> 16;
-            y = (z * sin + distance * cos) >> 16;
-            z = tmp;
+            sin = Pix3D.sinTable[invPitch];
+            cos = Pix3D.cosTable[invPitch];
+            tmp = (y * cos - distance * sin) >> 16;
+            z = (y * sin + distance * cos) >> 16;
+            y = tmp;
         }
 
         if (invYaw !== 0) {
-            sin = Pix3D.sin[invYaw];
-            cos = Pix3D.cos[invYaw];
-            tmp = (y * sin + x * cos) >> 16;
-            y = (y * cos - x * sin) >> 16;
+            sin = Pix3D.sinTable[invYaw];
+            cos = Pix3D.cosTable[invYaw];
+            tmp = (z * sin + x * cos) >> 16;
+            z = (z * cos - x * sin) >> 16;
             x = tmp;
         }
 
         this.cameraX = targetX - x;
-        this.cameraY = targetY - z;
-        this.cameraZ = targetZ - y;
+        this.cameraY = targetY - y;
+        this.cameraZ = targetZ - z;
         this.cameraPitch = pitch;
         this.cameraYaw = yaw;
     }
@@ -4583,79 +4587,93 @@ export class Client extends GameShell {
         if (!this.levelTileFlags) {
             return 0; // custom
         }
+
         const y: number = this.getHeightmapY(this.currentLevel, this.cameraX, this.cameraZ);
         return y - this.cameraY >= 800 || (this.levelTileFlags[this.currentLevel][this.cameraX >> 7][this.cameraZ >> 7] & 0x4) === 0 ? 3 : this.currentLevel;
     }
 
     private getTopLevel(): number {
         let top: number = 3;
+
         if (this.cameraPitch < 310 && this.localPlayer) {
             let cameraLocalTileX: number = this.cameraX >> 7;
             let cameraLocalTileZ: number = this.cameraZ >> 7;
             const playerLocalTileX: number = this.localPlayer.x >> 7;
             const playerLocalTileZ: number = this.localPlayer.z >> 7;
+
             if (this.levelTileFlags && (this.levelTileFlags[this.currentLevel][cameraLocalTileX][cameraLocalTileZ] & 0x4) !== 0) {
                 top = this.currentLevel;
             }
+
             let tileDeltaX: number;
             if (playerLocalTileX > cameraLocalTileX) {
                 tileDeltaX = playerLocalTileX - cameraLocalTileX;
             } else {
                 tileDeltaX = cameraLocalTileX - playerLocalTileX;
             }
+
             let tileDeltaZ: number;
             if (playerLocalTileZ > cameraLocalTileZ) {
                 tileDeltaZ = playerLocalTileZ - cameraLocalTileZ;
             } else {
                 tileDeltaZ = cameraLocalTileZ - playerLocalTileZ;
             }
-            let delta: number;
-            let accumulator: number;
+
             if (tileDeltaX > tileDeltaZ) {
-                delta = ((tileDeltaZ * 65536) / tileDeltaX) | 0;
-                accumulator = 32768;
+                let delta = ((tileDeltaZ * 65536) / tileDeltaX) | 0;
+                let accumulator = 32768;
+
                 while (cameraLocalTileX !== playerLocalTileX) {
                     if (cameraLocalTileX < playerLocalTileX) {
                         cameraLocalTileX++;
                     } else if (cameraLocalTileX > playerLocalTileX) {
                         cameraLocalTileX--;
                     }
+
                     if (this.levelTileFlags && (this.levelTileFlags[this.currentLevel][cameraLocalTileX][cameraLocalTileZ] & 0x4) !== 0) {
                         top = this.currentLevel;
                     }
+
                     accumulator += delta;
                     if (accumulator >= 65536) {
                         accumulator -= 65536;
+
                         if (cameraLocalTileZ < playerLocalTileZ) {
                             cameraLocalTileZ++;
                         } else if (cameraLocalTileZ > playerLocalTileZ) {
                             cameraLocalTileZ--;
                         }
+
                         if (this.levelTileFlags && (this.levelTileFlags[this.currentLevel][cameraLocalTileX][cameraLocalTileZ] & 0x4) !== 0) {
                             top = this.currentLevel;
                         }
                     }
                 }
             } else {
-                delta = ((tileDeltaX * 65536) / tileDeltaZ) | 0;
-                accumulator = 32768;
+                let delta = ((tileDeltaX * 65536) / tileDeltaZ) | 0;
+                let accumulator = 32768;
+
                 while (cameraLocalTileZ !== playerLocalTileZ) {
                     if (cameraLocalTileZ < playerLocalTileZ) {
                         cameraLocalTileZ++;
                     } else if (cameraLocalTileZ > playerLocalTileZ) {
                         cameraLocalTileZ--;
                     }
+
                     if (this.levelTileFlags && (this.levelTileFlags[this.currentLevel][cameraLocalTileX][cameraLocalTileZ] & 0x4) !== 0) {
                         top = this.currentLevel;
                     }
+
                     accumulator += delta;
                     if (accumulator >= 65536) {
                         accumulator -= 65536;
+
                         if (cameraLocalTileX < playerLocalTileX) {
                             cameraLocalTileX++;
                         } else if (cameraLocalTileX > playerLocalTileX) {
                             cameraLocalTileX--;
                         }
+
                         if (this.levelTileFlags && (this.levelTileFlags[this.currentLevel][cameraLocalTileX][cameraLocalTileZ] & 0x4) !== 0) {
                             top = this.currentLevel;
                         }
@@ -4663,9 +4681,11 @@ export class Client extends GameShell {
                 }
             }
         }
+
         if (this.localPlayer && this.levelTileFlags && (this.levelTileFlags[this.currentLevel][this.localPlayer.x >> 7][this.localPlayer.z >> 7] & 0x4) !== 0) {
             top = this.currentLevel;
         }
+
         return top;
     }
 
@@ -4673,7 +4693,7 @@ export class Client extends GameShell {
         this.chatCount = 0;
 
         for (let index: number = -1; index < this.playerCount + this.npcCount; index++) {
-            let entity: PathingEntity | null = null;
+            let entity: ClientEntity | null = null;
             if (index === -1) {
                 entity = this.localPlayer;
             } else if (index < this.playerCount) {
@@ -4682,21 +4702,21 @@ export class Client extends GameShell {
                 entity = this.npcs[this.npcIds[index - this.playerCount]];
             }
 
-            if (!entity || !entity.isVisibleNow()) {
+            if (!entity || !entity.isVisible()) {
                 continue;
             }
 
             if (index < this.playerCount) {
                 let y: number = 30;
 
-                const player: PlayerEntity = entity as PlayerEntity;
+                const player: ClientPlayer = entity as ClientPlayer;
                 if (player.headicons !== 0) {
-                    this.projectFromEntity(entity, entity.maxY + 15);
+                    this.projectFromEntity(entity, entity.height + 15);
 
                     if (this.projectX > -1) {
                         for (let icon: number = 0; icon < 8; icon++) {
                             if ((player.headicons & (0x1 << icon)) !== 0) {
-                                this.imageHeadicons[icon]?.draw(this.projectX - 12, this.projectY - y);
+                                this.imageHeadicon[icon]?.draw(this.projectX - 12, this.projectY - y);
                                 y -= 25;
                             }
                         }
@@ -4704,47 +4724,47 @@ export class Client extends GameShell {
                 }
 
                 if (index >= 0 && this.hintType === 10 && this.hintPlayer === this.playerIds[index]) {
-                    this.projectFromEntity(entity, entity.maxY + 15);
+                    this.projectFromEntity(entity, entity.height + 15);
 
                     if (this.projectX > -1) {
-                        this.imageHeadicons[7]?.draw(this.projectX - 12, this.projectY - y);
+                        this.imageHeadicon[7]?.draw(this.projectX - 12, this.projectY - y);
                     }
                 }
             } else if (this.hintType === 1 && this.hintNpc === this.npcIds[index - this.playerCount] && this.loopCycle % 20 < 10) {
-                this.projectFromEntity(entity, entity.maxY + 15);
+                this.projectFromEntity(entity, entity.height + 15);
 
                 if (this.projectX > -1) {
-                    this.imageHeadicons[2]?.draw(this.projectX - 12, this.projectY - 28);
+                    this.imageHeadicon[2]?.draw(this.projectX - 12, this.projectY - 28);
                 }
             }
 
-            if (entity.chat && (index >= this.playerCount || this.publicChatSetting === 0 || this.publicChatSetting === 3 || (this.publicChatSetting === 1 && this.isFriend((entity as PlayerEntity).name)))) {
-                this.projectFromEntity(entity, entity.maxY);
+            if (entity.chatMessage && (index >= this.playerCount || this.chatPublicMode === 0 || this.chatPublicMode === 3 || (this.chatPublicMode === 1 && this.isFriend((entity as ClientPlayer).name)))) {
+                this.projectFromEntity(entity, entity.height);
 
                 if (this.projectX > -1 && this.chatCount < Constants.MAX_CHATS && this.fontBold12) {
-                    this.chatWidth[this.chatCount] = (this.fontBold12.stringWidth(entity.chat) / 2) | 0;
+                    this.chatWidth[this.chatCount] = (this.fontBold12.stringWidth(entity.chatMessage) / 2) | 0;
                     this.chatHeight[this.chatCount] = this.fontBold12.height2d;
                     this.chatX[this.chatCount] = this.projectX;
                     this.chatY[this.chatCount] = this.projectY;
 
-                    this.chatColors[this.chatCount] = entity.chatColor;
-                    this.chatStyles[this.chatCount] = entity.chatStyle;
+                    this.chatColors[this.chatCount] = entity.chatColour;
+                    this.chatEffect[this.chatCount] = entity.chatEffect;
                     this.chatTimers[this.chatCount] = entity.chatTimer;
-                    this.chats[this.chatCount++] = entity.chat as string;
+                    this.chats[this.chatCount++] = entity.chatMessage as string;
 
-                    if (this.chatEffects === 0 && entity.chatStyle === 1) {
+                    if (this.chatEffects === 0 && entity.chatEffect === 1) {
                         this.chatHeight[this.chatCount] += 10;
                         this.chatY[this.chatCount] += 5;
                     }
 
-                    if (this.chatEffects === 0 && entity.chatStyle === 2) {
+                    if (this.chatEffects === 0 && entity.chatEffect === 2) {
                         this.chatWidth[this.chatCount] = 60;
                     }
                 }
             }
 
             if (entity.combatCycle > this.loopCycle + 100) {
-                this.projectFromEntity(entity, entity.maxY + 15);
+                this.projectFromEntity(entity, entity.height + 15);
 
                 if (this.projectX > -1) {
                     let w: number = ((entity.health * 30) / entity.totalHealth) | 0;
@@ -4757,13 +4777,15 @@ export class Client extends GameShell {
             }
 
             if (entity.combatCycle > this.loopCycle + 330) {
-                this.projectFromEntity(entity, (entity.maxY / 2) | 0);
+                this.projectFromEntity(entity, (entity.height / 2) | 0);
 
-                if (this.projectX > -1) {
-                    this.imageHitmarks[entity.damageType]?.draw(this.projectX - 12, this.projectY - 12);
-                    this.fontPlain11?.drawStringCenter(this.projectX, this.projectY + 4, entity.damage.toString(), Colors.BLACK);
-                    this.fontPlain11?.drawStringCenter(this.projectX - 1, this.projectY + 3, entity.damage.toString(), Colors.WHITE);
+                if (this.projectX <= -1) {
+                    continue;
                 }
+
+                this.imageHitmarks[entity.damageType]?.draw(this.projectX - 12, this.projectY - 12);
+                this.fontPlain11?.drawStringCenter(this.projectX, this.projectY + 4, entity.damage.toString(), Colors.BLACK);
+                this.fontPlain11?.drawStringCenter(this.projectX - 1, this.projectY + 3, entity.damage.toString(), Colors.WHITE);
             }
         }
 
@@ -4772,6 +4794,7 @@ export class Client extends GameShell {
             let y: number = this.chatY[i];
             const padding: number = this.chatWidth[i];
             const height: number = this.chatHeight[i];
+
             let sorting: boolean = true;
             while (sorting) {
                 sorting = false;
@@ -4782,24 +4805,23 @@ export class Client extends GameShell {
                     }
                 }
             }
+
             this.projectX = this.chatX[i];
             this.projectY = this.chatY[i] = y;
+
             const message: string | null = this.chats[i];
             if (this.chatEffects === 0) {
                 let color: number = Colors.YELLOW;
+
                 if (this.chatColors[i] < 6) {
                     color = Client.CHAT_COLORS[this.chatColors[i]];
-                }
-                if (this.chatColors[i] === 6) {
+                } else if (this.chatColors[i] === 6) {
                     color = this.sceneCycle % 20 < 10 ? Colors.RED : Colors.YELLOW;
-                }
-                if (this.chatColors[i] === 7) {
+                } else if (this.chatColors[i] === 7) {
                     color = this.sceneCycle % 20 < 10 ? Colors.BLUE : Colors.CYAN;
-                }
-                if (this.chatColors[i] === 8) {
+                } else if (this.chatColors[i] === 8) {
                     color = this.sceneCycle % 20 < 10 ? 0xb000 : 0x80ff80;
-                }
-                if (this.chatColors[i] === 9) {
+                } else if (this.chatColors[i] === 9) {
                     const delta: number = 150 - this.chatTimers[i];
                     if (delta < 50) {
                         color = delta * 1280 + Colors.RED;
@@ -4808,8 +4830,7 @@ export class Client extends GameShell {
                     } else if (delta < 150) {
                         color = (delta - 100) * 5 + Colors.GREEN;
                     }
-                }
-                if (this.chatColors[i] === 10) {
+                } else if (this.chatColors[i] === 10) {
                     const delta: number = 150 - this.chatTimers[i];
                     if (delta < 50) {
                         color = delta * 5 + Colors.RED;
@@ -4829,15 +4850,14 @@ export class Client extends GameShell {
                         color = Colors.WHITE - (delta - 100) * 327680;
                     }
                 }
-                if (this.chatStyles[i] === 0) {
+
+                if (this.chatEffect[i] === 0) {
                     this.fontBold12?.drawStringCenter(this.projectX, this.projectY + 1, message, Colors.BLACK);
                     this.fontBold12?.drawStringCenter(this.projectX, this.projectY, message, color);
-                }
-                if (this.chatStyles[i] === 1) {
+                } else if (this.chatEffect[i] === 1) {
                     this.fontBold12?.drawCenteredWave(this.projectX, this.projectY + 1, message, Colors.BLACK, this.sceneCycle);
                     this.fontBold12?.drawCenteredWave(this.projectX, this.projectY, message, color, this.sceneCycle);
-                }
-                if (this.chatStyles[i] === 2) {
+                } else if (this.chatEffect[i] === 2) {
                     const w: number = this.fontBold12?.stringWidth(message) ?? 0;
                     const offsetX: number = ((150 - this.chatTimers[i]) * (w + 100)) / 150;
                     Pix2D.setBounds(this.projectX - 50, 0, this.projectX + 50, 334);
@@ -4853,18 +4873,18 @@ export class Client extends GameShell {
     }
 
     private drawTileHint(): void {
-        if (this.hintType !== 2 || !this.imageHeadicons[2]) {
+        if (this.hintType !== 2 || !this.imageHeadicon[2]) {
             return;
         }
 
         this.projectFromGround(((this.hintTileX - this.sceneBaseTileX) << 7) + this.hintOffsetX, this.hintHeight * 2, ((this.hintTileZ - this.sceneBaseTileZ) << 7) + this.hintOffsetZ);
 
         if (this.projectX > -1 && this.loopCycle % 20 < 10) {
-            this.imageHeadicons[2].draw(this.projectX - 12, this.projectY - 28);
+            this.imageHeadicon[2].draw(this.projectX - 12, this.projectY - 28);
         }
     }
 
-    private projectFromEntity(entity: PathingEntity, height: number): void {
+    private projectFromEntity(entity: ClientEntity, height: number): void {
         this.projectFromGround(entity.x, height, entity.z);
     }
 
@@ -4879,15 +4899,16 @@ export class Client extends GameShell {
         this.project(x, y, z);
     }
 
+    // custom - broken out into reusable logic
     private project(x: number, y: number, z: number): void {
         let dx: number = x - this.cameraX;
         let dy: number = y - this.cameraY;
         let dz: number = z - this.cameraZ;
 
-        const sinPitch: number = Pix3D.sin[this.cameraPitch];
-        const cosPitch: number = Pix3D.cos[this.cameraPitch];
-        const sinYaw: number = Pix3D.sin[this.cameraYaw];
-        const cosYaw: number = Pix3D.cos[this.cameraYaw];
+        const sinPitch: number = Pix3D.sinTable[this.cameraPitch];
+        const cosPitch: number = Pix3D.cosTable[this.cameraPitch];
+        const sinYaw: number = Pix3D.sinTable[this.cameraYaw];
+        const cosYaw: number = Pix3D.cosTable[this.cameraYaw];
 
         let tmp: number = (dz * sinYaw + dx * cosYaw) >> 16;
         dz = (dz * cosYaw - dx * sinYaw) >> 16;
@@ -4910,8 +4931,14 @@ export class Client extends GameShell {
         if (!this.levelHeightmap) {
             return 0; // custom
         }
-        const tileX: number = Math.min(sceneX >> 7, CollisionConstants.SIZE - 1);
-        const tileZ: number = Math.min(sceneZ >> 7, CollisionConstants.SIZE - 1);
+
+        const tileX: number = sceneX >> 7;
+        const tileZ: number = sceneZ >> 7;
+
+        if (tileX < 0 || tileZ < 0 || tileX > 103 || tileZ > 103) {
+            return 0;
+        }
+
         let realLevel: number = level;
         if (level < 3 && this.levelTileFlags && (this.levelTileFlags[1][tileX][tileZ] & 0x2) === 2) {
             realLevel = level + 1;
@@ -4931,6 +4958,7 @@ export class Client extends GameShell {
                 if (!texture) {
                     return;
                 }
+
                 const bottom: number = texture.width2d * texture.height2d - 1;
                 const adjustment: number = texture.width2d * this.sceneDelta * 2;
 
@@ -4968,20 +4996,19 @@ export class Client extends GameShell {
 
     private draw3DEntityElements(): void {
         this.drawPrivateMessages();
+
         if (this.crossMode === 1) {
             this.imageCrosses[(this.crossCycle / 100) | 0]?.draw(this.crossX - 8 - 8, this.crossY - 8 - 11);
-        }
-
-        if (this.crossMode === 2) {
+        } else if (this.crossMode === 2) {
             this.imageCrosses[((this.crossCycle / 100) | 0) + 4]?.draw(this.crossX - 8 - 8, this.crossY - 8 - 11);
         }
 
         if (this.viewportInterfaceId !== -1) {
             this.updateInterfaceAnimation(this.viewportInterfaceId, this.sceneDelta);
-            this.drawInterface(Component.instances[this.viewportInterfaceId], 0, 0, 0);
+            this.drawInterface(Component.types[this.viewportInterfaceId], 0, 0, 0);
         }
 
-        this.drawWildyLevel();
+        this.updateWorldLocation();
 
         if (!this.menuVisible) {
             this.handleInput();
@@ -4992,19 +5019,19 @@ export class Client extends GameShell {
 
         if (this.inMultizone === 1) {
             if (this.wildernessLevel > 0 || this.worldLocationState === 1) {
-                this.imageHeadicons[1]?.draw(472, 258);
+                this.imageHeadicon[1]?.draw(472, 258);
             } else {
-                this.imageHeadicons[1]?.draw(472, 296);
+                this.imageHeadicon[1]?.draw(472, 296);
             }
         }
 
         if (this.wildernessLevel > 0) {
-            this.imageHeadicons[0]?.draw(472, 296);
+            this.imageHeadicon[0]?.draw(472, 296);
             this.fontPlain12?.drawStringCenter(484, 329, 'Level: ' + this.wildernessLevel, Colors.YELLOW);
         }
 
         if (this.worldLocationState === 1) {
-            this.imageHeadicons[6]?.draw(472, 296);
+            this.imageHeadicon[6]?.draw(472, 296);
             this.fontPlain12?.drawStringCenter(484, 329, 'Arena', Colors.YELLOW);
         }
 
@@ -5060,12 +5087,12 @@ export class Client extends GameShell {
                 continue;
             }
 
-            const type: number = this.messageTextType[i];
+            const type: number = this.messageType[i];
             let y: number;
-            if ((type === 3 || type === 7) && (type === 7 || this.privateChatSetting === 0 || (this.privateChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
+            if ((type === 3 || type === 7) && (type === 7 || this.chatPrivateMode === 0 || (this.chatPrivateMode === 1 && this.isFriend(this.messageSender[i])))) {
                 y = 329 - lineOffset * 13;
-                font?.drawString(4, y, 'From ' + this.messageTextSender[i] + ': ' + this.messageText[i], Colors.BLACK);
-                font?.drawString(4, y - 1, 'From ' + this.messageTextSender[i] + ': ' + this.messageText[i], Colors.CYAN);
+                font?.drawString(4, y, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.BLACK);
+                font?.drawString(4, y - 1, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.CYAN);
 
                 lineOffset++;
                 if (lineOffset >= 5) {
@@ -5073,7 +5100,7 @@ export class Client extends GameShell {
                 }
             }
 
-            if (type === 5 && this.privateChatSetting < 2) {
+            if (type === 5 && this.chatPrivateMode < 2) {
                 y = 329 - lineOffset * 13;
                 font?.drawString(4, y, this.messageText[i], Colors.BLACK);
                 font?.drawString(4, y - 1, this.messageText[i], Colors.CYAN);
@@ -5084,10 +5111,10 @@ export class Client extends GameShell {
                 }
             }
 
-            if (type === 6 && this.privateChatSetting < 2) {
+            if (type === 6 && this.chatPrivateMode < 2) {
                 y = 329 - lineOffset * 13;
-                font?.drawString(4, y, 'To ' + this.messageTextSender[i] + ': ' + this.messageText[i], Colors.BLACK);
-                font?.drawString(4, y - 1, 'To ' + this.messageTextSender[i] + ': ' + this.messageText[i], Colors.CYAN);
+                font?.drawString(4, y, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.BLACK);
+                font?.drawString(4, y - 1, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.CYAN);
 
                 lineOffset++;
                 if (lineOffset >= 5) {
@@ -5097,7 +5124,7 @@ export class Client extends GameShell {
         }
     }
 
-    private drawWildyLevel(): void {
+    private updateWorldLocation(): void {
         if (!this.localPlayer) {
             return;
         }
@@ -5177,34 +5204,33 @@ export class Client extends GameShell {
         const h: number = this.menuHeight;
         const background: number = Colors.OPTIONS_MENU;
 
-        // the menu area square.
         Pix2D.fillRect2d(x, y, w, h, background);
         Pix2D.fillRect2d(x + 1, y + 1, w - 2, 16, Colors.BLACK);
         Pix2D.drawRect(x + 1, y + 18, w - 2, h - 19, Colors.BLACK);
 
-        // the menu title header at the top.
         this.fontBold12?.drawString(x + 3, y + 14, 'Choose Option', background);
+
         let mouseX: number = this.mouseX;
         let mouseY: number = this.mouseY;
         if (this.menuArea === 0) {
             mouseX -= 8;
             mouseY -= 11;
-        }
-        if (this.menuArea === 1) {
+        } else if (this.menuArea === 1) {
             mouseX -= 562;
             mouseY -= 231;
-        }
-        if (this.menuArea === 2) {
+        } else if (this.menuArea === 2) {
             mouseX -= 22;
             mouseY -= 375;
         }
 
         for (let i: number = 0; i < this.menuSize; i++) {
             const optionY: number = y + (this.menuSize - 1 - i) * 15 + 31;
+
             let rgb: number = Colors.WHITE;
             if (mouseX > x && mouseX < x + w && mouseY > optionY - 13 && mouseY < optionY + 3) {
                 rgb = Colors.YELLOW;
             }
+
             this.fontBold12?.drawStringTaggable(x + 3, optionY, this.menuOption[i], rgb, true);
         }
     }
@@ -5305,8 +5331,8 @@ export class Client extends GameShell {
             const angle: number = (info >> 6) & 0x3;
             const shape: number = info & 0x1f;
             const locId: number = (typecode >> 14) & 0x7fff;
-            const loc: LocType = LocType.get(locId);
 
+            const loc: LocType = LocType.get(locId);
             if (loc.mapscene !== -1) {
                 const scene: Pix8 | null = this.imageMapscene[loc.mapscene];
                 if (scene) {
@@ -5339,7 +5365,9 @@ export class Client extends GameShell {
 
         typecode = this.scene.getGroundDecorTypecode(level, tileX, tileZ);
         if (typecode !== 0) {
-            const loc: LocType = LocType.get((typecode >> 14) & 0x7fff);
+            const locId = (typecode >> 14) & 0x7fff;
+
+            const loc: LocType = LocType.get(locId);
             if (loc.mapscene !== -1) {
                 const scene: Pix8 | null = this.imageMapscene[loc.mapscene];
                 if (scene) {
@@ -5366,9 +5394,9 @@ export class Client extends GameShell {
         const angle: number = (info >> 6) & 0x3;
         if (shape === LocShape.CENTREPIECE_STRAIGHT.id || shape === LocShape.CENTREPIECE_DIAGONAL.id || shape === LocShape.GROUND_DECOR.id) {
             const loc: LocType = LocType.get(locId);
+
             let width: number;
             let height: number;
-
             if (angle === LocAngle.WEST || angle === LocAngle.EAST) {
                 width = loc.width;
                 height = loc.length;
@@ -5382,9 +5410,9 @@ export class Client extends GameShell {
                 forceapproach = ((forceapproach << angle) & 0xf) + (forceapproach >> (4 - angle));
             }
 
-            this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], x, z, 2, width, height, 0, 0, forceapproach, false);
+            this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], x, z, 2, width, height, 0, 0, forceapproach, false);
         } else {
-            this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], x, z, 2, 0, 0, angle, shape + 1, 0, false);
+            this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], x, z, 2, 0, 0, angle, shape + 1, 0, false);
         }
 
         this.crossX = this.mouseClickX;
@@ -5646,6 +5674,7 @@ export class Client extends GameShell {
 
             this.out.p2(startX + this.sceneBaseTileX);
             this.out.p2(startZ + this.sceneBaseTileZ);
+
             this.flagSceneTileX = this.bfsStepX[0];
             this.flagSceneTileZ = this.bfsStepZ[0];
 
@@ -5661,60 +5690,61 @@ export class Client extends GameShell {
         return type !== 1;
     }
 
-    private async read(): Promise<boolean> {
-        if (!this.netStream) {
+    private async readPacket(): Promise<boolean> {
+        if (!this.stream) {
             return false;
         }
 
         try {
-            let available: number = this.netStream.available;
+            let available: number = this.stream.available;
             if (available === 0) {
                 return false;
             }
 
-            if (this.inPacketType === -1) {
-                await this.netStream.readBytes(this.in.data, 0, 1);
-                this.inPacketType = this.in.data[0] & 0xff;
+            if (this.ptype === -1) {
+                await this.stream.readBytes(this.in.data, 0, 1);
+                this.ptype = this.in.data[0] & 0xff;
                 if (this.randomIn) {
-                    this.inPacketType = (this.inPacketType - this.randomIn.nextInt) & 0xff;
+                    this.ptype = (this.ptype - this.randomIn.nextInt) & 0xff;
                 }
-                this.inPacketSize = ServerProtSizes[this.inPacketType];
+                this.psize = ServerProtSizes[this.ptype];
                 available--;
             }
 
-            if (this.inPacketSize === -1) {
+            if (this.psize === -1) {
                 if (available <= 0) {
                     return false;
                 }
 
-                await this.netStream.readBytes(this.in.data, 0, 1);
-                this.inPacketSize = this.in.data[0] & 0xff;
+                await this.stream.readBytes(this.in.data, 0, 1);
+                this.psize = this.in.data[0] & 0xff;
                 available--;
             }
 
-            if (this.inPacketSize === -2) {
+            if (this.psize === -2) {
                 if (available <= 1) {
                     return false;
                 }
 
-                await this.netStream.readBytes(this.in.data, 0, 2);
+                await this.stream.readBytes(this.in.data, 0, 2);
                 this.in.pos = 0;
-                this.inPacketSize = this.in.g2();
+                this.psize = this.in.g2();
                 available -= 2;
             }
 
-            if (available < this.inPacketSize) {
+            if (available < this.psize) {
                 return false;
             }
 
             this.in.pos = 0;
-            await this.netStream.readBytes(this.in.data, 0, this.inPacketSize);
-            this.idleNetCycles = 0;
-            this.lastPacketType2 = this.lastPacketType1;
-            this.lastPacketType1 = this.lastPacketType0;
-            this.lastPacketType0 = this.inPacketType;
+            await this.stream.readBytes(this.in.data, 0, this.psize);
 
-            if (this.inPacketType === ServerProt.VARP_SMALL) {
+            this.idleNetCycles = 0;
+            this.ptype2 = this.ptype1;
+            this.ptype1 = this.ptype0;
+            this.ptype0 = this.ptype;
+
+            if (this.ptype === ServerProt.VARP_SMALL) {
                 const varp: number = this.in.g2();
                 const value: number = this.in.g1b();
                 this.varCache[varp] = value;
@@ -5726,11 +5756,11 @@ export class Client extends GameShell {
                         this.redrawChatback = true;
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_FRIENDLIST) {
+            if (this.ptype === ServerProt.UPDATE_FRIENDLIST) {
                 const username: bigint = this.in.g8();
                 const world: number = this.in.g1();
                 let displayName: string | null = JString.formatName(JString.fromBase37(username));
@@ -5778,17 +5808,17 @@ export class Client extends GameShell {
                         }
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_REBOOT_TIMER) {
+            if (this.ptype === ServerProt.UPDATE_REBOOT_TIMER) {
                 this.systemUpdateTimer = this.in.g2() * 30;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.DATA_LAND_DONE) {
+            if (this.ptype === ServerProt.DATA_LAND_DONE) {
                 const x: number = this.in.g1();
                 const z: number = this.in.g1();
 
@@ -5806,22 +5836,22 @@ export class Client extends GameShell {
                     }
                 }
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.NPC_INFO) {
-                this.readNpcInfo(this.in, this.inPacketSize);
-                this.inPacketType = -1;
+            if (this.ptype === ServerProt.NPC_INFO) {
+                this.getNpcPos(this.in, this.psize);
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.REBUILD_NORMAL) {
+            if (this.ptype === ServerProt.REBUILD_NORMAL) {
                 const zoneX: number = this.in.g2();
                 const zoneZ: number = this.in.g2();
 
                 if (this.sceneCenterZoneX === zoneX && this.sceneCenterZoneZ === zoneZ && this.sceneState !== 0) {
-                    this.inPacketType = -1;
+                    this.ptype = -1;
                     return true;
                 }
 
@@ -5838,7 +5868,7 @@ export class Client extends GameShell {
 
                 // signlink.looprate(5);
 
-                const regions: number = ((this.inPacketSize - 2) / 10) | 0;
+                const regions: number = ((this.psize - 2) / 10) | 0;
 
                 this.sceneMapLandData = new TypedArray1d(regions, null);
                 this.sceneMapLandReady = new TypedArray1d(regions, false);
@@ -5860,7 +5890,7 @@ export class Client extends GameShell {
                     let data: Uint8Array | undefined;
                     if (landCrc !== 0) {
                         data = await this.db?.cacheload(`m${mapsquareX}_${mapsquareZ}`);
-                        if (data && Packet.crc32(data) !== landCrc) {
+                        if (data && Packet.getcrc(data, 0, data.length) !== landCrc) {
                             data = undefined;
                         }
 
@@ -5879,7 +5909,7 @@ export class Client extends GameShell {
 
                     if (locCrc !== 0) {
                         data = await this.db?.cacheload(`l${mapsquareX}_${mapsquareZ}`);
-                        if (data && Packet.crc32(data) !== locCrc) {
+                        if (data && Packet.getcrc(data, 0, data.length) !== locCrc) {
                             data = undefined;
                         }
 
@@ -5913,11 +5943,11 @@ export class Client extends GameShell {
                 this.scenePrevBaseTileZ = this.sceneBaseTileZ;
 
                 for (let i: number = 0; i < 8192; i++) {
-                    const npc: NpcEntity | null = this.npcs[i];
+                    const npc: ClientNpc | null = this.npcs[i];
                     if (npc) {
                         for (let j: number = 0; j < 10; j++) {
-                            npc.routeFlagX[j] -= dx;
-                            npc.routeFlagZ[j] -= dz;
+                            npc.routeTileX[j] -= dx;
+                            npc.routeTileZ[j] -= dz;
                         }
 
                         npc.x -= dx * 128;
@@ -5926,11 +5956,11 @@ export class Client extends GameShell {
                 }
 
                 for (let i: number = 0; i < Constants.MAX_PLAYER_COUNT; i++) {
-                    const player: PlayerEntity | null = this.players[i];
+                    const player: ClientPlayer | null = this.players[i];
                     if (player) {
                         for (let j: number = 0; j < 10; j++) {
-                            player.routeFlagX[j] -= dx;
-                            player.routeFlagZ[j] -= dz;
+                            player.routeTileX[j] -= dx;
+                            player.routeTileZ[j] -= dz;
                         }
 
                         player.x -= dx * 128;
@@ -5938,7 +5968,7 @@ export class Client extends GameShell {
                     }
                 }
 
-                this.sceneAwaitingSync = true;
+                this.awaitingSync = true;
 
                 let startTileX: number = 0;
                 let endTileX: number = CollisionConstants.SIZE;
@@ -5973,7 +6003,7 @@ export class Client extends GameShell {
                     }
                 }
 
-                for (let loc: LocAdd | null = this.addedLocs.head() as LocAdd | null; loc; loc = this.addedLocs.next() as LocAdd | null) {
+                for (let loc: LocChange | null = this.locChanges.head() as LocChange | null; loc; loc = this.locChanges.next() as LocChange | null) {
                     loc.x -= dx;
                     loc.z -= dz;
 
@@ -5988,17 +6018,17 @@ export class Client extends GameShell {
                 }
 
                 this.cutscene = false;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETPLAYERHEAD) {
-                Component.instances[this.in.g2()].model = this.localPlayer?.getHeadModel() || null;
-                this.inPacketType = -1;
+            if (this.ptype === ServerProt.IF_SETPLAYERHEAD) {
+                Component.types[this.in.g2()].model = this.localPlayer?.getHeadModel() || null;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.HINT_ARROW) {
+            if (this.ptype === ServerProt.HINT_ARROW) {
                 this.hintType = this.in.g1();
                 if (this.hintType === 1) {
                     this.hintNpc = this.in.g2();
@@ -6032,32 +6062,32 @@ export class Client extends GameShell {
                 if (this.hintType === 10) {
                     this.hintPlayer = this.in.g2();
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.MIDI_SONG) {
+            if (this.ptype === ServerProt.MIDI_SONG) {
                 const name: string = this.in.gjstr();
                 const crc: number = this.in.g4();
                 const length: number = this.in.g4();
                 if (!(name === this.currentMidi) && this.midiActive && !Client.lowMemory) {
-                    await this.setMidi(name, crc, length, true);
+                    await this.saveMidi(name, crc, length, true);
                 }
                 this.currentMidi = name;
                 this.midiCrc = crc;
                 this.midiSize = length;
                 this.nextMusicDelay = 0;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.LOGOUT) {
+            if (this.ptype === ServerProt.LOGOUT) {
                 await this.logout();
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return false;
             }
 
-            if (this.inPacketType === ServerProt.DATA_LOC_DONE) {
+            if (this.ptype === ServerProt.DATA_LOC_DONE) {
                 const x: number = this.in.g1();
                 const z: number = this.in.g1();
 
@@ -6075,40 +6105,40 @@ export class Client extends GameShell {
                     }
                 }
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UNSET_MAP_FLAG) {
+            if (this.ptype === ServerProt.UNSET_MAP_FLAG) {
                 this.flagSceneTileX = 0;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_PID) {
+            if (this.ptype === ServerProt.UPDATE_PID) {
                 this.localPid = this.in.g2();
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
             if (
-                this.inPacketType === ServerProt.OBJ_COUNT ||
-                this.inPacketType === ServerProt.LOC_MERGE ||
-                this.inPacketType === ServerProt.OBJ_REVEAL ||
-                this.inPacketType === ServerProt.MAP_ANIM ||
-                this.inPacketType === ServerProt.MAP_PROJANIM ||
-                this.inPacketType === ServerProt.OBJ_DEL ||
-                this.inPacketType === ServerProt.OBJ_ADD ||
-                this.inPacketType === ServerProt.LOC_ANIM ||
-                this.inPacketType === ServerProt.LOC_DEL ||
-                this.inPacketType === ServerProt.LOC_ADD_CHANGE
+                this.ptype === ServerProt.OBJ_COUNT ||
+                this.ptype === ServerProt.LOC_MERGE ||
+                this.ptype === ServerProt.OBJ_REVEAL ||
+                this.ptype === ServerProt.MAP_ANIM ||
+                this.ptype === ServerProt.MAP_PROJANIM ||
+                this.ptype === ServerProt.OBJ_DEL ||
+                this.ptype === ServerProt.OBJ_ADD ||
+                this.ptype === ServerProt.LOC_ANIM ||
+                this.ptype === ServerProt.LOC_DEL ||
+                this.ptype === ServerProt.LOC_ADD_CHANGE
             ) {
-                this.readZonePacket(this.in, this.inPacketType);
-                this.inPacketType = -1;
+                this.readZonePacket(this.in, this.ptype);
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_OPENMAINSIDEMODAL) {
+            if (this.ptype === ServerProt.IF_OPENMAINSIDEMODAL) {
                 const main: number = this.in.g2();
                 const side: number = this.in.g2();
                 if (this.chatInterfaceId !== -1) {
@@ -6124,11 +6154,11 @@ export class Client extends GameShell {
                 this.redrawSidebar = true;
                 this.redrawSideicons = true;
                 this.pressedContinueOption = false;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.VARP_LARGE) {
+            if (this.ptype === ServerProt.VARP_LARGE) {
                 const varp: number = this.in.g2();
                 const value: number = this.in.g4();
                 this.varCache[varp] = value;
@@ -6140,18 +6170,18 @@ export class Client extends GameShell {
                         this.redrawChatback = true;
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETANIM) {
+            if (this.ptype === ServerProt.IF_SETANIM) {
                 const com: number = this.in.g2();
-                Component.instances[com].anim = this.in.g2();
-                this.inPacketType = -1;
+                Component.types[com].anim = this.in.g2();
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_OPENSIDEOVERLAY) {
+            if (this.ptype === ServerProt.IF_OPENSIDEOVERLAY) {
                 let com: number = this.in.g2();
                 const tab: number = this.in.g1();
                 if (com === 65535) {
@@ -6160,11 +6190,11 @@ export class Client extends GameShell {
                 this.tabInterfaceId[tab] = com;
                 this.redrawSidebar = true;
                 this.redrawSideicons = true;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.DATA_LOC) {
+            if (this.ptype === ServerProt.DATA_LOC) {
                 const x: number = this.in.g1();
                 const z: number = this.in.g1();
                 const off: number = this.in.g2();
@@ -6183,14 +6213,14 @@ export class Client extends GameShell {
                     }
                     const data: Uint8Array | null = this.sceneMapLocData[index];
                     if (data) {
-                        this.in.gdata(this.inPacketSize - 6, off, data);
+                        this.in.gdata(this.psize - 6, off, data);
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.FINISH_TRACKING) {
+            if (this.ptype === ServerProt.FINISH_TRACKING) {
                 const tracking: Packet | null = InputTracking.stop();
                 if (tracking) {
                     this.out.p1isaac(ClientProt.EVENT_TRACKING);
@@ -6198,14 +6228,14 @@ export class Client extends GameShell {
                     this.out.pdata(tracking.data, tracking.pos, 0);
                     tracking.release();
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_INV_FULL) {
+            if (this.ptype === ServerProt.UPDATE_INV_FULL) {
                 this.redrawSidebar = true;
                 const com: number = this.in.g2();
-                const inv: Component = Component.instances[com];
+                const inv: Component = Component.types[com];
                 const size: number = this.in.g1();
                 if (inv.invSlotObjId && inv.invSlotObjCount) {
                     for (let i: number = 0; i < size; i++) {
@@ -6228,41 +6258,41 @@ export class Client extends GameShell {
                         }
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.ENABLE_TRACKING) {
+            if (this.ptype === ServerProt.ENABLE_TRACKING) {
                 InputTracking.setEnabled();
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.P_COUNTDIALOG) {
+            if (this.ptype === ServerProt.P_COUNTDIALOG) {
                 this.showSocialInput = false;
                 this.chatbackInputOpen = true;
                 this.chatbackInput = '';
                 this.redrawChatback = true;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 if (this.isMobile) {
                     MobileKeyboard.show();
                 }
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_INV_STOP_TRANSMIT) {
-                const inv: Component = Component.instances[this.in.g2()];
+            if (this.ptype === ServerProt.UPDATE_INV_STOP_TRANSMIT) {
+                const inv: Component = Component.types[this.in.g2()];
                 if (inv.invSlotObjId) {
                     for (let i: number = 0; i < inv.invSlotObjId.length; i++) {
                         inv.invSlotObjId[i] = -1;
                         inv.invSlotObjId[i] = 0;
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.LAST_LOGIN_INFO) {
+            if (this.ptype === ServerProt.LAST_LOGIN_INFO) {
                 this.lastAddress = this.in.g4();
                 this.daysSinceLastLogin = this.in.g2();
                 this.daysSinceRecoveriesChanged = this.in.g1();
@@ -6276,18 +6306,18 @@ export class Client extends GameShell {
                     }
                     this.reportAbuseInput = '';
                     this.reportAbuseMuteOption = false;
-                    for (let i: number = 0; i < Component.instances.length; i++) {
-                        if (Component.instances[i] && Component.instances[i].clientCode === contentType) {
-                            this.viewportInterfaceId = Component.instances[i].layer;
+                    for (let i: number = 0; i < Component.types.length; i++) {
+                        if (Component.types[i] && Component.types[i].clientCode === contentType) {
+                            this.viewportInterfaceId = Component.types[i].layer;
                             break;
                         }
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.TUTORIAL_FLASHSIDE) {
+            if (this.ptype === ServerProt.TUTORIAL_FLASHSIDE) {
                 this.flashingTab = this.in.g1();
                 if (this.flashingTab === this.selectedTab) {
                     if (this.flashingTab === 3) {
@@ -6297,31 +6327,31 @@ export class Client extends GameShell {
                     }
                     this.redrawSidebar = true;
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.MIDI_JINGLE) {
+            if (this.ptype === ServerProt.MIDI_JINGLE) {
                 if (this.midiActive && !Client.lowMemory) {
                     const delay: number = this.in.g2();
 
-                    const data = this.in.data.subarray(this.in.pos, this.inPacketSize);
+                    const data = this.in.data.subarray(this.in.pos, this.psize);
                     const uncompressed = BZip2.decompress(data, -1, false, true);
 
                     playMidi(uncompressed, this.midiVolume, false);
                     this.nextMusicDelay = delay;
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.SET_MULTIWAY) {
+            if (this.ptype === ServerProt.SET_MULTIWAY) {
                 this.inMultizone = this.in.g1();
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.SYNTH_SOUND) {
+            if (this.ptype === ServerProt.SYNTH_SOUND) {
                 const id: number = this.in.g2();
                 const loop: number = this.in.g1();
                 const delay: number = this.in.g2();
@@ -6333,52 +6363,52 @@ export class Client extends GameShell {
                     this.waveCount++;
                 }
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETNPCHEAD) {
+            if (this.ptype === ServerProt.IF_SETNPCHEAD) {
                 const com: number = this.in.g2();
                 const npcId: number = this.in.g2();
                 const npc: NpcType = NpcType.get(npcId);
-                Component.instances[com].model = npc.getHeadModel();
-                this.inPacketType = -1;
+                Component.types[com].model = npc.getHeadModel();
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_ZONE_PARTIAL_FOLLOWS) {
+            if (this.ptype === ServerProt.UPDATE_ZONE_PARTIAL_FOLLOWS) {
                 this.baseX = this.in.g1();
                 this.baseZ = this.in.g1();
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETRECOL) {
+            if (this.ptype === ServerProt.IF_SETRECOL) {
                 const com: number = this.in.g2();
                 const src: number = this.in.g2();
                 const dst: number = this.in.g2();
 
-                const inter: Component = Component.instances[com];
+                const inter: Component = Component.types[com];
                 const model: Model | null = inter.model;
-                model?.recolor(src, dst);
+                model?.recolour(src, dst);
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.CHAT_FILTER_SETTINGS) {
-                this.publicChatSetting = this.in.g1();
-                this.privateChatSetting = this.in.g1();
-                this.tradeChatSetting = this.in.g1();
+            if (this.ptype === ServerProt.CHAT_FILTER_SETTINGS) {
+                this.chatPublicMode = this.in.g1();
+                this.chatPrivateMode = this.in.g1();
+                this.chatTradeMode = this.in.g1();
 
                 this.redrawPrivacySettings = true;
                 this.redrawChatback = true;
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_OPENSIDEMODAL) {
+            if (this.ptype === ServerProt.IF_OPENSIDEMODAL) {
                 const com: number = this.in.g2();
 
                 this.resetInterfaceAnimation(com);
@@ -6399,11 +6429,11 @@ export class Client extends GameShell {
                 this.viewportInterfaceId = -1;
                 this.pressedContinueOption = false;
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_OPENCHATMODAL) {
+            if (this.ptype === ServerProt.IF_OPENCHATMODAL) {
                 const com: number = this.in.g2();
 
                 this.resetInterfaceAnimation(com);
@@ -6419,24 +6449,24 @@ export class Client extends GameShell {
                 this.viewportInterfaceId = -1;
                 this.pressedContinueOption = false;
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETPOSITION) {
+            if (this.ptype === ServerProt.IF_SETPOSITION) {
                 const com: number = this.in.g2();
                 const x: number = this.in.g2b();
                 const z: number = this.in.g2b();
 
-                const inter: Component = Component.instances[com];
+                const inter: Component = Component.types[com];
                 inter.x = x;
                 inter.y = z;
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.CAM_MOVETO) {
+            if (this.ptype === ServerProt.CAM_MOVETO) {
                 this.cutscene = true;
 
                 this.cutsceneSrcLocalTileX = this.in.g1();
@@ -6451,11 +6481,11 @@ export class Client extends GameShell {
                     this.cameraY = this.getHeightmapY(this.currentLevel, this.cutsceneSrcLocalTileX, this.cutsceneSrcLocalTileZ) - this.cutsceneSrcHeight;
                 }
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_ZONE_FULL_FOLLOWS) {
+            if (this.ptype === ServerProt.UPDATE_ZONE_FULL_FOLLOWS) {
                 this.baseX = this.in.g1();
                 this.baseZ = this.in.g1();
 
@@ -6468,17 +6498,17 @@ export class Client extends GameShell {
                     }
                 }
 
-                for (let loc: LocAdd | null = this.addedLocs.head() as LocAdd | null; loc; loc = this.addedLocs.next() as LocAdd | null) {
-                    if (loc.x >= this.baseX && loc.x < this.baseX + 8 && loc.z >= this.baseZ && loc.z < this.baseZ + 8 && loc.plane === this.currentLevel) {
-                        loc.duration = 0;
+                for (let loc: LocChange | null = this.locChanges.head() as LocChange | null; loc; loc = this.locChanges.next() as LocChange | null) {
+                    if (loc.x >= this.baseX && loc.x < this.baseX + 8 && loc.z >= this.baseZ && loc.z < this.baseZ + 8 && loc.level === this.currentLevel) {
+                        loc.endTime = 0;
                     }
                 }
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.DATA_LAND) {
+            if (this.ptype === ServerProt.DATA_LAND) {
                 const x: number = this.in.g1();
                 const z: number = this.in.g1();
                 const off: number = this.in.g2();
@@ -6500,15 +6530,15 @@ export class Client extends GameShell {
 
                     const data: Uint8Array | null = this.sceneMapLandData[index];
                     if (data) {
-                        this.in.gdata(this.inPacketSize - 6, off, data);
+                        this.in.gdata(this.psize - 6, off, data);
                     }
                 }
 
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.MESSAGE_PRIVATE) {
+            if (this.ptype === ServerProt.MESSAGE_PRIVATE) {
                 const from: bigint = this.in.g8();
                 const messageId: number = this.in.g4();
                 const staffModLevel: number = this.in.g1();
@@ -6531,7 +6561,7 @@ export class Client extends GameShell {
                     try {
                         this.messageTextIds[this.privateMessageCount] = messageId;
                         this.privateMessageCount = (this.privateMessageCount + 1) % 100;
-                        const uncompressed: string = WordPack.unpack(this.in, this.inPacketSize - 13);
+                        const uncompressed: string = WordPack.unpack(this.in, this.psize - 13);
                         const filtered: string = WordFilter.filter(uncompressed);
                         if (staffModLevel > 1) {
                             this.addMessage(7, filtered, JString.formatName(JString.fromBase37(from)));
@@ -6542,11 +6572,11 @@ export class Client extends GameShell {
                         // signlink.reporterror("cde1"); TODO?
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.RESET_CLIENT_VARCACHE) {
+            if (this.ptype === ServerProt.RESET_CLIENT_VARCACHE) {
                 for (let i: number = 0; i < this.varps.length; i++) {
                     if (this.varps[i] !== this.varCache[i]) {
                         this.varps[i] = this.varCache[i];
@@ -6554,35 +6584,35 @@ export class Client extends GameShell {
                         this.redrawSidebar = true;
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETMODEL) {
+            if (this.ptype === ServerProt.IF_SETMODEL) {
                 const com: number = this.in.g2();
                 const model: number = this.in.g2();
-                Component.instances[com].model = Model.model(model);
-                this.inPacketType = -1;
+                Component.types[com].model = Model.get(model);
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.TUTORIAL_OPENCHAT) {
+            if (this.ptype === ServerProt.TUTORIAL_OPENCHAT) {
                 this.stickyChatInterfaceId = this.in.g2b();
                 this.redrawChatback = true;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_RUNENERGY) {
+            if (this.ptype === ServerProt.UPDATE_RUNENERGY) {
                 if (this.selectedTab === 12) {
                     this.redrawSidebar = true;
                 }
-                this.energy = this.in.g1();
-                this.inPacketType = -1;
+                this.runenergy = this.in.g1();
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.CAM_LOOKAT) {
+            if (this.ptype === ServerProt.CAM_LOOKAT) {
                 this.cutscene = true;
                 this.cutsceneDstLocalTileX = this.in.g1();
                 this.cutsceneDstLocalTileZ = this.in.g1();
@@ -6606,19 +6636,19 @@ export class Client extends GameShell {
                         this.cameraPitch = 383;
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SHOWSIDE) {
+            if (this.ptype === ServerProt.IF_SHOWSIDE) {
                 this.selectedTab = this.in.g1();
                 this.redrawSidebar = true;
                 this.redrawSideicons = true;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.MESSAGE_GAME) {
+            if (this.ptype === ServerProt.MESSAGE_GAME) {
                 const message: string = this.in.gjstr();
                 let username: bigint;
                 if (message.endsWith(':tradereq:')) {
@@ -6650,24 +6680,24 @@ export class Client extends GameShell {
                 } else {
                     this.addMessage(0, message, '');
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETOBJECT) {
+            if (this.ptype === ServerProt.IF_SETOBJECT) {
                 const com: number = this.in.g2();
                 const objId: number = this.in.g2();
                 const zoom: number = this.in.g2();
                 const obj: ObjType = ObjType.get(objId);
-                Component.instances[com].model = obj.getInterfaceModel(50);
-                Component.instances[com].xan = obj.xan2d;
-                Component.instances[com].yan = obj.yan2d;
-                Component.instances[com].zoom = ((obj.zoom2d * 100) / zoom) | 0;
-                this.inPacketType = -1;
+                Component.types[com].model = obj.getInvModel(50);
+                Component.types[com].xan = obj.xan2d;
+                Component.types[com].yan = obj.yan2d;
+                Component.types[com].zoom = ((obj.zoom2d * 100) / zoom) | 0;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_OPENMAINMODAL) {
+            if (this.ptype === ServerProt.IF_OPENMAINMODAL) {
                 const com: number = this.in.g2();
                 this.resetInterfaceAnimation(com);
                 if (this.sidebarInterfaceId !== -1) {
@@ -6685,66 +6715,66 @@ export class Client extends GameShell {
                 }
                 this.viewportInterfaceId = com;
                 this.pressedContinueOption = false;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETCOLOUR) {
+            if (this.ptype === ServerProt.IF_SETCOLOUR) {
                 const com: number = this.in.g2();
                 const color: number = this.in.g2();
                 const r: number = (color >> 10) & 0x1f;
                 const g: number = (color >> 5) & 0x1f;
                 const b: number = color & 0x1f;
-                Component.instances[com].colour = (r << 19) + (g << 11) + (b << 3);
-                this.inPacketType = -1;
+                Component.types[com].colour = (r << 19) + (g << 11) + (b << 3);
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.RESET_ANIMS) {
+            if (this.ptype === ServerProt.RESET_ANIMS) {
                 for (let i: number = 0; i < this.players.length; i++) {
-                    const player: PlayerEntity | null = this.players[i];
+                    const player: ClientPlayer | null = this.players[i];
                     if (!player) {
                         continue;
                     }
                     player.primarySeqId = -1;
                 }
                 for (let i: number = 0; i < this.npcs.length; i++) {
-                    const npc: NpcEntity | null = this.npcs[i];
+                    const npc: ClientNpc | null = this.npcs[i];
                     if (!npc) {
                         continue;
                     }
                     npc.primarySeqId = -1;
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETHIDE) {
+            if (this.ptype === ServerProt.IF_SETHIDE) {
                 const com: number = this.in.g2();
-                Component.instances[com].hide = this.in.g1() === 1;
-                this.inPacketType = -1;
+                Component.types[com].hide = this.in.g1() === 1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_IGNORELIST) {
-                this.ignoreCount = (this.inPacketSize / 8) | 0;
+            if (this.ptype === ServerProt.UPDATE_IGNORELIST) {
+                this.ignoreCount = (this.psize / 8) | 0;
                 for (let i: number = 0; i < this.ignoreCount; i++) {
                     this.ignoreName37[i] = this.in.g8();
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.CAM_RESET) {
+            if (this.ptype === ServerProt.CAM_RESET) {
                 this.cutscene = false;
                 for (let i: number = 0; i < 5; i++) {
                     this.cameraModifierEnabled[i] = false;
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_CLOSE) {
+            if (this.ptype === ServerProt.IF_CLOSE) {
                 if (this.sidebarInterfaceId !== -1) {
                     this.sidebarInterfaceId = -1;
                     this.redrawSidebar = true;
@@ -6760,21 +6790,21 @@ export class Client extends GameShell {
                 }
                 this.viewportInterfaceId = -1;
                 this.pressedContinueOption = false;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.IF_SETTEXT) {
+            if (this.ptype === ServerProt.IF_SETTEXT) {
                 const com: number = this.in.g2();
-                Component.instances[com].text = this.in.gjstr();
-                if (Component.instances[com].layer === this.tabInterfaceId[this.selectedTab]) {
+                Component.types[com].text = this.in.gjstr();
+                if (Component.types[com].layer === this.tabInterfaceId[this.selectedTab]) {
                     this.redrawSidebar = true;
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_STAT) {
+            if (this.ptype === ServerProt.UPDATE_STAT) {
                 this.redrawSidebar = true;
                 const stat: number = this.in.g1();
                 const xp: number = this.in.g4();
@@ -6783,35 +6813,35 @@ export class Client extends GameShell {
                 this.skillLevel[stat] = level;
                 this.skillBaseLevel[stat] = 1;
                 for (let i: number = 0; i < 98; i++) {
-                    if (xp >= Client.levelExperience[i]) {
+                    if (xp >= this.levelExperience[i]) {
                         this.skillBaseLevel[stat] = i + 2;
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_ZONE_PARTIAL_ENCLOSED) {
+            if (this.ptype === ServerProt.UPDATE_ZONE_PARTIAL_ENCLOSED) {
                 this.baseX = this.in.g1();
                 this.baseZ = this.in.g1();
-                while (this.in.pos < this.inPacketSize) {
+                while (this.in.pos < this.psize) {
                     const opcode: number = this.in.g1();
                     this.readZonePacket(this.in, opcode);
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_RUNWEIGHT) {
+            if (this.ptype === ServerProt.UPDATE_RUNWEIGHT) {
                 if (this.selectedTab === 12) {
                     this.redrawSidebar = true;
                 }
-                this.weightCarried = this.in.g2b();
-                this.inPacketType = -1;
+                this.runweight = this.in.g2b();
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.CAM_SHAKE) {
+            if (this.ptype === ServerProt.CAM_SHAKE) {
                 const type: number = this.in.g1();
                 const jitter: number = this.in.g1();
                 const wobbleScale: number = this.in.g1();
@@ -6821,15 +6851,15 @@ export class Client extends GameShell {
                 this.cameraModifierWobbleScale[type] = wobbleScale;
                 this.cameraModifierWobbleSpeed[type] = wobbleSpeed;
                 this.cameraModifierCycle[type] = 0;
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.UPDATE_INV_PARTIAL) {
+            if (this.ptype === ServerProt.UPDATE_INV_PARTIAL) {
                 this.redrawSidebar = true;
                 const com: number = this.in.g2();
-                const inv: Component = Component.instances[com];
-                while (this.in.pos < this.inPacketSize) {
+                const inv: Component = Component.types[com];
+                while (this.in.pos < this.psize) {
                     const slot: number = this.in.g1();
                     const id: number = this.in.g2();
                     let count: number = this.in.g1();
@@ -6841,14 +6871,14 @@ export class Client extends GameShell {
                         inv.invSlotObjCount[slot] = count;
                     }
                 }
-                this.inPacketType = -1;
+                this.ptype = -1;
                 return true;
             }
 
-            if (this.inPacketType === ServerProt.PLAYER_INFO) {
-                this.readPlayerInfo(this.in, this.inPacketSize);
-                this.sceneAwaitingSync = false;
-                this.inPacketType = -1;
+            if (this.ptype === ServerProt.PLAYER_INFO) {
+                this.getPlayerPos(this.in, this.psize);
+                this.awaitingSync = false;
+                this.ptype = -1;
                 return true;
             }
 
@@ -6869,11 +6899,11 @@ export class Client extends GameShell {
 
         if (opcode === ServerProt.LOC_ADD_CHANGE) {
             const info: number = buf.g1();
-            const id: number = buf.g2();
-
             const shape: number = info >> 2;
             const angle: number = info & 0x3;
             const layer: number = LocShape.of(shape).layer;
+
+            const id: number = buf.g2();
 
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
                 this.appendLoc(-1, id, angle, layer, z, shape, this.currentLevel, x, 0);
@@ -6892,7 +6922,8 @@ export class Client extends GameShell {
             const info: number = buf.g1();
             const shape: number = info >> 2;
             const layer: number = LocShape.of(shape).layer;
-            const id: number = buf.g2();
+
+            const seqId: number = buf.g2();
 
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE && this.scene) {
                 let typecode: number = 0;
@@ -6907,8 +6938,8 @@ export class Client extends GameShell {
                 }
 
                 if (typecode !== 0) {
-                    const loc: LocEntity = new LocEntity((typecode >> 14) & 0x7fff, this.currentLevel, layer, x, z, SeqType.instances[id], false);
-                    this.locList.addTail(loc);
+                    const loc: ClientLocAnim = new ClientLocAnim((typecode >> 14) & 0x7fff, this.currentLevel, layer, x, z, SeqType.types[seqId], false);
+                    this.locList.push(loc);
                 }
             }
         } else if (opcode === ServerProt.OBJ_ADD) {
@@ -6916,12 +6947,12 @@ export class Client extends GameShell {
             const count: number = buf.g2();
 
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
-                const obj: ObjStackEntity = new ObjStackEntity(id, count);
+                const obj: ClientObj = new ClientObj(id, count);
                 if (!this.objStacks[this.currentLevel][x][z]) {
                     this.objStacks[this.currentLevel][x][z] = new LinkList();
                 }
 
-                this.objStacks[this.currentLevel][x][z]?.addTail(obj);
+                this.objStacks[this.currentLevel][x][z]?.push(obj);
                 this.sortObjStacks(x, z);
             }
         } else if (opcode === ServerProt.OBJ_DEL) {
@@ -6930,9 +6961,9 @@ export class Client extends GameShell {
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
                 const list: LinkList | null = this.objStacks[this.currentLevel][x][z];
                 if (list) {
-                    for (let next: ObjStackEntity | null = list.head() as ObjStackEntity | null; next; next = list.next() as ObjStackEntity | null) {
-                        if (next.index === (id & 0x7fff)) {
-                            next.unlink();
+                    for (let obj: ClientObj | null = list.head() as ClientObj | null; obj; obj = list.next() as ClientObj | null) {
+                        if (obj.index === (id & 0x7fff)) {
+                            obj.unlink();
                             break;
                         }
                     }
@@ -6962,9 +6993,9 @@ export class Client extends GameShell {
                 dx = dx * 128 + 64;
                 dz = dz * 128 + 64;
 
-                const proj: ProjectileEntity = new ProjectileEntity(spotanim, this.currentLevel, x, this.getHeightmapY(this.currentLevel, x, z) - srcHeight, z, startDelay + this.loopCycle, endDelay + this.loopCycle, peak, arc, target, dstHeight);
+                const proj: ClientProj = new ClientProj(spotanim, this.currentLevel, x, this.getHeightmapY(this.currentLevel, x, z) - srcHeight, z, startDelay + this.loopCycle, endDelay + this.loopCycle, peak, arc, target, dstHeight);
                 proj.updateVelocity(dx, this.getHeightmapY(this.currentLevel, dx, dz) - dstHeight, dz, startDelay + this.loopCycle);
-                this.projectiles.addTail(proj);
+                this.projectiles.push(proj);
             }
         } else if (opcode === ServerProt.MAP_ANIM) {
             const id: number = buf.g2();
@@ -6975,8 +7006,8 @@ export class Client extends GameShell {
                 x = x * 128 + 64;
                 z = z * 128 + 64;
 
-                const spotanim: SpotAnimEntity = new SpotAnimEntity(id, this.currentLevel, x, z, this.getHeightmapY(this.currentLevel, x, z) - height, this.loopCycle, delay);
-                this.spotanims.addTail(spotanim);
+                const spot: MapSpotAnim = new MapSpotAnim(id, this.currentLevel, x, z, this.getHeightmapY(this.currentLevel, x, z) - height, this.loopCycle, delay);
+                this.spotanims.push(spot);
             }
         } else if (opcode === ServerProt.OBJ_REVEAL) {
             const id: number = buf.g2();
@@ -6984,12 +7015,12 @@ export class Client extends GameShell {
             const receiver: number = buf.g2();
 
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE && receiver !== this.localPid) {
-                const obj: ObjStackEntity = new ObjStackEntity(id, count);
+                const obj: ClientObj = new ClientObj(id, count);
                 if (!this.objStacks[this.currentLevel][x][z]) {
                     this.objStacks[this.currentLevel][x][z] = new LinkList();
                 }
 
-                this.objStacks[this.currentLevel][x][z]?.addTail(obj);
+                this.objStacks[this.currentLevel][x][z]?.push(obj);
                 this.sortObjStacks(x, z);
             }
         } else if (opcode === ServerProt.LOC_MERGE) {
@@ -6997,6 +7028,7 @@ export class Client extends GameShell {
             const shape: number = info >> 2;
             const angle: number = info & 0x3;
             const layer: number = LocShape.of(shape).layer;
+
             const id: number = buf.g2();
             const start: number = buf.g2();
             const end: number = buf.g2();
@@ -7006,7 +7038,7 @@ export class Client extends GameShell {
             let west: number = buf.g1b();
             let north: number = buf.g1b();
 
-            let player: PlayerEntity | null;
+            let player: ClientPlayer | null;
             if (pid === this.localPid) {
                 player = this.localPlayer;
             } else {
@@ -7063,9 +7095,9 @@ export class Client extends GameShell {
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
                 const list: LinkList | null = this.objStacks[this.currentLevel][x][z];
                 if (list) {
-                    for (let next: ObjStackEntity | null = list.head() as ObjStackEntity | null; next; next = list.next() as ObjStackEntity | null) {
-                        if (next.index === (id & 0x7fff) && next.count === oldCount) {
-                            next.count = newCount;
+                    for (let obj: ClientObj | null = list.head() as ClientObj | null; obj; obj = list.next() as ClientObj | null) {
+                        if (obj.index === (id & 0x7fff) && obj.count === oldCount) {
+                            obj.count = newCount;
                             break;
                         }
                     }
@@ -7076,33 +7108,33 @@ export class Client extends GameShell {
         }
     }
 
-    private appendLoc(duration: number, type: number, rotation: number, layer: number, z: number, shape: number, level: number, x: number, delay: number): void {
-        let loc: LocAdd | null = null;
-        for (let next: LocAdd | null = this.addedLocs.head() as LocAdd | null; next; next = this.addedLocs.next() as LocAdd | null) {
-            if (next.plane === this.currentLevel && next.x === x && next.z === z && next.layer === layer) {
+    private appendLoc(endTime: number, type: number, angle: number, layer: number, z: number, shape: number, level: number, x: number, startTime: number): void {
+        let loc: LocChange | null = null;
+        for (let next: LocChange | null = this.locChanges.head() as LocChange | null; next; next = this.locChanges.next() as LocChange | null) {
+            if (next.level === this.currentLevel && next.x === x && next.z === z && next.layer === layer) {
                 loc = next;
                 break;
             }
         }
 
         if (!loc) {
-            loc = new LocAdd();
-            loc.plane = level;
+            loc = new LocChange();
+            loc.level = level;
             loc.layer = layer;
             loc.x = x;
             loc.z = z;
             this.storeLoc(loc);
-            this.addedLocs.addTail(loc);
+            this.locChanges.push(loc);
         }
 
-        loc.locIndex = type;
-        loc.shape = shape;
-        loc.locAngle = rotation;
-        loc.delay = delay;
-        loc.duration = duration;
+        loc.newType = type;
+        loc.newShape = shape;
+        loc.newAngle = angle;
+        loc.startTime = startTime;
+        loc.endTime = endTime;
     }
 
-    private storeLoc(loc: LocAdd): void {
+    private storeLoc(loc: LocChange): void {
         if (!this.scene) {
             return;
         }
@@ -7113,25 +7145,25 @@ export class Client extends GameShell {
         let otherAngle: number = 0;
 
         if (loc.layer === LocLayer.WALL) {
-            typecode = this.scene.getWallTypecode(loc.plane, loc.x, loc.z);
+            typecode = this.scene.getWallTypecode(loc.level, loc.x, loc.z);
         } else if (loc.layer === LocLayer.WALL_DECOR) {
-            typecode = this.scene.getDecorTypecode(loc.plane, loc.z, loc.x);
+            typecode = this.scene.getDecorTypecode(loc.level, loc.z, loc.x);
         } else if (loc.layer === LocLayer.GROUND) {
-            typecode = this.scene.getLocTypecode(loc.plane, loc.x, loc.z);
+            typecode = this.scene.getLocTypecode(loc.level, loc.x, loc.z);
         } else if (loc.layer === LocLayer.GROUND_DECOR) {
-            typecode = this.scene.getGroundDecorTypecode(loc.plane, loc.x, loc.z);
+            typecode = this.scene.getGroundDecorTypecode(loc.level, loc.x, loc.z);
         }
 
         if (typecode !== 0) {
-            const otherInfo: number = this.scene.getInfo(loc.plane, loc.x, loc.z, typecode);
+            const otherInfo: number = this.scene.getInfo(loc.level, loc.x, loc.z, typecode);
             otherId = (typecode >> 14) & 0x7fff;
             otherShape = otherInfo & 0x1f;
             otherAngle = otherInfo >> 6;
         }
 
-        loc.lastLocIndex = otherId;
-        loc.lastShape = otherShape;
-        loc.lastAngle = otherAngle;
+        loc.oldType = otherId;
+        loc.oldShape = otherShape;
+        loc.oldAngle = otherAngle;
     }
 
     private addLoc(level: number, x: number, z: number, id: number, angle: number, shape: number, layer: number): void {
@@ -7162,14 +7194,14 @@ export class Client extends GameShell {
             const otherInfo: number = this.scene.getInfo(level, x, z, typecode);
             const otherId: number = (typecode >> 14) & 0x7fff;
             const otherShape: number = otherInfo & 0x1f;
-            const otherRotation: number = otherInfo >> 6;
+            const otherAngle: number = otherInfo >> 6;
 
             if (layer === LocLayer.WALL) {
                 this.scene?.removeWall(level, x, z, 1);
 
                 const type: LocType = LocType.get(otherId);
                 if (type.blockwalk) {
-                    this.levelCollisionMap[level]?.removeWall(x, z, otherShape, otherRotation, type.blockrange);
+                    this.levelCollisionMap[level]?.removeWall(x, z, otherShape, otherAngle, type.blockrange);
                 }
             } else if (layer === LocLayer.WALL_DECOR) {
                 this.scene?.removeWallDecoration(level, x, z);
@@ -7182,13 +7214,13 @@ export class Client extends GameShell {
                 }
 
                 if (type.blockwalk) {
-                    this.levelCollisionMap[level]?.removeLoc(x, z, type.width, type.length, otherRotation, type.blockrange);
+                    this.levelCollisionMap[level]?.removeLoc(x, z, type.width, type.length, otherAngle, type.blockrange);
                 }
             } else if (layer === LocLayer.GROUND_DECOR) {
                 this.scene?.removeGroundDecoration(level, x, z);
 
                 const type: LocType = LocType.get(otherId);
-                if (type.blockwalk && type.locActive) {
+                if (type.blockwalk && type.active) {
                     this.levelCollisionMap[level]?.removeFloor(x, z);
                 }
             }
@@ -7209,14 +7241,14 @@ export class Client extends GameShell {
     private sortObjStacks(x: number, z: number): void {
         const objStacks: LinkList | null = this.objStacks[this.currentLevel][x][z];
         if (!objStacks) {
-            this.scene?.removeObjStack(this.currentLevel, x, z);
+            this.scene?.removeGroundObject(this.currentLevel, x, z);
             return;
         }
 
         let topCost: number = -99999999;
-        let topObj: ObjStackEntity | null = null;
+        let topObj: ClientObj | null = null;
 
-        for (let obj: ObjStackEntity | null = objStacks.head() as ObjStackEntity | null; obj; obj = objStacks.next() as ObjStackEntity | null) {
+        for (let obj: ClientObj | null = objStacks.head() as ClientObj | null; obj; obj = objStacks.next() as ClientObj | null) {
             const type: ObjType = ObjType.get(obj.index);
             let cost: number = type.cost;
 
@@ -7240,7 +7272,7 @@ export class Client extends GameShell {
         let middleObjId: number = -1;
         let bottomObjCount: number = 0;
         let middleObjCount: number = 0;
-        for (let obj: ObjStackEntity | null = objStacks.head() as ObjStackEntity | null; obj; obj = objStacks.next() as ObjStackEntity | null) {
+        for (let obj: ClientObj | null = objStacks.head() as ClientObj | null; obj; obj = objStacks.next() as ClientObj | null) {
             if (obj.index !== topObj.index && bottomObjId === -1) {
                 bottomObjId = obj.index;
                 bottomObjCount = obj.count;
@@ -7254,34 +7286,35 @@ export class Client extends GameShell {
 
         let bottomObj: Model | null = null;
         if (bottomObjId !== -1) {
-            bottomObj = ObjType.get(bottomObjId).getInterfaceModel(bottomObjCount);
+            bottomObj = ObjType.get(bottomObjId).getInvModel(bottomObjCount);
         }
 
         let middleObj: Model | null = null;
         if (middleObjId !== -1) {
-            middleObj = ObjType.get(middleObjId).getInterfaceModel(middleObjCount);
+            middleObj = ObjType.get(middleObjId).getInvModel(middleObjCount);
         }
 
         const typecode: number = (x + (z << 7) + 0x60000000) | 0;
         const type: ObjType = ObjType.get(topObj.index);
-        this.scene?.addObjStack(x, z, this.getHeightmapY(this.currentLevel, x * 128 + 64, z * 128 + 64), this.currentLevel, typecode, type.getInterfaceModel(topObj.count), middleObj, bottomObj);
+        this.scene?.addGroundObject(x, z, this.getHeightmapY(this.currentLevel, x * 128 + 64, z * 128 + 64), this.currentLevel, typecode, type.getInvModel(topObj.count), middleObj, bottomObj);
     }
 
-    private readPlayerInfo(buf: Packet, size: number): void {
+    private getPlayerPos(buf: Packet, size: number): void {
         this.entityRemovalCount = 0;
         this.entityUpdateCount = 0;
 
-        this.readLocalPlayer(buf);
-        this.readPlayers(buf);
-        this.readNewPlayers(buf, size);
-        this.readPlayerUpdates(buf);
+        this.getPlayerLocal(buf);
+        this.getPlayerOldVis(buf);
+        this.getPlayerNewVis(buf, size);
+        this.getPlayerExtended(buf);
 
         for (let i: number = 0; i < this.entityRemovalCount; i++) {
             const index: number = this.entityRemovalIds[i];
-            const player: PlayerEntity | null = this.players[index];
+            const player: ClientPlayer | null = this.players[index];
             if (!player) {
                 continue;
             }
+
             if (player.cycle !== this.loopCycle) {
                 this.players[index] = null;
             }
@@ -7289,59 +7322,62 @@ export class Client extends GameShell {
 
         if (buf.pos !== size) {
             console.error(`eek! Error packet size mismatch in getplayer pos:${buf.pos} psize:${size}`);
-            throw new Error();
+            throw new Error('eek');
         }
+
         for (let index: number = 0; index < this.playerCount; index++) {
             if (!this.players[this.playerIds[index]]) {
-                console.error(`eek! ${this.usernameInput} null entry in pl list - pos:${index} size:${this.playerCount}`);
-                throw new Error();
+                console.error(`eek! ${this.username} null entry in pl list - pos:${index} size:${this.playerCount}`);
+                throw new Error('eek');
             }
         }
     }
 
-    private readLocalPlayer(buf: Packet): void {
+    private getPlayerLocal(buf: Packet): void {
         buf.bits();
 
-        const hasUpdate: number = buf.gBit(1);
-        if (hasUpdate !== 0) {
-            const updateType: number = buf.gBit(2);
+        const info: number = buf.gBit(1);
+        if (info !== 0) {
+            const op: number = buf.gBit(2);
 
-            if (updateType === 0) {
+            if (op === 0) {
                 this.entityUpdateIds[this.entityUpdateCount++] = Constants.LOCAL_PLAYER_INDEX;
-            } else if (updateType === 1) {
+            } else if (op === 1) {
                 const walkDir: number = buf.gBit(3);
                 this.localPlayer?.step(false, walkDir);
 
-                const hasMaskUpdate: number = buf.gBit(1);
-                if (hasMaskUpdate === 1) {
+                const extendedInfo: number = buf.gBit(1);
+                if (extendedInfo === 1) {
                     this.entityUpdateIds[this.entityUpdateCount++] = Constants.LOCAL_PLAYER_INDEX;
                 }
-            } else if (updateType === 2) {
+            } else if (op === 2) {
                 const walkDir: number = buf.gBit(3);
                 this.localPlayer?.step(true, walkDir);
+
                 const runDir: number = buf.gBit(3);
                 this.localPlayer?.step(true, runDir);
 
-                const hasMaskUpdate: number = buf.gBit(1);
-                if (hasMaskUpdate === 1) {
+                const extendedInfo: number = buf.gBit(1);
+                if (extendedInfo === 1) {
                     this.entityUpdateIds[this.entityUpdateCount++] = Constants.LOCAL_PLAYER_INDEX;
                 }
-            } else if (updateType === 3) {
+            } else if (op === 3) {
                 this.currentLevel = buf.gBit(2);
                 const localX: number = buf.gBit(7);
                 const localZ: number = buf.gBit(7);
                 const jump: number = buf.gBit(1);
+
                 this.localPlayer?.move(jump === 1, localX, localZ);
 
-                const hasMaskUpdate: number = buf.gBit(1);
-                if (hasMaskUpdate === 1) {
+                const extendedInfo: number = buf.gBit(1);
+                if (extendedInfo === 1) {
                     this.entityUpdateIds[this.entityUpdateCount++] = Constants.LOCAL_PLAYER_INDEX;
                 }
             }
         }
     }
 
-    private readPlayers(buf: Packet): void {
+    private getPlayerOldVis(buf: Packet): void {
         const count: number = buf.gBit(8);
 
         if (count < this.playerCount) {
@@ -7351,31 +7387,31 @@ export class Client extends GameShell {
         }
 
         if (count > this.playerCount) {
-            console.error(`eek! ${this.usernameInput} Too many players`);
+            console.error(`eek! ${this.username} Too many players`);
             throw new Error();
         }
 
         this.playerCount = 0;
         for (let i: number = 0; i < count; i++) {
             const index: number = this.playerIds[i];
-            const player: PlayerEntity | null = this.players[index];
+            const player: ClientPlayer | null = this.players[index];
 
-            const hasUpdate: number = buf.gBit(1);
-            if (hasUpdate === 0) {
+            const info: number = buf.gBit(1);
+            if (info === 0) {
                 this.playerIds[this.playerCount++] = index;
                 if (player) {
                     player.cycle = this.loopCycle;
                 }
             } else {
-                const updateType: number = buf.gBit(2);
+                const op: number = buf.gBit(2);
 
-                if (updateType === 0) {
+                if (op === 0) {
                     this.playerIds[this.playerCount++] = index;
                     if (player) {
                         player.cycle = this.loopCycle;
                     }
                     this.entityUpdateIds[this.entityUpdateCount++] = index;
-                } else if (updateType === 1) {
+                } else if (op === 1) {
                     this.playerIds[this.playerCount++] = index;
                     if (player) {
                         player.cycle = this.loopCycle;
@@ -7384,11 +7420,11 @@ export class Client extends GameShell {
                     const walkDir: number = buf.gBit(3);
                     player?.step(false, walkDir);
 
-                    const hasMaskUpdate: number = buf.gBit(1);
-                    if (hasMaskUpdate === 1) {
+                    const extendedInfo: number = buf.gBit(1);
+                    if (extendedInfo === 1) {
                         this.entityUpdateIds[this.entityUpdateCount++] = index;
                     }
-                } else if (updateType === 2) {
+                } else if (op === 2) {
                     this.playerIds[this.playerCount++] = index;
                     if (player) {
                         player.cycle = this.loopCycle;
@@ -7396,30 +7432,31 @@ export class Client extends GameShell {
 
                     const walkDir: number = buf.gBit(3);
                     player?.step(true, walkDir);
+
                     const runDir: number = buf.gBit(3);
                     player?.step(true, runDir);
 
-                    const hasMaskUpdate: number = buf.gBit(1);
-                    if (hasMaskUpdate === 1) {
+                    const extendedInfo: number = buf.gBit(1);
+                    if (extendedInfo === 1) {
                         this.entityUpdateIds[this.entityUpdateCount++] = index;
                     }
-                } else if (updateType === 3) {
+                } else if (op === 3) {
                     this.entityRemovalIds[this.entityRemovalCount++] = index;
                 }
             }
         }
     }
 
-    private readNewPlayers(buf: Packet, size: number): void {
-        let index: number;
+    private getPlayerNewVis(buf: Packet, size: number): void {
         while (buf.bitPos + 10 < size * 8) {
-            index = buf.gBit(11);
+            let index = buf.gBit(11);
             if (index === 2047) {
                 break;
             }
 
             if (!this.players[index]) {
-                this.players[index] = new PlayerEntity();
+                this.players[index] = new ClientPlayer();
+
                 const appearance: Packet | null = this.playerAppearanceBuffer[index];
                 if (appearance) {
                     this.players[index]?.read(appearance);
@@ -7427,25 +7464,29 @@ export class Client extends GameShell {
             }
 
             this.playerIds[this.playerCount++] = index;
-            const player: PlayerEntity | null = this.players[index];
+            const player: ClientPlayer | null = this.players[index];
             if (player) {
                 player.cycle = this.loopCycle;
             }
+
             let dx: number = buf.gBit(5);
             if (dx > 15) {
                 dx -= 32;
             }
+
             let dz: number = buf.gBit(5);
             if (dz > 15) {
                 dz -= 32;
             }
+
             const jump: number = buf.gBit(1);
+
             if (this.localPlayer) {
-                player?.move(jump === 1, this.localPlayer.routeFlagX[0] + dx, this.localPlayer.routeFlagZ[0] + dz);
+                player?.move(jump === 1, this.localPlayer.routeTileX[0] + dx, this.localPlayer.routeTileZ[0] + dz);
             }
 
-            const hasMaskUpdate: number = buf.gBit(1);
-            if (hasMaskUpdate === 1) {
+            const extendedInfo: number = buf.gBit(1);
+            if (extendedInfo === 1) {
                 this.entityUpdateIds[this.entityUpdateCount++] = index;
             }
         }
@@ -7453,43 +7494,47 @@ export class Client extends GameShell {
         buf.bytes();
     }
 
-    private readPlayerUpdates(buf: Packet): void {
+    private getPlayerExtended(buf: Packet): void {
         for (let i: number = 0; i < this.entityUpdateCount; i++) {
             const index: number = this.entityUpdateIds[i];
-            const player: PlayerEntity | null = this.players[index];
+            const player: ClientPlayer | null = this.players[index];
             if (!player) {
-                continue; // its fine cos buffer gets out of pos and throws error which is ok
+                continue;
             }
+
             let mask: number = buf.g1();
             if ((mask & PlayerUpdate.BIG_UPDATE) !== 0) {
                 mask += buf.g1() << 8;
             }
-            this.readPlayerUpdatesBlocks(player, index, mask, buf);
+
+            this.getPlayerExtendedInfo(player, index, mask, buf);
         }
     }
 
-    private readPlayerUpdatesBlocks(player: PlayerEntity, index: number, mask: number, buf: Packet): void {
-        player.lastMask = mask;
-        player.lastMaskCycle = this.loopCycle;
-
+    private getPlayerExtendedInfo(player: ClientPlayer, index: number, mask: number, buf: Packet): void {
         if ((mask & PlayerUpdate.APPEARANCE) !== 0) {
             const length: number = buf.g1();
+
             const data: Uint8Array = new Uint8Array(length);
             const appearance: Packet = new Packet(data);
             buf.gdata(length, 0, data);
+
             this.playerAppearanceBuffer[index] = appearance;
             player.read(appearance);
         }
+
         if ((mask & PlayerUpdate.ANIM) !== 0) {
             let seqId: number = buf.g2();
             if (seqId === 65535) {
                 seqId = -1;
             }
+
             if (seqId === player.primarySeqId) {
                 player.primarySeqLoop = 0;
             }
+
             const delay: number = buf.g1();
-            if (seqId === -1 || player.primarySeqId === -1 || SeqType.instances[seqId].seqPriority > SeqType.instances[player.primarySeqId].seqPriority || SeqType.instances[player.primarySeqId].seqPriority === 0) {
+            if (seqId === -1 || player.primarySeqId === -1 || SeqType.types[seqId].priority > SeqType.types[player.primarySeqId].priority || SeqType.types[player.primarySeqId].priority === 0) {
                 player.primarySeqId = seqId;
                 player.primarySeqFrame = 0;
                 player.primarySeqCycle = 0;
@@ -7497,21 +7542,25 @@ export class Client extends GameShell {
                 player.primarySeqLoop = 0;
             }
         }
+
         if ((mask & PlayerUpdate.FACE_ENTITY) !== 0) {
             player.targetId = buf.g2();
             if (player.targetId === 65535) {
                 player.targetId = -1;
             }
         }
+
         if ((mask & PlayerUpdate.SAY) !== 0) {
-            player.chat = buf.gjstr();
-            player.chatColor = 0;
-            player.chatStyle = 0;
+            player.chatMessage = buf.gjstr();
+            player.chatColour = 0;
+            player.chatEffect = 0;
             player.chatTimer = 150;
+
             if (player.name) {
-                this.addMessage(2, player.chat, player.name);
+                this.addMessage(2, player.chatMessage, player.name);
             }
         }
+
         if ((mask & PlayerUpdate.DAMAGE) !== 0) {
             player.damage = buf.g1();
             player.damageType = buf.g1();
@@ -7519,20 +7568,22 @@ export class Client extends GameShell {
             player.health = buf.g1();
             player.totalHealth = buf.g1();
         }
+
         if ((mask & PlayerUpdate.FACE_COORD) !== 0) {
             player.targetTileX = buf.g2();
             player.targetTileZ = buf.g2();
-            player.lastFaceX = player.targetTileX;
-            player.lastFaceZ = player.targetTileZ;
         }
+
         if ((mask & PlayerUpdate.CHAT) !== 0) {
-            const colorEffect: number = buf.g2();
+            const colourEffect: number = buf.g2();
             const type: number = buf.g1();
             const length: number = buf.g1();
             const start: number = buf.pos;
+
             if (player.name) {
                 const username: bigint = JString.toBase37(player.name);
                 let ignored: boolean = false;
+
                 if (type <= 1) {
                     for (let i: number = 0; i < this.ignoreCount; i++) {
                         if (this.ignoreName37[i] === username) {
@@ -7541,40 +7592,48 @@ export class Client extends GameShell {
                         }
                     }
                 }
+
                 if (!ignored && this.overrideChat === 0) {
                     try {
                         const uncompressed: string = WordPack.unpack(buf, length);
                         const filtered: string = WordFilter.filter(uncompressed);
-                        player.chat = filtered;
-                        player.chatColor = colorEffect >> 8;
-                        player.chatStyle = colorEffect & 0xff;
+                        player.chatMessage = filtered;
+                        player.chatColour = colourEffect >> 8;
+                        player.chatEffect = colourEffect & 0xff;
                         player.chatTimer = 150;
+
                         if (type > 1) {
                             this.addMessage(1, filtered, player.name);
                         } else {
                             this.addMessage(2, filtered, player.name);
                         }
                     } catch (e) {
-                        // signlink.reporterror("cde2");
+                        // signlink.reporterror('cde2');
                     }
                 }
             }
+
             buf.pos = start + length;
         }
+
         if ((mask & PlayerUpdate.SPOTANIM) !== 0) {
             player.spotanimId = buf.g2();
             const heightDelay: number = buf.g4();
-            player.spotanimOffset = heightDelay >> 16;
+
+            player.spotanimHeight = heightDelay >> 16;
             player.spotanimLastCycle = this.loopCycle + (heightDelay & 0xffff);
             player.spotanimFrame = 0;
             player.spotanimCycle = 0;
+
             if (player.spotanimLastCycle > this.loopCycle) {
                 player.spotanimFrame = -1;
             }
+
             if (player.spotanimId === 65535) {
                 player.spotanimId = -1;
             }
         }
+
         if ((mask & PlayerUpdate.EXACT_MOVE) !== 0) {
             player.forceMoveStartSceneTileX = buf.g1();
             player.forceMoveStartSceneTileZ = buf.g1();
@@ -7584,45 +7643,46 @@ export class Client extends GameShell {
             player.forceMoveStartCycle = buf.g2() + this.loopCycle;
             player.forceMoveFaceDirection = buf.g1();
             player.routeLength = 0;
-            player.routeFlagX[0] = player.forceMoveEndSceneTileX;
-            player.routeFlagZ[0] = player.forceMoveEndSceneTileZ;
+            player.routeTileX[0] = player.forceMoveEndSceneTileX;
+            player.routeTileZ[0] = player.forceMoveEndSceneTileZ;
         }
     }
 
-    private readNpcInfo(buf: Packet, size: number): void {
+    private getNpcPos(buf: Packet, size: number): void {
         this.entityRemovalCount = 0;
         this.entityUpdateCount = 0;
 
-        this.readNpcs(buf);
-        this.readNewNpcs(buf, size);
-        this.readNpcUpdates(buf);
+        this.getNpcPosOldVis(buf);
+        this.getNpcPosNewVis(buf, size);
+        this.getNpcPosExtended(buf);
 
         for (let i: number = 0; i < this.entityRemovalCount; i++) {
             const index: number = this.entityRemovalIds[i];
-            const npc: NpcEntity | null = this.npcs[index];
+            const npc: ClientNpc | null = this.npcs[index];
             if (!npc) {
                 continue;
             }
+
             if (npc.cycle !== this.loopCycle) {
-                npc.npcType = null;
+                npc.type = null;
                 this.npcs[index] = null;
             }
         }
 
         if (buf.pos !== size) {
-            console.error(`eek! ${this.usernameInput} size mismatch in getnpcpos - pos:${buf.pos} psize:${size}`);
-            throw new Error();
+            console.error(`eek! ${this.username} size mismatch in getnpcpos - pos:${buf.pos} psize:${size}`);
+            throw new Error('eek');
         }
 
         for (let i: number = 0; i < this.npcCount; i++) {
             if (!this.npcs[this.npcIds[i]]) {
-                console.error(`eek! ${this.usernameInput} null entry in npc list - pos:${i} size:${this.npcCount}`);
-                throw new Error();
+                console.error(`eek! ${this.username} null entry in npc list - pos:${i} size:${this.npcCount}`);
+                throw new Error('eek');
             }
         }
     }
 
-    private readNpcs(buf: Packet): void {
+    private getNpcPosOldVis(buf: Packet): void {
         buf.bits();
 
         const count: number = buf.gBit(8);
@@ -7633,31 +7693,31 @@ export class Client extends GameShell {
         }
 
         if (count > this.npcCount) {
-            console.error(`eek! ${this.usernameInput} Too many npcs`);
-            throw new Error();
+            console.error(`eek! ${this.username} Too many npcs`);
+            throw new Error('eek');
         }
 
         this.npcCount = 0;
         for (let i: number = 0; i < count; i++) {
             const index: number = this.npcIds[i];
-            const npc: NpcEntity | null = this.npcs[index];
+            const npc: ClientNpc | null = this.npcs[index];
 
-            const hasUpdate: number = buf.gBit(1);
-            if (hasUpdate === 0) {
+            const info: number = buf.gBit(1);
+            if (info === 0) {
                 this.npcIds[this.npcCount++] = index;
                 if (npc) {
                     npc.cycle = this.loopCycle;
                 }
             } else {
-                const updateType: number = buf.gBit(2);
+                const op: number = buf.gBit(2);
 
-                if (updateType === 0) {
+                if (op === 0) {
                     this.npcIds[this.npcCount++] = index;
                     if (npc) {
                         npc.cycle = this.loopCycle;
                     }
                     this.entityUpdateIds[this.entityUpdateCount++] = index;
-                } else if (updateType === 1) {
+                } else if (op === 1) {
                     this.npcIds[this.npcCount++] = index;
                     if (npc) {
                         npc.cycle = this.loopCycle;
@@ -7666,11 +7726,11 @@ export class Client extends GameShell {
                     const walkDir: number = buf.gBit(3);
                     npc?.step(false, walkDir);
 
-                    const hasMaskUpdate: number = buf.gBit(1);
-                    if (hasMaskUpdate === 1) {
+                    const extendedInfo: number = buf.gBit(1);
+                    if (extendedInfo === 1) {
                         this.entityUpdateIds[this.entityUpdateCount++] = index;
                     }
-                } else if (updateType === 2) {
+                } else if (op === 2) {
                     this.npcIds[this.npcCount++] = index;
                     if (npc) {
                         npc.cycle = this.loopCycle;
@@ -7678,84 +7738,93 @@ export class Client extends GameShell {
 
                     const walkDir: number = buf.gBit(3);
                     npc?.step(true, walkDir);
+
                     const runDir: number = buf.gBit(3);
                     npc?.step(true, runDir);
 
-                    const hasMaskUpdate: number = buf.gBit(1);
-                    if (hasMaskUpdate === 1) {
+                    const extendedInfo: number = buf.gBit(1);
+                    if (extendedInfo === 1) {
                         this.entityUpdateIds[this.entityUpdateCount++] = index;
                     }
-                } else if (updateType === 3) {
+                } else if (op === 3) {
                     this.entityRemovalIds[this.entityRemovalCount++] = index;
                 }
             }
         }
     }
 
-    private readNewNpcs(buf: Packet, size: number): void {
+    private getNpcPosNewVis(buf: Packet, size: number): void {
         while (buf.bitPos + 21 < size * 8) {
             const index: number = buf.gBit(13);
             if (index === 8191) {
                 break;
             }
+
             if (!this.npcs[index]) {
-                this.npcs[index] = new NpcEntity();
+                this.npcs[index] = new ClientNpc();
             }
-            const npc: NpcEntity | null = this.npcs[index];
+
+            const npc: ClientNpc | null = this.npcs[index];
             this.npcIds[this.npcCount++] = index;
+
             if (npc) {
                 npc.cycle = this.loopCycle;
-                npc.npcType = NpcType.get(buf.gBit(11));
-                npc.size = npc.npcType.size;
-                npc.seqWalkId = npc.npcType.walkanim;
-                npc.seqTurnAroundId = npc.npcType.walkanim_b;
-                npc.seqTurnLeftId = npc.npcType.walkanim_r;
-                npc.seqTurnRightId = npc.npcType.walkanim_l;
-                npc.seqStandId = npc.npcType.readyanim;
+                npc.type = NpcType.get(buf.gBit(11));
+                npc.size = npc.type.size;
+                npc.walkanim = npc.type.walkanim;
+                npc.walkanim_b = npc.type.walkanim_b;
+                npc.walkanim_l = npc.type.walkanim_r;
+                npc.walkanim_r = npc.type.walkanim_l;
+                npc.readyanim = npc.type.readyanim;
             } else {
                 buf.gBit(11);
             }
+
             let dx: number = buf.gBit(5);
             if (dx > 15) {
                 dx -= 32;
             }
+
             let dz: number = buf.gBit(5);
             if (dz > 15) {
                 dz -= 32;
             }
+
             if (this.localPlayer) {
-                npc?.move(false, this.localPlayer.routeFlagX[0] + dx, this.localPlayer.routeFlagZ[0] + dz);
+                npc?.move(false, this.localPlayer.routeTileX[0] + dx, this.localPlayer.routeTileZ[0] + dz);
             }
-            const update: number = buf.gBit(1);
-            if (update === 1) {
+
+            const extendedInfo: number = buf.gBit(1);
+            if (extendedInfo === 1) {
                 this.entityUpdateIds[this.entityUpdateCount++] = index;
             }
         }
+
         buf.bytes();
     }
 
-    private readNpcUpdates(buf: Packet): void {
+    private getNpcPosExtended(buf: Packet): void {
         for (let i: number = 0; i < this.entityUpdateCount; i++) {
             const id: number = this.entityUpdateIds[i];
-            const npc: NpcEntity | null = this.npcs[id];
+            const npc: ClientNpc | null = this.npcs[id];
             if (!npc) {
-                continue; // its fine cos buffer gets out of pos and throws error which is ok
+                continue;
             }
-            const mask: number = buf.g1();
 
-            npc.lastMask = mask;
-            npc.lastMaskCycle = this.loopCycle;
+            const mask: number = buf.g1();
 
             if ((mask & NpcUpdate.ANIM) !== 0) {
                 let seqId: number = buf.g2();
                 if (seqId === 65535) {
                     seqId = -1;
                 }
+
                 if (seqId === npc.primarySeqId) {
                     npc.primarySeqLoop = 0;
                 }
+
                 const delay: number = buf.g1();
-                if (seqId === -1 || npc.primarySeqId === -1 || SeqType.instances[seqId].seqPriority > SeqType.instances[npc.primarySeqId].seqPriority || SeqType.instances[npc.primarySeqId].seqPriority === 0) {
+                if (seqId === -1 || npc.primarySeqId === -1 || SeqType.types[seqId].priority > SeqType.types[npc.primarySeqId].priority || SeqType.types[npc.primarySeqId].priority === 0) {
                     npc.primarySeqId = seqId;
                     npc.primarySeqFrame = 0;
                     npc.primarySeqCycle = 0;
@@ -7763,16 +7832,19 @@ export class Client extends GameShell {
                     npc.primarySeqLoop = 0;
                 }
             }
+
             if ((mask & NpcUpdate.FACE_ENTITY) !== 0) {
                 npc.targetId = buf.g2();
                 if (npc.targetId === 65535) {
                     npc.targetId = -1;
                 }
             }
+
             if ((mask & NpcUpdate.SAY) !== 0) {
-                npc.chat = buf.gjstr();
+                npc.chatMessage = buf.gjstr();
                 npc.chatTimer = 100;
             }
+
             if ((mask & NpcUpdate.DAMAGE) !== 0) {
                 npc.damage = buf.g1();
                 npc.damageType = buf.g1();
@@ -7781,32 +7853,35 @@ export class Client extends GameShell {
                 npc.totalHealth = buf.g1();
             }
             if ((mask & NpcUpdate.CHANGE_TYPE) !== 0) {
-                npc.npcType = NpcType.get(buf.g2());
-                npc.seqWalkId = npc.npcType.walkanim;
-                npc.seqTurnAroundId = npc.npcType.walkanim_b;
-                npc.seqTurnLeftId = npc.npcType.walkanim_r;
-                npc.seqTurnRightId = npc.npcType.walkanim_l;
-                npc.seqStandId = npc.npcType.readyanim;
+                npc.type = NpcType.get(buf.g2());
+
+                npc.walkanim = npc.type.walkanim;
+                npc.walkanim_b = npc.type.walkanim_b;
+                npc.walkanim_l = npc.type.walkanim_r;
+                npc.walkanim_r = npc.type.walkanim_l;
+                npc.readyanim = npc.type.readyanim;
             }
             if ((mask & NpcUpdate.SPOTANIM) !== 0) {
                 npc.spotanimId = buf.g2();
                 const info: number = buf.g4();
-                npc.spotanimOffset = info >> 16;
+
+                npc.spotanimHeight = info >> 16;
                 npc.spotanimLastCycle = this.loopCycle + (info & 0xffff);
                 npc.spotanimFrame = 0;
                 npc.spotanimCycle = 0;
+
                 if (npc.spotanimLastCycle > this.loopCycle) {
                     npc.spotanimFrame = -1;
                 }
+
                 if (npc.spotanimId === 65535) {
                     npc.spotanimId = -1;
                 }
             }
+
             if ((mask & NpcUpdate.FACE_COORD) !== 0) {
                 npc.targetTileX = buf.g2();
                 npc.targetTileZ = buf.g2();
-                npc.lastFaceX = npc.targetTileX;
-                npc.lastFaceZ = npc.targetTileZ;
             }
         }
     }
@@ -7835,14 +7910,16 @@ export class Client extends GameShell {
             x = this.mouseClickX - ((width / 2) | 0) - 8;
             if (x + width > 512) {
                 x = 512 - width;
-            } else if (x < 0) {
+            }
+            if (x < 0) {
                 x = 0;
             }
 
             y = this.mouseClickY - 11;
             if (y + height > 334) {
                 y = 334 - height;
-            } else if (y < 0) {
+            }
+            if (y < 0) {
                 y = 0;
             }
 
@@ -7907,10 +7984,12 @@ export class Client extends GameShell {
         if (option < 0) {
             return false;
         }
+
         let action: number = this.menuAction[option];
         if (action >= 2000) {
             action -= 2000;
         }
+
         return action === 406;
     }
 
@@ -7943,10 +8022,10 @@ export class Client extends GameShell {
                 let found: boolean = false;
 
                 for (let i: number = 0; i < this.playerCount; i++) {
-                    const player: PlayerEntity | null = this.players[this.playerIds[i]];
+                    const player: ClientPlayer | null = this.players[this.playerIds[i]];
 
                     if (player && player.name && player.name.toLowerCase() === name.toLowerCase() && this.localPlayer) {
-                        this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], player.routeFlagX[0], player.routeFlagZ[0], 2, 1, 1, 0, 0, 0, false);
+                        this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
 
                         if (action === 903) {
                             this.out.p1isaac(ClientProt.OPPLAYER4);
@@ -8003,17 +8082,17 @@ export class Client extends GameShell {
             this.selectedItem = b;
             this.selectedArea = 2;
 
-            if (Component.instances[c].layer === this.viewportInterfaceId) {
+            if (Component.types[c].layer === this.viewportInterfaceId) {
                 this.selectedArea = 1;
             }
 
-            if (Component.instances[c].layer === this.chatInterfaceId) {
+            if (Component.types[c].layer === this.chatInterfaceId) {
                 this.selectedArea = 3;
             }
         } else if (action === 728 || action === 542 || action === 6 || action === 963 || action === 245) {
-            const npc: NpcEntity | null = this.npcs[a];
+            const npc: ClientNpc | null = this.npcs[a];
             if (npc && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], npc.routeFlagX[0], npc.routeFlagZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], npc.routeTileX[0], npc.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8054,9 +8133,9 @@ export class Client extends GameShell {
             }
         } else if (action === 217) {
             if (this.localPlayer) {
-                const success: boolean = this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
+                const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
                 if (!success) {
-                    this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
+                    this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
                 }
 
                 this.crossX = this.mouseClickX;
@@ -8101,11 +8180,11 @@ export class Client extends GameShell {
             this.selectedItem = b;
             this.selectedArea = 2;
 
-            if (Component.instances[c].layer === this.viewportInterfaceId) {
+            if (Component.types[c].layer === this.viewportInterfaceId) {
                 this.selectedArea = 1;
             }
 
-            if (Component.instances[c].layer === this.chatInterfaceId) {
+            if (Component.types[c].layer === this.chatInterfaceId) {
                 this.selectedArea = 3;
             }
         } else if (action === 391) {
@@ -8120,11 +8199,11 @@ export class Client extends GameShell {
             this.selectedItem = b;
             this.selectedArea = 2;
 
-            if (Component.instances[c].layer === this.viewportInterfaceId) {
+            if (Component.types[c].layer === this.viewportInterfaceId) {
                 this.selectedArea = 1;
             }
 
-            if (Component.instances[c].layer === this.chatInterfaceId) {
+            if (Component.types[c].layer === this.chatInterfaceId) {
                 this.selectedArea = 3;
             }
         } else if (action === 660) {
@@ -8162,10 +8241,11 @@ export class Client extends GameShell {
             }
             this.addMessage(0, examine, '');
         } else if (action === 900) {
-            const npc: NpcEntity | null = this.npcs[a];
+            const npc: ClientNpc | null = this.npcs[a];
 
             if (npc && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], npc.routeFlagX[0], npc.routeFlagZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], npc.routeTileX[0], npc.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
                 this.crossMode = 2;
@@ -8178,9 +8258,9 @@ export class Client extends GameShell {
                 this.out.p2(this.objSelectedInterface);
             }
         } else if (action === 1373 || action === 1544 || action === 151 || action === 1101) {
-            const player: PlayerEntity | null = this.players[a];
+            const player: ClientPlayer | null = this.players[a];
             if (player && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], player.routeFlagX[0], player.routeFlagZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8206,9 +8286,9 @@ export class Client extends GameShell {
                 this.out.p2(a);
             }
         } else if (action === 265) {
-            const npc: NpcEntity | null = this.npcs[a];
+            const npc: ClientNpc | null = this.npcs[a];
             if (npc && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], npc.routeFlagX[0], npc.routeFlagZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], npc.routeTileX[0], npc.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8238,7 +8318,7 @@ export class Client extends GameShell {
                     this.chatbackInputOpen = false;
                     this.showSocialInput = true;
                     this.socialInput = '';
-                    this.socialAction = 3;
+                    this.socialInputType = 3;
                     this.socialName37 = this.friendName37[friend];
                     this.socialMessage = 'Enter message to send to ' + this.friendName[friend];
                 }
@@ -8249,9 +8329,9 @@ export class Client extends GameShell {
             }
         } else if (action === 224 || action === 993 || action === 99 || action === 746 || action === 877) {
             if (this.localPlayer) {
-                const success: boolean = this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
+                const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
                 if (!success) {
-                    this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
+                    this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
                 }
 
                 this.crossX = this.mouseClickX;
@@ -8277,14 +8357,14 @@ export class Client extends GameShell {
             }
         } else if (action === 1607) {
             // npc examine
-            const npc: NpcEntity | null = this.npcs[a];
-            if (npc && npc.npcType) {
+            const npc: ClientNpc | null = this.npcs[a];
+            if (npc && npc.type) {
                 let examine: string;
 
-                if (!npc.npcType.desc) {
-                    examine = "It's a " + npc.npcType.name + '.';
+                if (!npc.type.desc) {
+                    examine = "It's a " + npc.type.name + '.';
                 } else {
-                    examine = npc.npcType.desc;
+                    examine = npc.type.desc;
                 }
 
                 this.addMessage(0, examine, '');
@@ -8292,23 +8372,24 @@ export class Client extends GameShell {
         } else if (action === 504) {
             this.interactWithLoc(ClientProt.OPLOC2, b, c, a);
         } else if (action === 930) {
-            const com: Component = Component.instances[c];
+            const com: Component = Component.types[c];
             this.spellSelected = 1;
             this.activeSpellId = c;
-            this.activeSpellFlags = com.actionTarget;
+            this.activeSpellFlags = com.targetMask;
             this.objSelected = 0;
 
-            let prefix: string | null = com.actionVerb;
+            let prefix: string | null = com.targetVerb;
             if (prefix && prefix.indexOf(' ') !== -1) {
                 prefix = prefix.substring(0, prefix.indexOf(' '));
             }
 
-            let suffix: string | null = com.actionVerb;
+            let suffix: string | null = com.targetVerb;
             if (suffix && suffix.indexOf(' ') !== -1) {
                 suffix = suffix.substring(suffix.indexOf(' ') + 1);
             }
 
-            this.spellCaption = prefix + ' ' + com.action + ' ' + suffix;
+            this.spellCaption = prefix + ' ' + com.targetText + ' ' + suffix;
+
             if (this.activeSpellFlags === 16) {
                 this.redrawSidebar = true;
                 this.selectedTab = 3;
@@ -8317,7 +8398,7 @@ export class Client extends GameShell {
 
             return;
         } else if (action === 951) {
-            const com: Component = Component.instances[c];
+            const com: Component = Component.types[c];
             let notify: boolean = true;
 
             if (com.clientCode > 0) {
@@ -8368,11 +8449,11 @@ export class Client extends GameShell {
             this.selectedItem = b;
             this.selectedArea = 2;
 
-            if (Component.instances[c].layer === this.viewportInterfaceId) {
+            if (Component.types[c].layer === this.viewportInterfaceId) {
                 this.selectedArea = 1;
             }
 
-            if (Component.instances[c].layer === this.chatInterfaceId) {
+            if (Component.types[c].layer === this.chatInterfaceId) {
                 this.selectedArea = 3;
             }
         } else if (action === 581) {
@@ -8388,9 +8469,9 @@ export class Client extends GameShell {
             this.interactWithLoc(ClientProt.OPLOC4, b, c, a);
         } else if (action === 965) {
             if (this.localPlayer) {
-                const success: boolean = this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
+                const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
                 if (!success) {
-                    this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
+                    this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
                 }
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8428,9 +8509,9 @@ export class Client extends GameShell {
             this.out.p1isaac(ClientProt.IF_BUTTON);
             this.out.p2(c);
 
-            const com: Component = Component.instances[c];
-            if (com.script && com.script[0] && com.script[0][0] === 5) {
-                const varp: number = com.script[0][1];
+            const com: Component = Component.types[c];
+            if (com.scripts && com.scripts[0] && com.scripts[0][0] === 5) {
+                const varp: number = com.scripts[0][1];
                 if (com.scriptOperand && this.varps[varp] !== com.scriptOperand[0]) {
                     this.varps[varp] = com.scriptOperand[0];
                     await this.updateVarp(varp);
@@ -8448,9 +8529,9 @@ export class Client extends GameShell {
                 this.reportAbuseInput = option.substring(tag + 5).trim();
                 this.reportAbuseMuteOption = false;
 
-                for (let i: number = 0; i < Component.instances.length; i++) {
-                    if (Component.instances[i] && Component.instances[i].clientCode === ClientCode.CC_REPORT_INPUT) {
-                        this.reportAbuseInterfaceID = this.viewportInterfaceId = Component.instances[i].layer;
+                for (let i: number = 0; i < Component.types.length; i++) {
+                    if (Component.types[i] && Component.types[i].clientCode === ClientCode.CC_REPORT_INPUT) {
+                        this.reportAbuseInterfaceId = this.viewportInterfaceId = Component.types[i].layer;
                         break;
                     }
                 }
@@ -8459,9 +8540,9 @@ export class Client extends GameShell {
             // close interfaces
             this.closeInterfaces();
         } else if (action === 367) {
-            const player: PlayerEntity | null = this.players[a];
+            const player: ClientPlayer | null = this.players[a];
             if (player && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], player.routeFlagX[0], player.routeFlagZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8478,9 +8559,9 @@ export class Client extends GameShell {
             this.out.p1isaac(ClientProt.IF_BUTTON);
             this.out.p2(c);
 
-            const com: Component = Component.instances[c];
-            if (com.script && com.script[0] && com.script[0][0] === 5) {
-                const varp: number = com.script[0][1];
+            const com: Component = Component.types[c];
+            if (com.scripts && com.scripts[0] && com.scripts[0][0] === 5) {
+                const varp: number = com.scripts[0][1];
                 this.varps[varp] = 1 - this.varps[varp];
                 await this.updateVarp(varp);
                 this.redrawSidebar = true;
@@ -8502,10 +8583,10 @@ export class Client extends GameShell {
                 }
             }
         } else if (action === 651) {
-            const player: PlayerEntity | null = this.players[a];
+            const player: ClientPlayer | null = this.players[a];
 
             if (player && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeFlagX[0], this.localPlayer.routeFlagZ[0], player.routeFlagX[0], player.routeFlagZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8529,7 +8610,7 @@ export class Client extends GameShell {
 
         let tooltip: string | null = npc.name;
         if (npc.vislevel !== 0 && this.localPlayer) {
-            tooltip = tooltip + this.getCombatLevelColorTag(this.localPlayer.combatLevel, npc.vislevel) + ' (level-' + npc.vislevel + ')';
+            tooltip = tooltip + this.getCombatLevelTag(this.localPlayer.combatLevel, npc.vislevel) + ' (level-' + npc.vislevel + ')';
         }
 
         if (this.objSelected === 1) {
@@ -8596,11 +8677,7 @@ export class Client extends GameShell {
                 }
             }
 
-            if (process.env.DEV_CLIENT === 'true') {
-                this.menuOption[this.menuSize] = 'Examine @yel@' + tooltip + ' @whi@(@gre@' + npc.id + '@whi@)';
-            } else {
-                this.menuOption[this.menuSize] = 'Examine @yel@' + tooltip;
-            }
+            this.menuOption[this.menuSize] = 'Examine @yel@' + tooltip;
             this.menuAction[this.menuSize] = 1607;
             this.menuParamA[this.menuSize] = a;
             this.menuParamB[this.menuSize] = b;
@@ -8616,15 +8693,16 @@ export class Client extends GameShell {
         }
     }
 
-    private addPlayerOptions(player: PlayerEntity, a: number, b: number, c: number): void {
+    private addPlayerOptions(player: ClientPlayer, a: number, b: number, c: number): void {
         if (player === this.localPlayer || this.menuSize >= 400) {
             return;
         }
 
         let tooltip: string | null = null;
         if (this.localPlayer) {
-            tooltip = player.name + this.getCombatLevelColorTag(this.localPlayer.combatLevel, player.combatLevel) + ' (level-' + player.combatLevel + ')';
+            tooltip = player.name + this.getCombatLevelTag(this.localPlayer.combatLevel, player.combatLevel) + ' (level-' + player.combatLevel + ')';
         }
+
         if (this.objSelected === 1) {
             this.menuOption[this.menuSize] = 'Use ' + this.objSelectedName + ' with @whi@' + tooltip;
             this.menuAction[this.menuSize] = 367;
@@ -8691,12 +8769,12 @@ export class Client extends GameShell {
         for (let i: number = 0; i < this.menuSize; i++) {
             if (this.menuAction[i] === 660) {
                 this.menuOption[i] = 'Walk here @whi@' + tooltip;
-                return;
+                break;
             }
         }
     }
 
-    private getCombatLevelColorTag(viewerLevel: number, otherLevel: number): string {
+    private getCombatLevelTag(viewerLevel: number, otherLevel: number): string {
         const diff: number = viewerLevel - otherLevel;
         if (diff < -9) {
             return '@red@';
@@ -8719,8 +8797,8 @@ export class Client extends GameShell {
         }
     }
 
-    private drawInterface(com: Component, x: number, y: number, scrollY: number, outline: boolean = false): void {
-        if (com.comType !== 0 || !com.childId || (com.hide && this.viewportHoveredInterfaceIndex !== com.id && this.sidebarHoveredInterfaceIndex !== com.id && this.chatHoveredInterfaceIndex !== com.id)) {
+    private drawInterface(com: Component, x: number, y: number, scrollY: number): void {
+        if (com.type !== 0 || !com.children || (com.hide && this.viewportHoveredInterfaceIndex !== com.id && this.sidebarHoveredInterfaceIndex !== com.id && this.chatHoveredInterfaceIndex !== com.id)) {
             return;
         }
 
@@ -8730,7 +8808,7 @@ export class Client extends GameShell {
         const bottom: number = Pix2D.bottom;
 
         Pix2D.setBounds(x, y, x + com.width, y + com.height);
-        const children: number = com.childId.length;
+        const children: number = com.children.length;
 
         for (let i: number = 0; i < children; i++) {
             if (!com.childX || !com.childY) {
@@ -8740,19 +8818,15 @@ export class Client extends GameShell {
             let childX: number = com.childX[i] + x;
             let childY: number = com.childY[i] + y - scrollY;
 
-            const child: Component = Component.instances[com.childId[i]];
+            const child: Component = Component.types[com.children[i]];
             childX += child.x;
             childY += child.y;
-
-            if (outline) {
-                Pix2D.drawRect(childX, childY, child.width, child.height, Colors.WHITE);
-            }
 
             if (child.clientCode > 0) {
                 this.updateInterfaceContent(child);
             }
 
-            if (child.comType === ComponentType.TYPE_LAYER) {
+            if (child.type === ComponentType.TYPE_LAYER) {
                 if (child.scrollPosition > child.scroll - child.height) {
                     child.scrollPosition = child.scroll - child.height;
                 }
@@ -8761,12 +8835,12 @@ export class Client extends GameShell {
                     child.scrollPosition = 0;
                 }
 
-                this.drawInterface(child, childX, childY, child.scrollPosition, outline);
+                this.drawInterface(child, childX, childY, child.scrollPosition);
 
                 if (child.scroll > child.height) {
                     this.drawScrollbar(childX + child.width, childY, child.scrollPosition, child.scroll, child.height);
                 }
-            } else if (child.comType === ComponentType.TYPE_INV) {
+            } else if (child.type === ComponentType.TYPE_INV) {
                 let slot: number = 0;
 
                 for (let row: number = 0; row < child.height; row++) {
@@ -8789,7 +8863,7 @@ export class Client extends GameShell {
                             const id: number = child.invSlotObjId[slot] - 1;
 
                             if ((slotX >= -32 && slotX <= 512 && slotY >= -32 && slotY <= 334) || (this.objDragArea !== 0 && this.objDragSlot === slot)) {
-                                const icon: Pix24 = ObjType.getIcon(id, child.invSlotObjCount[slot]);
+                                const icon: Pix32 = ObjType.getIcon(id, child.invSlotObjCount[slot]);
                                 if (this.objDragArea !== 0 && this.objDragSlot === slot && this.objDragInterfaceId === child.id) {
                                     dx = this.mouseX - this.objGrabX;
                                     dy = this.mouseY - this.objGrabY;
@@ -8814,37 +8888,37 @@ export class Client extends GameShell {
                                     icon.draw(slotX, slotY);
                                 }
 
-                                if (icon.cropW === 33 || child.invSlotObjCount[slot] !== 1) {
+                                if (icon.width === 33 || child.invSlotObjCount[slot] !== 1) {
                                     const count: number = child.invSlotObjCount[slot];
                                     this.fontPlain11?.drawString(slotX + dx + 1, slotY + 10 + dy, this.formatObjCount(count), Colors.BLACK);
                                     this.fontPlain11?.drawString(slotX + dx, slotY + 9 + dy, this.formatObjCount(count), Colors.YELLOW);
                                 }
                             }
-                        } else if (child.invSlotSprite && slot < 20) {
-                            const image: Pix24 | null = child.invSlotSprite[slot];
+                        } else if (child.invSlotGraphic && slot < 20) {
+                            const image: Pix32 | null = child.invSlotGraphic[slot];
                             image?.draw(slotX, slotY);
                         }
 
                         slot++;
                     }
                 }
-            } else if (child.comType === ComponentType.TYPE_RECT) {
+            } else if (child.type === ComponentType.TYPE_RECT) {
                 if (child.fill) {
                     Pix2D.fillRect2d(childX, childY, child.width, child.height, child.colour);
                 } else {
                     Pix2D.drawRect(childX, childY, child.width, child.height, child.colour);
                 }
-            } else if (child.comType === ComponentType.TYPE_TEXT) {
+            } else if (child.type === ComponentType.TYPE_TEXT) {
                 const font: PixFont | null = child.font;
-                let color: number = child.colour;
+                let colour: number = child.colour;
                 let text: string | null = child.text;
 
                 if ((this.chatHoveredInterfaceIndex === child.id || this.sidebarHoveredInterfaceIndex === child.id || this.viewportHoveredInterfaceIndex === child.id) && child.overColour !== 0) {
-                    color = child.overColour;
+                    colour = child.overColour;
                 }
 
                 if (this.executeInterfaceScript(child)) {
-                    color = child.activeColour;
+                    colour = child.activeColour;
 
                     if (child.activeText && child.activeText.length > 0) {
                         text = child.activeText;
@@ -8853,7 +8927,7 @@ export class Client extends GameShell {
 
                 if (child.buttonType === ButtonType.BUTTON_CONTINUE && this.pressedContinueOption) {
                     text = 'Please wait...';
-                    color = child.colour;
+                    colour = child.colour;
                 }
 
                 if (!font || !text) {
@@ -8868,7 +8942,7 @@ export class Client extends GameShell {
                                 break;
                             }
 
-                            text = text.substring(0, index) + this.getIntString(this.executeClientscript1(child, 0)) + text.substring(index + 2);
+                            text = text.substring(0, index) + this.getIntString(this.executeClientScript(child, 0)) + text.substring(index + 2);
                             // eslint-disable-next-line no-constant-condition
                         } while (true);
 
@@ -8878,7 +8952,7 @@ export class Client extends GameShell {
                                 break;
                             }
 
-                            text = text.substring(0, index) + this.getIntString(this.executeClientscript1(child, 1)) + text.substring(index + 2);
+                            text = text.substring(0, index) + this.getIntString(this.executeClientScript(child, 1)) + text.substring(index + 2);
                             // eslint-disable-next-line no-constant-condition
                         } while (true);
 
@@ -8888,7 +8962,7 @@ export class Client extends GameShell {
                                 break;
                             }
 
-                            text = text.substring(0, index) + this.getIntString(this.executeClientscript1(child, 2)) + text.substring(index + 2);
+                            text = text.substring(0, index) + this.getIntString(this.executeClientScript(child, 2)) + text.substring(index + 2);
                             // eslint-disable-next-line no-constant-condition
                         } while (true);
 
@@ -8898,7 +8972,7 @@ export class Client extends GameShell {
                                 break;
                             }
 
-                            text = text.substring(0, index) + this.getIntString(this.executeClientscript1(child, 3)) + text.substring(index + 2);
+                            text = text.substring(0, index) + this.getIntString(this.executeClientScript(child, 3)) + text.substring(index + 2);
                             // eslint-disable-next-line no-constant-condition
                         } while (true);
 
@@ -8908,7 +8982,7 @@ export class Client extends GameShell {
                                 break;
                             }
 
-                            text = text.substring(0, index) + this.getIntString(this.executeClientscript1(child, 4)) + text.substring(index + 2);
+                            text = text.substring(0, index) + this.getIntString(this.executeClientScript(child, 4)) + text.substring(index + 2);
                             // eslint-disable-next-line no-constant-condition
                         } while (true);
                     }
@@ -8924,13 +8998,13 @@ export class Client extends GameShell {
                     }
 
                     if (child.center) {
-                        font.drawStringTaggableCenter(childX + ((child.width / 2) | 0), lineY, split, color, child.shadowed);
+                        font.drawStringTaggableCenter(childX + ((child.width / 2) | 0), lineY, split, colour, child.shadowed);
                     } else {
-                        font.drawStringTaggable(childX, lineY, split, color, child.shadowed);
+                        font.drawStringTaggable(childX, lineY, split, colour, child.shadowed);
                     }
                 }
-            } else if (child.comType === ComponentType.TYPE_GRAPHIC) {
-                let image: Pix24 | null;
+            } else if (child.type === ComponentType.TYPE_GRAPHIC) {
+                let image: Pix32 | null;
                 if (this.executeInterfaceScript(child)) {
                     image = child.activeGraphic;
                 } else {
@@ -8938,17 +9012,18 @@ export class Client extends GameShell {
                 }
 
                 image?.draw(childX, childY);
-            } else if (child.comType === ComponentType.TYPE_MODEL) {
+            } else if (child.type === ComponentType.TYPE_MODEL) {
                 const tmpX: number = Pix3D.centerX;
                 const tmpY: number = Pix3D.centerY;
 
                 Pix3D.centerX = childX + ((child.width / 2) | 0);
                 Pix3D.centerY = childY + ((child.height / 2) | 0);
 
-                const eyeY: number = (Pix3D.sin[child.xan] * child.zoom) >> 16;
-                const eyeZ: number = (Pix3D.cos[child.xan] * child.zoom) >> 16;
+                const eyeY: number = (Pix3D.sinTable[child.xan] * child.zoom) >> 16;
+                const eyeZ: number = (Pix3D.cosTable[child.xan] * child.zoom) >> 16;
 
                 const active: boolean = this.executeInterfaceScript(child);
+
                 let seqId: number;
                 if (active) {
                     seqId = child.activeAnim;
@@ -8960,9 +9035,9 @@ export class Client extends GameShell {
                 if (seqId === -1) {
                     model = child.getModel(-1, -1, active);
                 } else {
-                    const seq: SeqType = SeqType.instances[seqId];
-                    if (seq.seqFrames && seq.seqIframes) {
-                        model = child.getModel(seq.seqFrames[child.seqFrame], seq.seqIframes[child.seqFrame], active);
+                    const seq: SeqType = SeqType.types[seqId];
+                    if (seq.frames && seq.iframes) {
+                        model = child.getModel(seq.frames[child.seqFrame], seq.iframes[child.seqFrame], active);
                     }
                 }
 
@@ -8972,7 +9047,7 @@ export class Client extends GameShell {
 
                 Pix3D.centerX = tmpX;
                 Pix3D.centerY = tmpY;
-            } else if (child.comType === ComponentType.TYPE_INV_TEXT) {
+            } else if (child.type === ComponentType.TYPE_INV_TEXT) {
                 const font: PixFont | null = child.font;
                 if (!font || !child.invSlotObjId || !child.invSlotObjCount) {
                     continue;
@@ -9007,6 +9082,7 @@ export class Client extends GameShell {
                 }
             }
         }
+
         Pix2D.setBounds(left, top, right, bottom);
     }
 
@@ -9070,11 +9146,13 @@ export class Client extends GameShell {
 
         if (mouseX >= left && mouseX < left + 16 && mouseY >= top && mouseY < top + 16) {
             component.scrollPosition -= this.dragCycles * 4;
+
             if (redraw) {
                 this.redrawSidebar = true;
             }
         } else if (mouseX >= left && mouseX < left + 16 && mouseY >= top + height - 16 && mouseY < top + height) {
             component.scrollPosition += this.dragCycles * 4;
+
             if (redraw) {
                 this.redrawSidebar = true;
             }
@@ -9083,12 +9161,16 @@ export class Client extends GameShell {
             if (gripSize < 8) {
                 gripSize = 8;
             }
+
             const gripY: number = mouseY - top - ((gripSize / 2) | 0) - 16;
             const maxY: number = height - gripSize - 32;
+
             component.scrollPosition = (((scrollableHeight - height) * gripY) / maxY) | 0;
+
             if (redraw) {
                 this.redrawSidebar = true;
             }
+
             this.scrollGrabbed = true;
         }
     }
@@ -9103,10 +9185,11 @@ export class Client extends GameShell {
         }
 
         for (let i: number = 0; i < com.scriptComparator.length; i++) {
-            const value: number = this.executeClientscript1(com, i);
             if (!com.scriptOperand) {
                 return false;
             }
+
+            const value: number = this.executeClientScript(com, i);
             const operand: number = com.scriptOperand[i];
 
             if (com.scriptComparator[i] === 2) {
@@ -9129,17 +9212,17 @@ export class Client extends GameShell {
         return true;
     }
 
-    private executeClientscript1(component: Component, scriptId: number): number {
-        if (!component.script || scriptId >= component.script.length) {
+    private executeClientScript(component: Component, scriptId: number): number {
+        if (!component.scripts || scriptId >= component.scripts.length) {
             return -2;
         }
 
         try {
-            const script: Uint16Array | null = component.script[scriptId];
+            const script: Uint16Array | null = component.scripts[scriptId];
             if (!script) {
-                // -1 is right bcos if an exception happen from array not being initialized in the lower code etc etc
                 return -1;
             }
+
             let register: number = 0;
             let pc: number = 0;
 
@@ -9161,7 +9244,7 @@ export class Client extends GameShell {
                     register += this.skillExperience[script[pc++]];
                 } else if (opcode === 4) {
                     // load_inv_count {interface id} {obj id}
-                    const com: Component = Component.instances[script[pc++]];
+                    const com: Component = Component.types[script[pc++]];
                     const obj: number = script[pc++] + 1;
 
                     if (com.invSlotObjId && com.invSlotObjCount) {
@@ -9178,7 +9261,7 @@ export class Client extends GameShell {
                     register += this.varps[script[pc++]];
                 } else if (opcode === 6) {
                     // load_next_level_xp {skill}
-                    register += Client.levelExperience[this.skillBaseLevel[script[pc++]] - 1];
+                    register += this.levelExperience[this.skillBaseLevel[script[pc++]] - 1];
                 } else if (opcode === 7) {
                     register += ((this.varps[script[pc++]] * 100) / 46875) | 0;
                 } else if (opcode === 8) {
@@ -9196,21 +9279,23 @@ export class Client extends GameShell {
                     }
                 } else if (opcode === 10) {
                     // load_inv_contains {interface id} {obj id}
-                    const com: Component = Component.instances[script[pc++]];
+                    const com: Component = Component.types[script[pc++]];
                     const obj: number = script[pc++] + 1;
 
-                    for (let i: number = 0; i < com.invSlotObjId!.length; i++) {
-                        if (com.invSlotObjId![i] === obj) {
-                            register += 999999999;
-                            break;
+                    if (com.invSlotObjId) {
+                        for (let i: number = 0; i < com.invSlotObjId.length; i++) {
+                            if (com.invSlotObjId[i] === obj) {
+                                register += 999999999;
+                                break;
+                            }
                         }
                     }
                 } else if (opcode === 11) {
                     // load_energy
-                    register += this.energy;
+                    register += this.runenergy;
                 } else if (opcode === 12) {
                     // load_weight
-                    register += this.weightCarried;
+                    register += this.runweight;
                 } else if (opcode === 13) {
                     // load_bool {varp} {bit: 0..31}
                     const varp: number = this.varps[script[pc++]];
@@ -9225,34 +9310,34 @@ export class Client extends GameShell {
     }
 
     private handleInterfaceInput(com: Component, mouseX: number, mouseY: number, x: number, y: number, scrollPosition: number): void {
-        if (com.comType !== 0 || !com.childId || com.hide || mouseX < x || mouseY < y || mouseX > x + com.width || mouseY > y + com.height || !com.childX || !com.childY) {
+        if (com.type !== 0 || !com.children || com.hide || mouseX < x || mouseY < y || mouseX > x + com.width || mouseY > y + com.height || !com.childX || !com.childY) {
             return;
         }
 
-        const children: number = com.childId.length;
+        const children: number = com.children.length;
         for (let i: number = 0; i < children; i++) {
             let childX: number = com.childX[i] + x;
             let childY: number = com.childY[i] + y - scrollPosition;
-            const child: Component = Component.instances[com.childId[i]];
+            const child: Component = Component.types[com.children[i]];
 
             childX += child.x;
             childY += child.y;
 
-            if ((child.overLayer >= 0 || child.overColour !== 0) && mouseX >= childX && mouseY >= childY && mouseX < childX + child.width && mouseY < childY + child.height) {
-                if (child.overLayer >= 0) {
-                    this.lastHoveredInterfaceId = child.overLayer;
+            if ((child.overlayer >= 0 || child.overColour !== 0) && mouseX >= childX && mouseY >= childY && mouseX < childX + child.width && mouseY < childY + child.height) {
+                if (child.overlayer >= 0) {
+                    this.lastHoveredInterfaceId = child.overlayer;
                 } else {
                     this.lastHoveredInterfaceId = child.id;
                 }
             }
 
-            if (child.comType === 0) {
+            if (child.type === 0) {
                 this.handleInterfaceInput(child, mouseX, mouseY, childX, childY, child.scrollPosition);
 
                 if (child.scroll > child.height) {
                     this.handleScrollInput(mouseX, mouseY, child.scroll, child.height, true, childX + child.width, childY, child);
                 }
-            } else if (child.comType === 2) {
+            } else if (child.type === 2) {
                 let slot: number = 0;
 
                 for (let row: number = 0; row < child.height; row++) {
@@ -9303,11 +9388,13 @@ export class Client extends GameShell {
                                 for (let op: number = 4; op >= 3; op--) {
                                     if (obj.iop && obj.iop[op]) {
                                         this.menuOption[this.menuSize] = obj.iop[op] + ' @lre@' + obj.name;
+
                                         if (op === 3) {
                                             this.menuAction[this.menuSize] = 478;
                                         } else if (op === 4) {
                                             this.menuAction[this.menuSize] = 347;
                                         }
+
                                         this.menuParamA[this.menuSize] = obj.id;
                                         this.menuParamB[this.menuSize] = slot;
                                         this.menuParamC[this.menuSize] = child.id;
@@ -9336,6 +9423,7 @@ export class Client extends GameShell {
                                 for (let op: number = 2; op >= 0; op--) {
                                     if (obj.iop[op]) {
                                         this.menuOption[this.menuSize] = obj.iop[op] + ' @lre@' + obj.name;
+
                                         if (op === 0) {
                                             this.menuAction[this.menuSize] = 405;
                                         } else if (op === 1) {
@@ -9343,6 +9431,7 @@ export class Client extends GameShell {
                                         } else if (op === 2) {
                                             this.menuAction[this.menuSize] = 422;
                                         }
+
                                         this.menuParamA[this.menuSize] = obj.id;
                                         this.menuParamB[this.menuSize] = slot;
                                         this.menuParamC[this.menuSize] = child.id;
@@ -9351,10 +9440,11 @@ export class Client extends GameShell {
                                 }
                             }
 
-                            if (child.iops) {
+                            if (child.iop) {
                                 for (let op: number = 4; op >= 0; op--) {
-                                    if (child.iops[op]) {
-                                        this.menuOption[this.menuSize] = child.iops[op] + ' @lre@' + obj.name;
+                                    if (child.iop[op]) {
+                                        this.menuOption[this.menuSize] = child.iop[op] + ' @lre@' + obj.name;
+
                                         if (op === 0) {
                                             this.menuAction[this.menuSize] = 602;
                                         } else if (op === 1) {
@@ -9366,6 +9456,7 @@ export class Client extends GameShell {
                                         } else if (op === 4) {
                                             this.menuAction[this.menuSize] = 415;
                                         }
+
                                         this.menuParamA[this.menuSize] = obj.id;
                                         this.menuParamB[this.menuSize] = slot;
                                         this.menuParamC[this.menuSize] = child.id;
@@ -9374,11 +9465,7 @@ export class Client extends GameShell {
                                 }
                             }
 
-                            if (process.env.DEV_CLIENT === 'true') {
-                                this.menuOption[this.menuSize] = 'Examine @lre@' + obj.name + ' @whi@(@gre@' + obj.id + '@whi@)';
-                            } else {
-                                this.menuOption[this.menuSize] = 'Examine @lre@' + obj.name;
-                            }
+                            this.menuOption[this.menuSize] = 'Examine @lre@' + obj.name;
                             this.menuAction[this.menuSize] = 1773;
                             this.menuParamA[this.menuSize] = obj.id;
                             if (child.invSlotObjCount) {
@@ -9404,12 +9491,12 @@ export class Client extends GameShell {
                         this.menuSize++;
                     }
                 } else if (child.buttonType === ButtonType.BUTTON_TARGET && this.spellSelected === 0) {
-                    let prefix: string | null = child.actionVerb;
+                    let prefix: string | null = child.targetVerb;
                     if (prefix && prefix.indexOf(' ') !== -1) {
                         prefix = prefix.substring(0, prefix.indexOf(' '));
                     }
 
-                    this.menuOption[this.menuSize] = prefix + ' @gre@' + child.action;
+                    this.menuOption[this.menuSize] = prefix + ' @gre@' + child.targetText;
                     this.menuAction[this.menuSize] = 930;
                     this.menuParamC[this.menuSize] = child.id;
                     this.menuSize++;
@@ -9439,58 +9526,66 @@ export class Client extends GameShell {
     }
 
     private handleSocialMenuOption(component: Component): boolean {
-        let type: number = component.clientCode;
-        if (type >= ClientCode.CC_FRIENDS_START && type <= ClientCode.CC_FRIENDS_UPDATE_END) {
-            if (type >= ClientCode.CC_FRIENDS_UPDATE_START) {
-                type -= ClientCode.CC_FRIENDS_UPDATE_START;
+        let clientCode: number = component.clientCode;
+
+        if (clientCode >= ClientCode.CC_FRIENDS_START && clientCode <= ClientCode.CC_FRIENDS_UPDATE_END) {
+            if (clientCode >= ClientCode.CC_FRIENDS_UPDATE_START) {
+                clientCode -= ClientCode.CC_FRIENDS_UPDATE_START;
             } else {
-                type--;
+                clientCode--;
             }
-            this.menuOption[this.menuSize] = 'Remove @whi@' + this.friendName[type];
+
+            this.menuOption[this.menuSize] = 'Remove @whi@' + this.friendName[clientCode];
             this.menuAction[this.menuSize] = 557;
             this.menuSize++;
-            this.menuOption[this.menuSize] = 'Message @whi@' + this.friendName[type];
+
+            this.menuOption[this.menuSize] = 'Message @whi@' + this.friendName[clientCode];
             this.menuAction[this.menuSize] = 679;
             this.menuSize++;
             return true;
-        } else if (type >= ClientCode.CC_IGNORES_START && type <= ClientCode.CC_IGNORES_END) {
+        } else if (clientCode >= ClientCode.CC_IGNORES_START && clientCode <= ClientCode.CC_IGNORES_END) {
             this.menuOption[this.menuSize] = 'Remove @whi@' + component.text;
             this.menuAction[this.menuSize] = 556;
             this.menuSize++;
             return true;
         }
+
         return false;
     }
 
     private resetInterfaceAnimation(id: number): void {
-        const parent: Component = Component.instances[id];
-        if (!parent.childId) {
+        const parent: Component = Component.types[id];
+        if (!parent.children) {
             return;
         }
-        for (let i: number = 0; i < parent.childId.length && parent.childId[i] !== -1; i++) {
-            const child: Component = Component.instances[parent.childId[i]];
-            if (child.comType === 1) {
+
+        for (let i: number = 0; i < parent.children.length && parent.children[i] !== -1; i++) {
+            const child: Component = Component.types[parent.children[i]];
+
+            if (child.type === 1) {
                 this.resetInterfaceAnimation(child.id);
             }
+
             child.seqFrame = 0;
             child.seqCycle = 0;
         }
     }
 
     private updateInterfaceAnimation(id: number, delta: number): boolean {
-        let updated: boolean = false;
-        const parent: Component = Component.instances[id];
-        if (!parent.childId) {
+        const parent: Component = Component.types[id];
+        if (!parent.children) {
             return false;
         }
 
-        for (let i: number = 0; i < parent.childId.length && parent.childId[i] !== -1; i++) {
-            const child: Component = Component.instances[parent.childId[i]];
-            if (child.comType === 1) {
+        let updated: boolean = false;
+
+        for (let i: number = 0; i < parent.children.length && parent.children[i] !== -1; i++) {
+            const child: Component = Component.types[parent.children[i]];
+            if (child.type === 1) {
                 updated ||= this.updateInterfaceAnimation(child.id, delta);
             }
 
-            if (child.comType === 6 && (child.anim !== -1 || child.activeAnim !== -1)) {
+            if (child.type === 6 && (child.anim !== -1 || child.activeAnim !== -1)) {
                 const active: boolean = this.executeInterfaceScript(child);
 
                 let seqId: number;
@@ -9501,18 +9596,18 @@ export class Client extends GameShell {
                 }
 
                 if (seqId !== -1) {
-                    const type: SeqType = SeqType.instances[seqId];
+                    const type: SeqType = SeqType.types[seqId];
                     child.seqCycle += delta;
 
-                    if (type.seqDelay) {
-                        while (child.seqCycle > type.seqDelay[child.seqFrame]) {
-                            child.seqCycle -= type.seqDelay[child.seqFrame] + 1;
+                    if (type.delay) {
+                        while (child.seqCycle > type.delay[child.seqFrame]) {
+                            child.seqCycle -= type.delay[child.seqFrame] + 1;
                             child.seqFrame++;
 
-                            if (child.seqFrame >= type.seqFrameCount) {
-                                child.seqFrame -= type.replayoff;
+                            if (child.seqFrame >= type.frameCount) {
+                                child.seqFrame -= type.loops;
 
-                                if (child.seqFrame < 0 || child.seqFrame >= type.seqFrameCount) {
+                                if (child.seqFrame < 0 || child.seqFrame >= type.frameCount) {
                                     child.seqFrame = 0;
                                 }
                             }
@@ -9528,218 +9623,217 @@ export class Client extends GameShell {
     }
 
     private async updateVarp(id: number): Promise<void> {
-        const clientcode: number = VarpType.instances[id].clientcode;
-        if (clientcode !== 0) {
-            const value: number = this.varps[id];
-            if (clientcode === 1) {
-                if (value === 1) {
-                    Pix3D.setBrightness(0.9);
-                }
-                if (value === 2) {
-                    Pix3D.setBrightness(0.8);
-                }
-                if (value === 3) {
-                    Pix3D.setBrightness(0.7);
-                }
-                if (value === 4) {
-                    Pix3D.setBrightness(0.6);
-                }
-                ObjType.iconCache?.clear();
-                this.redrawTitleBackground = true;
+        const clientcode: number = VarpType.types[id].clientcode;
+        if (clientcode === 0) {
+            return;
+        }
+
+        const value: number = this.varps[id];
+        if (clientcode === 1) {
+            if (value === 1) {
+                Pix3D.initColourTable(0.9);
+            } else if (value === 2) {
+                Pix3D.initColourTable(0.8);
+            } else if (value === 3) {
+                Pix3D.initColourTable(0.7);
+            } else if (value === 4) {
+                Pix3D.initColourTable(0.6);
             }
-            if (clientcode === 3) {
-                const lastMidiActive: boolean = this.midiActive;
-                if (value === 0) {
-                    this.midiVolume = 128;
-                    setMidiVolume(128);
-                    this.midiActive = true;
-                }
-                if (value === 1) {
-                    this.midiVolume = 96;
-                    setMidiVolume(96);
-                    this.midiActive = true;
-                }
-                if (value === 2) {
-                    this.midiVolume = 64;
-                    setMidiVolume(64);
-                    this.midiActive = true;
-                }
-                if (value === 3) {
-                    this.midiVolume = 32;
-                    setMidiVolume(32);
-                    this.midiActive = true;
-                }
-                if (value === 4) {
-                    this.midiActive = false;
-                }
-                if (this.midiActive !== lastMidiActive) {
-                    if (this.midiActive && this.currentMidi) {
-                        await this.setMidi(this.currentMidi, this.midiCrc, this.midiSize, false);
-                    } else {
-                        stopMidi(false);
-                    }
-                    this.nextMusicDelay = 0;
-                }
+
+            ObjType.iconCache?.clear();
+            this.redrawFrame = true;
+        } else if (clientcode === 3) {
+            const lastMidiActive: boolean = this.midiActive;
+
+            if (value === 0) {
+                this.midiVolume = 128;
+                setMidiVolume(128);
+                this.midiActive = true;
+            } else if (value === 1) {
+                this.midiVolume = 96;
+                setMidiVolume(96);
+                this.midiActive = true;
+            } else if (value === 2) {
+                this.midiVolume = 64;
+                setMidiVolume(64);
+                this.midiActive = true;
+            } else if (value === 3) {
+                this.midiVolume = 32;
+                setMidiVolume(32);
+                this.midiActive = true;
+            } else if (value === 4) {
+                this.midiActive = false;
             }
-            if (clientcode === 4) {
-                if (value === 0) {
-                    this.waveVolume = 128;
-                    setWaveVolume(128);
-                    this.waveEnabled = true;
+
+            if (this.midiActive !== lastMidiActive) {
+                if (this.midiActive && this.currentMidi) {
+                    await this.saveMidi(this.currentMidi, this.midiCrc, this.midiSize, false);
+                } else {
+                    stopMidi(false);
                 }
-                if (value === 1) {
-                    this.waveVolume = 96;
-                    setWaveVolume(96);
-                    this.waveEnabled = true;
-                }
-                if (value === 2) {
-                    this.waveVolume = 64;
-                    setWaveVolume(64);
-                    this.waveEnabled = true;
-                }
-                if (value === 3) {
-                    this.waveVolume = 32;
-                    setWaveVolume(32);
-                    this.waveEnabled = true;
-                }
-                if (value === 4) {
-                    this.waveEnabled = false;
-                }
+
+                this.nextMusicDelay = 0;
             }
-            if (clientcode === 5) {
-                this.mouseButtonsOption = value;
+        } else if (clientcode === 4) {
+            if (value === 0) {
+                this.waveVolume = 128;
+                setWaveVolume(128);
+                this.waveEnabled = true;
+            } else if (value === 1) {
+                this.waveVolume = 96;
+                setWaveVolume(96);
+                this.waveEnabled = true;
+            } else if (value === 2) {
+                this.waveVolume = 64;
+                setWaveVolume(64);
+                this.waveEnabled = true;
+            } else if (value === 3) {
+                this.waveVolume = 32;
+                setWaveVolume(32);
+                this.waveEnabled = true;
+            } else if (value === 4) {
+                this.waveEnabled = false;
             }
-            if (clientcode === 6) {
-                this.chatEffects = value;
-            }
-            if (clientcode === 8) {
-                this.splitPrivateChat = value;
-                this.redrawChatback = true;
-            }
+        } else if (clientcode === 5) {
+            this.oneMouseButton = value;
+        } else if (clientcode === 6) {
+            this.chatEffects = value;
+        } else if (clientcode === 8) {
+            this.splitPrivateChat = value;
+            this.redrawChatback = true;
         }
     }
 
-    private updateInterfaceContent(component: Component): void {
-        let clientCode: number = component.clientCode;
+    private updateInterfaceContent(com: Component): void {
+        let clientCode: number = com.clientCode;
 
         if (clientCode >= ClientCode.CC_FRIENDS_START && clientCode <= ClientCode.CC_FRIENDS_END) {
             clientCode--;
             if (clientCode >= this.friendCount) {
-                component.text = '';
-                component.buttonType = 0;
+                com.text = '';
+                com.buttonType = 0;
             } else {
-                component.text = this.friendName[clientCode];
-                component.buttonType = 1;
+                com.text = this.friendName[clientCode];
+                com.buttonType = 1;
             }
         } else if (clientCode >= ClientCode.CC_FRIENDS_UPDATE_START && clientCode <= ClientCode.CC_FRIENDS_UPDATE_END) {
             clientCode -= ClientCode.CC_FRIENDS_UPDATE_START;
             if (clientCode >= this.friendCount) {
-                component.text = '';
-                component.buttonType = 0;
+                com.text = '';
+                com.buttonType = 0;
             } else {
                 if (this.friendWorld[clientCode] === 0) {
-                    component.text = '@red@Offline';
+                    com.text = '@red@Offline';
                 } else if (this.friendWorld[clientCode] === Client.nodeId) {
-                    component.text = '@gre@World-' + (this.friendWorld[clientCode] - 9);
+                    com.text = '@gre@World-' + (this.friendWorld[clientCode] - 9);
                 } else {
-                    component.text = '@yel@World-' + (this.friendWorld[clientCode] - 9);
+                    com.text = '@yel@World-' + (this.friendWorld[clientCode] - 9);
                 }
-                component.buttonType = 1;
+
+                com.buttonType = 1;
             }
         } else if (clientCode === ClientCode.CC_FRIENDS_SIZE) {
-            component.scroll = this.friendCount * 15 + 20;
-            if (component.scroll <= component.height) {
-                component.scroll = component.height + 1;
+            com.scroll = this.friendCount * 15 + 20;
+
+            if (com.scroll <= com.height) {
+                com.scroll = com.height + 1;
             }
         } else if (clientCode >= ClientCode.CC_IGNORES_START && clientCode <= ClientCode.CC_IGNORES_END) {
             clientCode -= ClientCode.CC_IGNORES_START;
+
             if (clientCode >= this.ignoreCount) {
-                component.text = '';
-                component.buttonType = 0;
+                com.text = '';
+                com.buttonType = 0;
             } else {
-                component.text = JString.formatName(JString.fromBase37(this.ignoreName37[clientCode]));
-                component.buttonType = 1;
+                com.text = JString.formatName(JString.fromBase37(this.ignoreName37[clientCode]));
+                com.buttonType = 1;
             }
         } else if (clientCode === ClientCode.CC_IGNORES_SIZE) {
-            component.scroll = this.ignoreCount * 15 + 20;
-            if (component.scroll <= component.height) {
-                component.scroll = component.height + 1;
+            com.scroll = this.ignoreCount * 15 + 20;
+
+            if (com.scroll <= com.height) {
+                com.scroll = com.height + 1;
             }
         } else if (clientCode === ClientCode.CC_DESIGN_PREVIEW) {
-            component.xan = 150;
-            component.yan = ((Math.sin(this.loopCycle / 40.0) * 256.0) | 0) & 0x7ff;
+            com.xan = 150;
+            com.yan = ((Math.sin(this.loopCycle / 40.0) * 256.0) | 0) & 0x7ff;
+
             if (this.updateDesignModel) {
                 this.updateDesignModel = false;
 
                 const models: (Model | null)[] = new TypedArray1d(7, null);
                 let modelCount: number = 0;
                 for (let part: number = 0; part < 7; part++) {
-                    const kit: number = this.designIdentikits[part];
+                    const kit: number = this.designKits[part];
                     if (kit >= 0) {
-                        models[modelCount++] = IdkType.instances[kit].getModel();
+                        models[modelCount++] = IdkType.types[kit].getModel();
                     }
                 }
 
                 const model: Model = Model.modelFromModels(models, modelCount);
                 for (let part: number = 0; part < 5; part++) {
-                    if (this.designColors[part] !== 0) {
-                        model.recolor(PlayerEntity.DESIGN_IDK_COLORS[part][0], PlayerEntity.DESIGN_IDK_COLORS[part][this.designColors[part]]);
+                    if (this.designColours[part] !== 0) {
+                        model.recolour(ClientPlayer.DESIGN_IDK_COLORS[part][0], ClientPlayer.DESIGN_IDK_COLORS[part][this.designColours[part]]);
+
                         if (part === 1) {
-                            model.recolor(PlayerEntity.TORSO_RECOLORS[0], PlayerEntity.TORSO_RECOLORS[this.designColors[part]]);
+                            model.recolour(ClientPlayer.TORSO_RECOLORS[0], ClientPlayer.TORSO_RECOLORS[this.designColours[part]]);
                         }
                     }
                 }
 
                 if (this.localPlayer) {
-                    const frames: Int16Array | null = SeqType.instances[this.localPlayer.seqStandId].seqFrames;
+                    const frames: Int16Array | null = SeqType.types[this.localPlayer.readyanim].frames;
                     if (frames) {
                         model.createLabelReferences();
                         model.applyTransform(frames[0]);
                         model.calculateNormals(64, 850, -30, -50, -30, true);
-                        component.model = model;
+                        com.model = model;
                     }
                 }
             }
         } else if (clientCode === ClientCode.CC_SWITCH_TO_MALE) {
             if (!this.genderButtonImage0) {
-                this.genderButtonImage0 = component.graphic;
-                this.genderButtonImage1 = component.activeGraphic;
+                this.genderButtonImage0 = com.graphic;
+                this.genderButtonImage1 = com.activeGraphic;
             }
-            if (this.designGenderMale) {
-                component.graphic = this.genderButtonImage1;
+
+            if (this.designGender) {
+                com.graphic = this.genderButtonImage1;
             } else {
-                component.graphic = this.genderButtonImage0;
+                com.graphic = this.genderButtonImage0;
             }
         } else if (clientCode === ClientCode.CC_SWITCH_TO_FEMALE) {
             if (!this.genderButtonImage0) {
-                this.genderButtonImage0 = component.graphic;
-                this.genderButtonImage1 = component.activeGraphic;
+                this.genderButtonImage0 = com.graphic;
+                this.genderButtonImage1 = com.activeGraphic;
             }
-            if (this.designGenderMale) {
-                component.graphic = this.genderButtonImage0;
+
+            if (this.designGender) {
+                com.graphic = this.genderButtonImage0;
             } else {
-                component.graphic = this.genderButtonImage1;
+                com.graphic = this.genderButtonImage1;
             }
         } else if (clientCode === ClientCode.CC_REPORT_INPUT) {
-            component.text = this.reportAbuseInput;
+            com.text = this.reportAbuseInput;
+
             if (this.loopCycle % 20 < 10) {
-                component.text = component.text + '|';
+                com.text = com.text + '|';
             } else {
-                component.text = component.text + ' ';
+                com.text = com.text + ' ';
             }
         } else if (clientCode === ClientCode.CC_MOD_MUTE) {
-            if (!this.rights) {
-                component.text = '';
+            if (!this.staffmodlevel) {
+                com.text = '';
             } else if (this.reportAbuseMuteOption) {
-                component.colour = Colors.RED;
-                component.text = 'Moderator option: Mute player for 48 hours: <ON>';
+                com.colour = Colors.RED;
+                com.text = 'Moderator option: Mute player for 48 hours: <ON>';
             } else {
-                component.colour = Colors.WHITE;
-                component.text = 'Moderator option: Mute player for 48 hours: <OFF>';
+                com.colour = Colors.WHITE;
+                com.text = 'Moderator option: Mute player for 48 hours: <OFF>';
             }
         } else if (clientCode === ClientCode.CC_LAST_LOGIN_INFO || clientCode === ClientCode.CC_LAST_LOGIN_INFO2) {
             if (this.lastAddress === 0) {
-                component.text = '';
+                com.text = '';
             } else {
                 let text: string;
                 if (this.daysSinceLastLogin === 0) {
@@ -9750,29 +9844,26 @@ export class Client extends GameShell {
                     text = this.daysSinceLastLogin + ' days ago';
                 }
 
-                // Show ip address only if not 127.0.0.1
-                // Production does not record IP so it's always 127.0.0.1
-                const ipStr = JString.formatIPv4(this.lastAddress);
-                component.text = 'You last logged in ' + text + (ipStr === '127.0.0.1' ? '.' : ' from: ' + ipStr);
+                // Show IP only if not 127.0.0.1 (servers may opt into privacy, making it needless info)
+                const ipStr = JString.formatIPv4(this.lastAddress); // would be a DNS lookup if we could...
+                com.text = 'You last logged in ' + text + (ipStr === '127.0.0.1' ? '.' : ' from: ' + ipStr);
             }
         } else if (clientCode === ClientCode.CC_UNREAD_MESSAGES) {
             if (this.unreadMessages === 0) {
-                component.text = '0 unread messages';
-                component.colour = Colors.YELLOW;
-            }
-            if (this.unreadMessages === 1) {
-                component.text = '1 unread message';
-                component.colour = Colors.GREEN;
-            }
-            if (this.unreadMessages > 1) {
-                component.text = this.unreadMessages + ' unread messages';
-                component.colour = Colors.GREEN;
+                com.text = '0 unread messages';
+                com.colour = Colors.YELLOW;
+            } else if (this.unreadMessages === 1) {
+                com.text = '1 unread message';
+                com.colour = Colors.GREEN;
+            } else if (this.unreadMessages > 1) {
+                com.text = this.unreadMessages + ' unread messages';
+                com.colour = Colors.GREEN;
             }
         } else if (clientCode === ClientCode.CC_RECOVERY1) {
             if (this.daysSinceRecoveriesChanged === 201) {
-                component.text = '';
+                com.text = '';
             } else if (this.daysSinceRecoveriesChanged === 200) {
-                component.text = 'You have not yet set any password recovery questions.';
+                com.text = 'You have not yet set any password recovery questions.';
             } else {
                 let text: string;
                 if (this.daysSinceRecoveriesChanged === 0) {
@@ -9782,75 +9873,66 @@ export class Client extends GameShell {
                 } else {
                     text = this.daysSinceRecoveriesChanged + ' days ago';
                 }
-                component.text = text + ' you changed your recovery questions';
+
+                com.text = text + ' you changed your recovery questions';
             }
         } else if (clientCode === ClientCode.CC_RECOVERY2) {
             if (this.daysSinceRecoveriesChanged === 201) {
-                component.text = '';
+                com.text = '';
             } else if (this.daysSinceRecoveriesChanged === 200) {
-                component.text = 'We strongly recommend you do so now to secure your account.';
+                com.text = 'We strongly recommend you do so now to secure your account.';
             } else {
-                component.text = 'If you do not remember making this change then cancel it immediately';
+                com.text = 'If you do not remember making this change then cancel it immediately';
             }
         } else if (clientCode === ClientCode.CC_RECOVERY3) {
             if (this.daysSinceRecoveriesChanged === 201) {
-                component.text = '';
+                com.text = '';
             } else if (this.daysSinceRecoveriesChanged === 200) {
-                component.text = "Do this from the 'account management' area on our front webpage";
+                com.text = "Do this from the 'account management' area on our front webpage";
             } else {
-                component.text = "Do this from the 'account management' area on our front webpage";
+                com.text = "Do this from the 'account management' area on our front webpage";
             }
         }
     }
 
     private handleInterfaceAction(com: Component): boolean {
         const clientCode: number = com.clientCode;
+
         if (clientCode === ClientCode.CC_ADD_FRIEND) {
             this.redrawChatback = true;
             this.chatbackInputOpen = false;
             this.showSocialInput = true;
             this.socialInput = '';
-            this.socialAction = 1;
+            this.socialInputType = 1;
             this.socialMessage = 'Enter name of friend to add to list';
-        }
-
-        if (clientCode === ClientCode.CC_DEL_FRIEND) {
+        } else if (clientCode === ClientCode.CC_DEL_FRIEND) {
             this.redrawChatback = true;
             this.chatbackInputOpen = false;
             this.showSocialInput = true;
             this.socialInput = '';
-            this.socialAction = 2;
+            this.socialInputType = 2;
             this.socialMessage = 'Enter name of friend to delete from list';
-        }
-
-        if (clientCode === ClientCode.CC_LOGOUT) {
+        } else if (clientCode === ClientCode.CC_LOGOUT) {
             this.idleTimeout = 250;
             return true;
-        }
-
-        if (clientCode === ClientCode.CC_ADD_IGNORE) {
+        } else if (clientCode === ClientCode.CC_ADD_IGNORE) {
             this.redrawChatback = true;
             this.chatbackInputOpen = false;
             this.showSocialInput = true;
             this.socialInput = '';
-            this.socialAction = 4;
+            this.socialInputType = 4;
             this.socialMessage = 'Enter name of player to add to list';
-        }
-
-        if (clientCode === ClientCode.CC_DEL_IGNORE) {
+        } else if (clientCode === ClientCode.CC_DEL_IGNORE) {
             this.redrawChatback = true;
             this.chatbackInputOpen = false;
             this.showSocialInput = true;
             this.socialInput = '';
-            this.socialAction = 5;
+            this.socialInputType = 5;
             this.socialMessage = 'Enter name of player to delete from list';
-        }
-
-        // physical parts
-        if (clientCode >= ClientCode.CC_CHANGE_HEAD_L && clientCode <= ClientCode.CC_CHANGE_FEET_R) {
+        } else if (clientCode >= ClientCode.CC_CHANGE_HEAD_L && clientCode <= ClientCode.CC_CHANGE_FEET_R) {
             const part: number = ((clientCode - 300) / 2) | 0;
             const direction: number = clientCode & 0x1;
-            let kit: number = this.designIdentikits[part];
+            let kit: number = this.designKits[part];
 
             if (kit !== -1) {
                 // eslint-disable-next-line no-constant-condition
@@ -9858,78 +9940,67 @@ export class Client extends GameShell {
                     if (direction === 0) {
                         kit--;
                         if (kit < 0) {
-                            kit = IdkType.totalCount - 1;
+                            kit = IdkType.count - 1;
                         }
                     }
 
                     if (direction === 1) {
                         kit++;
-                        if (kit >= IdkType.totalCount) {
+                        if (kit >= IdkType.count) {
                             kit = 0;
                         }
                     }
 
-                    if (!IdkType.instances[kit].disableKit && IdkType.instances[kit].bodyPart === part + (this.designGenderMale ? 0 : 7)) {
-                        this.designIdentikits[part] = kit;
+                    if (!IdkType.types[kit].disable && IdkType.types[kit].type === part + (this.designGender ? 0 : 7)) {
+                        this.designKits[part] = kit;
                         this.updateDesignModel = true;
                         break;
                     }
                 }
             }
-        }
-
-        // recoloring parts
-        if (clientCode >= ClientCode.CC_RECOLOUR_HAIR_L && clientCode <= ClientCode.CC_RECOLOUR_SKIN_R) {
+        } else if (clientCode >= ClientCode.CC_RECOLOUR_HAIR_L && clientCode <= ClientCode.CC_RECOLOUR_SKIN_R) {
             const part: number = ((clientCode - 314) / 2) | 0;
             const direction: number = clientCode & 0x1;
-            let color: number = this.designColors[part];
+            let color: number = this.designColours[part];
 
             if (direction === 0) {
                 color--;
                 if (color < 0) {
-                    color = PlayerEntity.DESIGN_IDK_COLORS[part].length - 1;
+                    color = ClientPlayer.DESIGN_IDK_COLORS[part].length - 1;
                 }
             }
 
             if (direction === 1) {
                 color++;
-                if (color >= PlayerEntity.DESIGN_IDK_COLORS[part].length) {
+                if (color >= ClientPlayer.DESIGN_IDK_COLORS[part].length) {
                     color = 0;
                 }
             }
 
-            this.designColors[part] = color;
+            this.designColours[part] = color;
             this.updateDesignModel = true;
-        }
-
-        if (clientCode === ClientCode.CC_SWITCH_TO_MALE && !this.designGenderMale) {
-            this.designGenderMale = true;
+        } else if (clientCode === ClientCode.CC_SWITCH_TO_MALE && !this.designGender) {
+            this.designGender = true;
             this.validateCharacterDesign();
-        }
-
-        if (clientCode === ClientCode.CC_SWITCH_TO_FEMALE && this.designGenderMale) {
-            this.designGenderMale = false;
+        } else if (clientCode === ClientCode.CC_SWITCH_TO_FEMALE && this.designGender) {
+            this.designGender = false;
             this.validateCharacterDesign();
-        }
-
-        if (clientCode === ClientCode.CC_ACCEPT_DESIGN) {
+        } else if (clientCode === ClientCode.CC_ACCEPT_DESIGN) {
             this.out.p1isaac(ClientProt.IF_PLAYERDESIGN);
-            this.out.p1(this.designGenderMale ? 0 : 1);
+            this.out.p1(this.designGender ? 0 : 1);
+
             for (let i: number = 0; i < 7; i++) {
-                this.out.p1(this.designIdentikits[i]);
+                this.out.p1(this.designKits[i]);
             }
+
             for (let i: number = 0; i < 5; i++) {
-                this.out.p1(this.designColors[i]);
+                this.out.p1(this.designColours[i]);
             }
+
             return true;
-        }
-
-        if (clientCode === ClientCode.CC_MOD_MUTE) {
+        } else if (clientCode === ClientCode.CC_MOD_MUTE) {
             this.reportAbuseMuteOption = !this.reportAbuseMuteOption;
-        }
-
-        // reportabuse rules options
-        if (clientCode >= ClientCode.CC_REPORT_RULE1 && clientCode <= ClientCode.CC_REPORT_RULE12) {
+        } else if (clientCode >= ClientCode.CC_REPORT_RULE1 && clientCode <= ClientCode.CC_REPORT_RULE12) {
             this.closeInterfaces();
 
             if (this.reportAbuseInput.length > 0) {
@@ -9939,6 +10010,7 @@ export class Client extends GameShell {
                 this.out.p1(this.reportAbuseMuteOption ? 1 : 0);
             }
         }
+
         return false;
     }
 
@@ -9946,11 +10018,11 @@ export class Client extends GameShell {
         this.updateDesignModel = true;
 
         for (let i: number = 0; i < 7; i++) {
-            this.designIdentikits[i] = -1;
+            this.designKits[i] = -1;
 
-            for (let j: number = 0; j < IdkType.totalCount; j++) {
-                if (!IdkType.instances[j].disableKit && IdkType.instances[j].bodyPart === i + (this.designGenderMale ? 0 : 7)) {
-                    this.designIdentikits[i] = j;
+            for (let j: number = 0; j < IdkType.count; j++) {
+                if (!IdkType.types[j].disable && IdkType.types[j].type === i + (this.designGender ? 0 : 7)) {
+                    this.designKits[i] = j;
                     break;
                 }
             }
@@ -9962,28 +10034,35 @@ export class Client extends GameShell {
         if (this.areaSidebarOffsets) {
             Pix3D.lineOffset = this.areaSidebarOffsets;
         }
+
         this.imageInvback?.draw(0, 0);
+
         if (this.sidebarInterfaceId !== -1) {
-            this.drawInterface(Component.instances[this.sidebarInterfaceId], 0, 0, 0);
+            this.drawInterface(Component.types[this.sidebarInterfaceId], 0, 0, 0);
         } else if (this.tabInterfaceId[this.selectedTab] !== -1) {
-            this.drawInterface(Component.instances[this.tabInterfaceId[this.selectedTab]], 0, 0, 0);
+            this.drawInterface(Component.types[this.tabInterfaceId[this.selectedTab]], 0, 0, 0);
         }
+
         if (this.menuVisible && this.menuArea === 1) {
             this.drawMenu();
         }
+
         this.areaSidebar?.draw(562, 231);
+
         this.areaViewport?.bind();
         if (this.areaViewportOffsets) {
             Pix3D.lineOffset = this.areaViewportOffsets;
         }
     }
 
-    private drawChatback(): void {
+    private drawChat(): void {
         this.areaChatback?.bind();
         if (this.areaChatbackOffsets) {
             Pix3D.lineOffset = this.areaChatbackOffsets;
         }
+
         this.imageChatback?.draw(0, 0);
+
         if (this.showSocialInput) {
             this.fontBold12?.drawStringCenter(239, 40, this.socialMessage, Colors.BLACK);
             this.fontBold12?.drawStringCenter(239, 60, this.socialInput + '*', Colors.DARKBLUE);
@@ -9994,87 +10073,92 @@ export class Client extends GameShell {
             this.fontBold12?.drawStringCenter(239, 40, this.modalMessage, Colors.BLACK);
             this.fontBold12?.drawStringCenter(239, 60, 'Click to continue', Colors.DARKBLUE);
         } else if (this.chatInterfaceId !== -1) {
-            this.drawInterface(Component.instances[this.chatInterfaceId], 0, 0, 0);
-        } else if (this.stickyChatInterfaceId === -1) {
+            this.drawInterface(Component.types[this.chatInterfaceId], 0, 0, 0);
+        } else if (this.stickyChatInterfaceId !== -1) {
+            this.drawInterface(Component.types[this.stickyChatInterfaceId], 0, 0, 0);
+        } else {
             let font: PixFont | null = this.fontPlain12;
             let line: number = 0;
+
             Pix2D.setBounds(0, 0, 463, 77);
+
             for (let i: number = 0; i < 100; i++) {
                 const message: string | null = this.messageText[i];
                 if (!message) {
                     continue;
                 }
-                const type: number = this.messageTextType[i];
-                const offset: number = this.chatScrollOffset + 70 - line * 14;
+
+                const type: number = this.messageType[i];
+                const y: number = this.chatScrollOffset + 70 - line * 14;
+
                 if (type === 0) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, message, Colors.BLACK);
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, message, Colors.BLACK);
                     }
                     line++;
-                }
-                if (type === 1) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, this.messageTextSender[i] + ':', Colors.WHITE);
-                        font?.drawString(font.stringWidth(this.messageTextSender[i]) + 12, offset, message, Colors.BLUE);
+                } else if (type === 1) {
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, this.messageSender[i] + ':', Colors.WHITE);
+                        font?.drawString(font.stringWidth(this.messageSender[i]) + 12, y, message, Colors.BLUE);
                     }
                     line++;
-                }
-                if (type === 2 && (this.publicChatSetting === 0 || (this.publicChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, this.messageTextSender[i] + ':', Colors.BLACK);
-                        font?.drawString(font.stringWidth(this.messageTextSender[i]) + 12, offset, message, Colors.BLUE);
+                } else if (type === 2 && (this.chatPublicMode === 0 || (this.chatPublicMode === 1 && this.isFriend(this.messageSender[i])))) {
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, this.messageSender[i] + ':', Colors.BLACK);
+                        font?.drawString(font.stringWidth(this.messageSender[i]) + 12, y, message, Colors.BLUE);
                     }
                     line++;
-                }
-                if ((type === 3 || type === 7) && this.splitPrivateChat === 0 && (type === 7 || this.privateChatSetting === 0 || (this.privateChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, 'From ' + this.messageTextSender[i] + ':', Colors.BLACK);
-                        font?.drawString(font.stringWidth('From ' + this.messageTextSender[i]) + 12, offset, message, Colors.DARKRED);
+                } else if ((type === 3 || type === 7) && this.splitPrivateChat === 0 && (type === 7 || this.chatPrivateMode === 0 || (this.chatPrivateMode === 1 && this.isFriend(this.messageSender[i])))) {
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, 'From ' + this.messageSender[i] + ':', Colors.BLACK);
+                        font?.drawString(font.stringWidth('From ' + this.messageSender[i]) + 12, y, message, Colors.DARKRED);
                     }
                     line++;
-                }
-                if (type === 4 && (this.tradeChatSetting === 0 || (this.tradeChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, this.messageTextSender[i] + ' ' + this.messageText[i], Colors.TRADE_MESSAGE);
+                } else if (type === 4 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.messageSender[i])))) {
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, this.messageSender[i] + ' ' + this.messageText[i], Colors.TRADE_MESSAGE);
                     }
                     line++;
-                }
-                if (type === 5 && this.splitPrivateChat === 0 && this.privateChatSetting < 2) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, message, Colors.DARKRED);
+                } else if (type === 5 && this.splitPrivateChat === 0 && this.chatPrivateMode < 2) {
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, message, Colors.DARKRED);
                     }
                     line++;
-                }
-                if (type === 6 && this.splitPrivateChat === 0 && this.privateChatSetting < 2) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, 'To ' + this.messageTextSender[i] + ':', Colors.BLACK);
-                        font?.drawString(font.stringWidth('To ' + this.messageTextSender[i]) + 12, offset, message, Colors.DARKRED);
+                } else if (type === 6 && this.splitPrivateChat === 0 && this.chatPrivateMode < 2) {
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, 'To ' + this.messageSender[i] + ':', Colors.BLACK);
+                        font?.drawString(font.stringWidth('To ' + this.messageSender[i]) + 12, y, message, Colors.DARKRED);
                     }
                     line++;
-                }
-                if (type === 8 && (this.tradeChatSetting === 0 || (this.tradeChatSetting === 1 && this.isFriend(this.messageTextSender[i])))) {
-                    if (offset > 0 && offset < 110) {
-                        font?.drawString(4, offset, this.messageTextSender[i] + ' ' + this.messageText[i], Colors.DUEL_MESSAGE);
+                } else if (type === 8 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.messageSender[i])))) {
+                    if (y > 0 && y < 110) {
+                        font?.drawString(4, y, this.messageSender[i] + ' ' + this.messageText[i], Colors.DUEL_MESSAGE);
                     }
                     line++;
                 }
             }
+
             Pix2D.resetBounds();
+
             this.chatScrollHeight = line * 14 + 7;
             if (this.chatScrollHeight < 78) {
                 this.chatScrollHeight = 78;
             }
+
             this.drawScrollbar(463, 0, this.chatScrollHeight - this.chatScrollOffset - 77, this.chatScrollHeight, 77);
-            font?.drawString(4, 90, JString.formatName(this.usernameInput) + ':', Colors.BLACK);
-            font?.drawString(font.stringWidth(this.usernameInput + ': ') + 6, 90, this.chatTyped + '*', Colors.BLUE);
+
+            font?.drawString(4, 90, JString.formatName(this.username) + ':', Colors.BLACK);
+            font?.drawString(font.stringWidth(this.username + ': ') + 6, 90, this.chatTyped + '*', Colors.BLUE);
+
             Pix2D.drawHorizontalLine(0, 77, Colors.BLACK, 479);
-        } else {
-            this.drawInterface(Component.instances[this.stickyChatInterfaceId], 0, 0, 0);
         }
+
         if (this.menuVisible && this.menuArea === 2) {
             this.drawMenu();
         }
+
         this.areaChatback?.draw(22, 375);
+
         this.areaViewport?.bind();
         if (this.areaViewportOffsets) {
             Pix3D.lineOffset = this.areaViewportOffsets;
@@ -10082,17 +10166,19 @@ export class Client extends GameShell {
     }
 
     private drawMinimap(): void {
-        this.areaMapback?.bind();
         if (!this.localPlayer) {
             return;
         }
 
-        const angle: number = (this.orbitCameraYaw + this.minimapAnticheatAngle) & 0x7ff;
+        this.areaMapback?.bind();
+
+        const angle: number = (this.orbitCameraYaw + this.macroMinimapAngle) & 0x7ff;
         let anchorX: number = ((this.localPlayer.x / 32) | 0) + 48;
         let anchorY: number = 464 - ((this.localPlayer.z / 32) | 0);
 
-        this.imageMinimap?.drawRotatedMasked(21, 9, 146, 151, this.minimapMaskLineOffsets, this.minimapMaskLineLengths, anchorX, anchorY, angle, this.minimapZoom + 256);
+        this.imageMinimap?.drawRotatedMasked(21, 9, 146, 151, this.minimapMaskLineOffsets, this.minimapMaskLineLengths, anchorX, anchorY, angle, this.macroMinimapZoom + 256);
         this.imageCompass?.drawRotatedMasked(0, 0, 33, 33, this.compassMaskLineOffsets, this.compassMaskLineLengths, 25, 25, this.orbitCameraYaw, 256);
+
         for (let i: number = 0; i < this.activeMapFunctionCount; i++) {
             anchorX = this.activeMapFunctionX[i] * 4 + 2 - ((this.localPlayer.x / 32) | 0);
             anchorY = this.activeMapFunctionZ[i] * 4 + 2 - ((this.localPlayer.z / 32) | 0);
@@ -10111,8 +10197,8 @@ export class Client extends GameShell {
         }
 
         for (let i: number = 0; i < this.npcCount; i++) {
-            const npc: NpcEntity | null = this.npcs[this.npcIds[i]];
-            if (npc && npc.isVisibleNow() && npc.npcType && npc.npcType.minimap) {
+            const npc: ClientNpc | null = this.npcs[this.npcIds[i]];
+            if (npc && npc.isVisible() && npc.type && npc.type.minimap) {
                 anchorX = ((npc.x / 32) | 0) - ((this.localPlayer.x / 32) | 0);
                 anchorY = ((npc.z / 32) | 0) - ((this.localPlayer.z / 32) | 0);
                 this.drawOnMinimap(anchorY, this.imageMapdot1, anchorX);
@@ -10120,8 +10206,8 @@ export class Client extends GameShell {
         }
 
         for (let i: number = 0; i < this.playerCount; i++) {
-            const player: PlayerEntity | null = this.players[this.playerIds[i]];
-            if (player && player.isVisibleNow() && player.name) {
+            const player: ClientPlayer | null = this.players[this.playerIds[i]];
+            if (player && player.isVisible() && player.name) {
                 anchorX = ((player.x / 32) | 0) - ((this.localPlayer.x / 32) | 0);
                 anchorY = ((player.z / 32) | 0) - ((this.localPlayer.z / 32) | 0);
 
@@ -10143,39 +10229,42 @@ export class Client extends GameShell {
         }
 
         if (this.flagSceneTileX !== 0) {
-            anchorX = this.flagSceneTileX * 4 + 2 - ((this.localPlayer.x / 32) | 0);
-            anchorY = this.flagSceneTileZ * 4 + 2 - ((this.localPlayer.z / 32) | 0);
+            anchorX = ((this.flagSceneTileX * 4) + 2) - ((this.localPlayer.x / 32) | 0);
+            anchorY = ((this.flagSceneTileZ * 4) + 2) - ((this.localPlayer.z / 32) | 0);
             this.drawOnMinimap(anchorY, this.imageMapflag, anchorX);
         }
+
         // the white square local player position in the center of the minimap.
         Pix2D.fillRect2d(93, 82, 3, 3, Colors.WHITE);
+
         this.areaViewport?.bind();
     }
 
-    private drawOnMinimap(dy: number, image: Pix24 | null, dx: number): void {
+    private drawOnMinimap(dy: number, image: Pix32 | null, dx: number): void {
         if (!image) {
             return;
         }
 
-        const angle: number = (this.orbitCameraYaw + this.minimapAnticheatAngle) & 0x7ff;
         const distance: number = dx * dx + dy * dy;
         if (distance > 6400) {
             return;
         }
 
-        let sinAngle: number = Pix3D.sin[angle];
-        let cosAngle: number = Pix3D.cos[angle];
+        const angle: number = (this.orbitCameraYaw + this.macroMinimapAngle) & 0x7ff;
 
-        sinAngle = ((sinAngle * 256) / (this.minimapZoom + 256)) | 0;
-        cosAngle = ((cosAngle * 256) / (this.minimapZoom + 256)) | 0;
+        let sinAngle: number = Pix3D.sinTable[angle];
+        let cosAngle: number = Pix3D.cosTable[angle];
+
+        sinAngle = ((sinAngle * 256) / (this.macroMinimapZoom + 256)) | 0;
+        cosAngle = ((cosAngle * 256) / (this.macroMinimapZoom + 256)) | 0;
 
         const x: number = (dy * sinAngle + dx * cosAngle) >> 16;
         const y: number = (dy * cosAngle - dx * sinAngle) >> 16;
 
         if (distance > 2500 && this.imageMapback) {
-            image.drawMasked(x + 94 - ((image.cropW / 2) | 0), 83 - y - ((image.cropH / 2) | 0), this.imageMapback);
+            image.drawMasked(x + 94 - ((image.width / 2) | 0), 83 - y - ((image.height / 2) | 0), this.imageMapback);
         } else {
-            image.draw(x + 94 - ((image.cropW / 2) | 0), 83 - y - ((image.cropH / 2) | 0));
+            image.draw(x + 94 - ((image.width / 2) | 0), 83 - y - ((image.height / 2) | 0));
         }
     }
 
@@ -10184,16 +10273,19 @@ export class Client extends GameShell {
             this.modalMessage = text;
             this.mouseClickButton = 0;
         }
+
         if (this.chatInterfaceId === -1) {
             this.redrawChatback = true;
         }
+
         for (let i: number = 99; i > 0; i--) {
-            this.messageTextType[i] = this.messageTextType[i - 1];
-            this.messageTextSender[i] = this.messageTextSender[i - 1];
+            this.messageType[i] = this.messageType[i - 1];
+            this.messageSender[i] = this.messageSender[i - 1];
             this.messageText[i] = this.messageText[i - 1];
         }
-        this.messageTextType[0] = type;
-        this.messageTextSender[0] = sender;
+
+        this.messageType[0] = type;
+        this.messageSender[0] = sender;
         this.messageText[0] = text;
     }
 
@@ -10243,11 +10335,13 @@ export class Client extends GameShell {
         if (!this.localPlayer || !this.localPlayer.name) {
             return;
         }
+
         if (displayName !== this.localPlayer.name) {
             this.friendName[this.friendCount] = displayName;
             this.friendName37[this.friendCount] = username;
             this.friendWorld[this.friendCount] = 0;
             this.friendCount++;
+
             this.redrawSidebar = true;
 
             this.out.p1isaac(ClientProt.FRIENDLIST_ADD);
@@ -10264,11 +10358,13 @@ export class Client extends GameShell {
             if (this.friendName37[i] === username) {
                 this.friendCount--;
                 this.redrawSidebar = true;
+
                 for (let j: number = i; j < this.friendCount; j++) {
                     this.friendName[j] = this.friendName[j + 1];
                     this.friendWorld[j] = this.friendWorld[j + 1];
                     this.friendName37[j] = this.friendName37[j + 1];
                 }
+
                 this.out.p1isaac(ClientProt.FRIENDLIST_DEL);
                 this.out.p8(username);
                 return;
@@ -10328,31 +10424,35 @@ export class Client extends GameShell {
 
     private unloadTitle(): void {
         this.flameActive = false;
+
         if (this.flamesInterval) {
             clearInterval(this.flamesInterval);
             this.flamesInterval = null;
         }
+
         this.imageTitlebox = null;
         this.imageTitlebutton = null;
         this.imageRunes = [];
+
         this.flameGradient = null;
         this.flameGradient0 = null;
         this.flameGradient1 = null;
         this.flameGradient2 = null;
+
         this.flameBuffer0 = null;
         this.flameBuffer1 = null;
         this.flameBuffer3 = null;
         this.flameBuffer2 = null;
+
         this.imageFlamesLeft = null;
         this.imageFlamesRight = null;
     }
-
-    // ----
 
     runFlames(): void {
         if (!this.flameActive) {
             return;
         }
+
         this.updateFlames();
         this.updateFlames();
         this.drawFlames();
@@ -10506,6 +10606,7 @@ export class Client extends GameShell {
                 this.flameGradient[i] = this.flameGradient0[i];
             }
         }
+
         for (let i: number = 0; i < 33920; i++) {
             if (this.imageTitle0 && this.imageFlamesLeft) this.imageTitle0.pixels[i] = this.imageFlamesLeft.pixels[i];
         }
@@ -10515,11 +10616,14 @@ export class Client extends GameShell {
 
         for (let y: number = 1; y < height - 1; y++) {
             const offset: number = ((this.flameLineOffset[y] * (height - y)) / height) | 0;
+
             let step: number = offset + 22;
             if (step < 0) {
                 step = 0;
             }
+
             srcOffset += step;
+
             for (let x: number = step; x < 128; x++) {
                 let value: number = this.flameBuffer3[srcOffset++];
                 if (value === 0) {
@@ -10528,6 +10632,7 @@ export class Client extends GameShell {
                     const alpha: number = value;
                     const invAlpha: number = 256 - value;
                     value = this.flameGradient[value];
+
                     if (this.imageTitle0) {
                         const background: number = this.imageTitle0.pixels[dstOffset];
                         this.imageTitle0.pixels[dstOffset++] = ((((value & 0xff00ff) * alpha + (background & 0xff00ff) * invAlpha) & 0xff00ff00) + (((value & 0xff00) * alpha + (background & 0xff00) * invAlpha) & 0xff0000)) >> 8;
@@ -10547,10 +10652,13 @@ export class Client extends GameShell {
 
         srcOffset = 0;
         dstOffset = 1176;
+
         for (let y: number = 1; y < height - 1; y++) {
             const offset: number = ((this.flameLineOffset[y] * (height - y)) / height) | 0;
+
             const step: number = 103 - offset;
             dstOffset += offset;
+
             for (let x: number = 0; x < step; x++) {
                 let value: number = this.flameBuffer3[srcOffset++];
                 if (value === 0) {
@@ -10559,12 +10667,14 @@ export class Client extends GameShell {
                     const alpha: number = value;
                     const invAlpha: number = 256 - value;
                     value = this.flameGradient[value];
+
                     if (this.imageTitle1) {
                         const background: number = this.imageTitle1.pixels[dstOffset];
                         this.imageTitle1.pixels[dstOffset++] = ((((value & 0xff00ff) * alpha + (background & 0xff00ff) * invAlpha) & 0xff00ff00) + (((value & 0xff00) * alpha + (background & 0xff00) * invAlpha) & 0xff0000)) >> 8;
                     }
                 }
             }
+
             srcOffset += 128 - step;
             dstOffset += 128 - step - offset;
         }
@@ -10579,5 +10689,32 @@ export class Client extends GameShell {
     private mix(src: number, alpha: number, dst: number): number {
         const invAlpha: number = 256 - alpha;
         return ((((src & 0xff00ff) * invAlpha + (dst & 0xff00ff) * alpha) & 0xff00ff00) + (((src & 0xff00) * invAlpha + (dst & 0xff00) * alpha) & 0xff0000)) >> 8;
+    }
+
+    // ----
+
+    getTitleScreenState(): number {
+        return this.titleScreenState;
+    }
+
+    isChatBackInputOpen(): boolean {
+        return this.chatbackInputOpen;
+    }
+
+    isShowSocialInput(): boolean {
+        return this.showSocialInput;
+    }
+
+    getChatInterfaceId(): number {
+        return this.chatInterfaceId;
+    }
+
+    getViewportInterfaceId(): number {
+        return this.viewportInterfaceId;
+    }
+
+    getReportAbuseInterfaceId(): number {
+        // custom: for report abuse input on mobile
+        return this.reportAbuseInterfaceId;
     }
 }

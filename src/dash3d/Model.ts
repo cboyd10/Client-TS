@@ -1,5 +1,5 @@
-import AnimBase from '#/graphics/AnimBase.js';
-import AnimFrame from '#/graphics/AnimFrame.js';
+import AnimBase from '#/dash3d/AnimBase.js';
+import AnimFrame from '#/dash3d/AnimFrame.js';
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/graphics/Pix3D.js';
 
@@ -9,12 +9,13 @@ import Packet from '#/io/Packet.js';
 import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
 
 import { Int32Array2d, TypedArray1d } from '#/util/Arrays.js';
+import VertexNormal from '#/dash3d/VertexNormal.js';
 
 class Metadata {
+    data: Uint8Array | null = null;
     vertexCount: number = 0;
     faceCount: number = 0;
     texturedFaceCount: number = 0;
-
     vertexFlagsOffset: number = -1;
     vertexXOffset: number = -1;
     vertexYOffset: number = -1;
@@ -22,21 +23,12 @@ class Metadata {
     vertexLabelsOffset: number = -1;
     faceVerticesOffset: number = -1;
     faceOrientationsOffset: number = -1;
-    faceColorsOffset: number = -1;
+    faceColoursOffset: number = -1;
     faceInfosOffset: number = -1;
     facePrioritiesOffset: number = 0;
     faceAlphasOffset: number = -1;
     faceLabelsOffset: number = -1;
     faceTextureAxisOffset: number = -1;
-
-    data: Uint8Array | null = null;
-}
-
-export class VertexNormal {
-    x: number = 0;
-    y: number = 0;
-    z: number = 0;
-    w: number = 0;
 }
 
 type ModelType = {
@@ -78,8 +70,6 @@ type ModelType = {
 };
 
 export default class Model extends DoublyLinkable {
-    static modelMeta: (Metadata | null)[] | null = null;
-
     static head: Packet | null = null;
     static face1: Packet | null = null;
     static face2: Packet | null = null;
@@ -94,17 +84,15 @@ export default class Model extends DoublyLinkable {
     static vertex1: Packet | null = null;
     static vertex2: Packet | null = null;
     static axis: Packet | null = null;
-
+    static meta: (Metadata | null)[] | null = null;
     static faceClippedX: boolean[] | null = new TypedArray1d(4096, false);
     static faceNearClipped: boolean[] | null = new TypedArray1d(4096, false);
-
     static vertexScreenX: Int32Array | null = new Int32Array(4096);
     static vertexScreenY: Int32Array | null = new Int32Array(4096);
     static vertexScreenZ: Int32Array | null = new Int32Array(4096);
     static vertexViewSpaceX: Int32Array | null = new Int32Array(4096);
     static vertexViewSpaceY: Int32Array | null = new Int32Array(4096);
     static vertexViewSpaceZ: Int32Array | null = new Int32Array(4096);
-
     static tmpDepthFaceCount: Int32Array | null = new Int32Array(1500);
     static tmpDepthFaces: Int32Array[] | null = new Int32Array2d(1500, 512);
     static tmpPriorityFaceCount: Int32Array | null = new Int32Array(12);
@@ -112,21 +100,18 @@ export default class Model extends DoublyLinkable {
     static tmpPriority10FaceDepth: Int32Array | null = new Int32Array(2000);
     static tmpPriority11FaceDepth: Int32Array | null = new Int32Array(2000);
     static tmpPriorityDepthSum: Int32Array | null = new Int32Array(12);
-
     static clippedX: Int32Array = new Int32Array(10);
     static clippedY: Int32Array = new Int32Array(10);
-    static clippedColor: Int32Array = new Int32Array(10);
-
+    static clippedColour: Int32Array = new Int32Array(10);
     static baseX: number = 0;
     static baseY: number = 0;
     static baseZ: number = 0;
-
-    static checkHover: boolean = false;
     static mouseX: number = 0;
     static mouseY: number = 0;
     static pickedCount: number = 0;
-    static picked: Int32Array = new Int32Array(1000);
-    static checkHoverFace: boolean = false;
+    static checkHover: boolean = false;
+
+    static pickedBitsets: Int32Array = new Int32Array(1000);
 
     static unpack(models: Jagfile): void {
         try {
@@ -154,7 +139,7 @@ export default class Model extends DoublyLinkable {
             Model.vertex2.pos = 0;
 
             const count: number = Model.head.g2();
-            Model.modelMeta = new TypedArray1d(count + 100, null);
+            Model.meta = new TypedArray1d(count + 100, null);
 
             let vertexTextureDataOffset: number = 0;
             let labelDataOffset: number = 0;
@@ -212,7 +197,7 @@ export default class Model extends DoublyLinkable {
                     Model.vertex1.gsmart();
                 }
 
-                meta.faceColorsOffset = triangleColorDataOffset;
+                meta.faceColoursOffset = triangleColorDataOffset;
                 triangleColorDataOffset += meta.faceCount * 2;
 
                 if (hasInfo === 1) {
@@ -245,34 +230,12 @@ export default class Model extends DoublyLinkable {
                 meta.faceTextureAxisOffset = vertexTextureDataOffset;
                 vertexTextureDataOffset += meta.texturedFaceCount;
 
-                Model.modelMeta[id] = meta;
+                Model.meta[id] = meta;
             }
         } catch (err) {
             console.log('Error loading model index');
             console.error(err);
         }
-    }
-
-    static mulColorLightness(hsl: number, scalar: number, faceInfo: number): number {
-        if ((faceInfo & 0x2) === 2) {
-            if (scalar < 0) {
-                scalar = 0;
-            } else if (scalar > 127) {
-                scalar = 127;
-            }
-
-            return 127 - scalar;
-        }
-
-        scalar = (scalar * (hsl & 0x7f)) >> 7;
-
-        if (scalar < 2) {
-            scalar = 2;
-        } else if (scalar > 126) {
-            scalar = 126;
-        }
-
-        return (hsl & 0xff80) + scalar;
     }
 
     static modelCopyFaces(src: Model, copyVertexY: boolean, copyFaces: boolean): Model {
@@ -301,14 +264,14 @@ export default class Model extends DoublyLinkable {
             faceColorB = new Int32Array(faceCount);
             faceColorC = new Int32Array(faceCount);
             for (let f: number = 0; f < faceCount; f++) {
-                if (src.faceColorA) {
-                    faceColorA[f] = src.faceColorA[f];
+                if (src.faceColourA) {
+                    faceColorA[f] = src.faceColourA[f];
                 }
-                if (src.faceColorB) {
-                    faceColorB[f] = src.faceColorB[f];
+                if (src.faceColourB) {
+                    faceColorB[f] = src.faceColourB[f];
                 }
-                if (src.faceColorC) {
-                    faceColorC[f] = src.faceColorC[f];
+                if (src.faceColourC) {
+                    faceColorC[f] = src.faceColourC[f];
                 }
             }
 
@@ -339,9 +302,9 @@ export default class Model extends DoublyLinkable {
 
             vertexNormalOriginal = src.vertexNormalOriginal;
         } else {
-            faceColorA = src.faceColorA;
-            faceColorB = src.faceColorB;
-            faceColorC = src.faceColorC;
+            faceColorA = src.faceColourA;
+            faceColorB = src.faceColourB;
+            faceColorC = src.faceColourC;
             faceInfo = src.faceInfo;
         }
         return new Model({
@@ -359,7 +322,7 @@ export default class Model extends DoublyLinkable {
             faceInfo: faceInfo,
             facePriority: src.facePriority,
             faceAlpha: src.faceAlpha,
-            faceColor: src.faceColor,
+            faceColor: src.faceColour,
             priorityVal: src.priorityVal,
             texturedFaceCount: texturedFaceCount,
             texturedVertexA: src.texturedVertexA,
@@ -370,8 +333,8 @@ export default class Model extends DoublyLinkable {
             minZ: src.minZ,
             maxZ: src.maxZ,
             radius: src.radius,
-            minY: src.minY,
-            maxY: src.maxY,
+            minY: src.maxY,
+            maxY: src.minY,
             maxDepth: src.maxDepth,
             minDepth: src.minDepth,
             vertexNormal: vertexNormal,
@@ -406,12 +369,12 @@ export default class Model extends DoublyLinkable {
 
         let faceColor: Int32Array | null;
         if (shareColors) {
-            faceColor = src.faceColor;
+            faceColor = src.faceColour;
         } else {
             faceColor = new Int32Array(faceCount);
             for (let f: number = 0; f < faceCount; f++) {
-                if (src.faceColor) {
-                    faceColor[f] = src.faceColor[f];
+                if (src.faceColour) {
+                    faceColor[f] = src.faceColour[f];
                 }
             }
         }
@@ -496,13 +459,13 @@ export default class Model extends DoublyLinkable {
             faceVertexA: src.faceVertexA,
             faceVertexB: src.faceVertexB,
             faceVertexC: src.faceVertexC,
-            faceColorA: src.faceColorA,
-            faceColorB: src.faceColorB,
-            faceColorC: src.faceColorC,
+            faceColorA: src.faceColourA,
+            faceColorB: src.faceColourB,
+            faceColorC: src.faceColourC,
             faceInfo: src.faceInfo,
             facePriority: src.facePriority,
             faceAlpha: faceAlpha,
-            faceColor: src.faceColor,
+            faceColor: src.faceColour,
             priorityVal: src.priorityVal,
             texturedFaceCount: texturedFaceCount,
             texturedVertexA: src.texturedVertexA,
@@ -545,7 +508,7 @@ export default class Model extends DoublyLinkable {
                 }
 
                 copyAlpha ||= model.faceAlpha !== null;
-                copyColor ||= model.faceColor !== null;
+                copyColor ||= model.faceColour !== null;
             }
         }
 
@@ -605,14 +568,14 @@ export default class Model extends DoublyLinkable {
                     faceVertexA[faceCount] = model.faceVertexA[f] + vertexCount2;
                     faceVertexB[faceCount] = model.faceVertexB[f] + vertexCount2;
                     faceVertexC[faceCount] = model.faceVertexC[f] + vertexCount2;
-                    if (model.faceColorA) {
-                        faceColorA[faceCount] = model.faceColorA[f];
+                    if (model.faceColourA) {
+                        faceColorA[faceCount] = model.faceColourA[f];
                     }
-                    if (model.faceColorB) {
-                        faceColorB[faceCount] = model.faceColorB[f];
+                    if (model.faceColourB) {
+                        faceColorB[faceCount] = model.faceColourB[f];
                     }
-                    if (model.faceColorC) {
-                        faceColorC[faceCount] = model.faceColorC[f];
+                    if (model.faceColourC) {
+                        faceColorC[faceCount] = model.faceColourC[f];
                     }
 
                     if (copyInfo) {
@@ -651,9 +614,9 @@ export default class Model extends DoublyLinkable {
                         }
                     }
 
-                    if (copyColor && model.faceColor) {
+                    if (copyColor && model.faceColour) {
                         if (faceColor) {
-                            faceColor[faceCount] = model.faceColor[f];
+                            faceColor[faceCount] = model.faceColour[f];
                         }
                     }
 
@@ -856,8 +819,8 @@ export default class Model extends DoublyLinkable {
                         }
                     }
 
-                    if (model.faceColor) {
-                        faceColor[faceCount] = model.faceColor[face];
+                    if (model.faceColour) {
+                        faceColor[faceCount] = model.faceColour[face];
                     }
                     const a: { vertex: number; vertexCount: number } = addVertex(model, model.faceVertexA[face], vertexX, vertexY, vertexZ, vertexLabel, vertexCount);
                     vertexCount = a.vertexCount;
@@ -911,12 +874,12 @@ export default class Model extends DoublyLinkable {
         });
     }
 
-    static model(id: number): Model {
-        if (!Model.modelMeta) {
+    static get(id: number): Model {
+        if (!Model.meta) {
             throw new Error();
         }
 
-        const meta: Metadata | null = Model.modelMeta[id];
+        const meta: Metadata | null = Model.meta[id];
         if (!meta) {
             console.error(`Error model:${id} not found!`);
             throw new Error();
@@ -1015,7 +978,7 @@ export default class Model extends DoublyLinkable {
             }
         }
 
-        Model.face1.pos = meta.faceColorsOffset;
+        Model.face1.pos = meta.faceColoursOffset;
         Model.face2.pos = meta.faceInfosOffset;
         Model.face3.pos = meta.facePrioritiesOffset;
         Model.face4.pos = meta.faceAlphasOffset;
@@ -1122,13 +1085,13 @@ export default class Model extends DoublyLinkable {
     faceVertexA: Int32Array;
     faceVertexB: Int32Array;
     faceVertexC: Int32Array;
-    faceColorA: Int32Array | null;
-    faceColorB: Int32Array | null;
-    faceColorC: Int32Array | null;
+    faceColourA: Int32Array | null;
+    faceColourB: Int32Array | null;
+    faceColourC: Int32Array | null;
     faceInfo: Int32Array | null;
     facePriority: Int32Array | null;
     faceAlpha: Int32Array | null;
-    faceColor: Int32Array | null;
+    faceColour: Int32Array | null;
 
     priorityVal: number;
 
@@ -1142,8 +1105,8 @@ export default class Model extends DoublyLinkable {
     minZ: number;
     maxZ: number;
     radius: number;
-    minY: number;
     maxY: number;
+    minY: number;
     maxDepth: number;
     minDepth: number;
 
@@ -1157,7 +1120,7 @@ export default class Model extends DoublyLinkable {
 
     // runtime
     objRaise: number = 0;
-    pickable: boolean = false;
+    picking: boolean = false;
     pickedFace: number = -1;
     pickedFaceDepth: number = -1;
 
@@ -1172,13 +1135,13 @@ export default class Model extends DoublyLinkable {
         this.faceVertexA = type.faceVertexA;
         this.faceVertexB = type.faceVertexB;
         this.faceVertexC = type.faceVertexC;
-        this.faceColorA = type.faceColorA;
-        this.faceColorB = type.faceColorB;
-        this.faceColorC = type.faceColorC;
+        this.faceColourA = type.faceColorA;
+        this.faceColourB = type.faceColorB;
+        this.faceColourC = type.faceColorC;
         this.faceInfo = type.faceInfo;
         this.facePriority = type.facePriority;
         this.faceAlpha = type.faceAlpha;
-        this.faceColor = type.faceColor;
+        this.faceColour = type.faceColor;
         this.priorityVal = type.priorityVal;
         this.texturedFaceCount = type.texturedFaceCount;
         this.texturedVertexA = type.texturedVertexA;
@@ -1189,8 +1152,8 @@ export default class Model extends DoublyLinkable {
         this.minZ = type.minZ ?? 0;
         this.maxZ = type.maxZ ?? 0;
         this.radius = type.radius ?? 0;
-        this.minY = type.minY ?? 0;
-        this.maxY = type.maxY ?? 0;
+        this.maxY = type.minY ?? 0;
+        this.minY = type.maxY ?? 0;
         this.maxDepth = type.maxDepth ?? 0;
         this.minDepth = type.minDepth ?? 0;
         this.vertexLabel = type.vertexLabel ?? null;
@@ -1202,21 +1165,21 @@ export default class Model extends DoublyLinkable {
     }
 
     calculateBoundsCylinder(): void {
-        this.maxY = 0;
-        this.radius = 0;
         this.minY = 0;
+        this.radius = 0;
+        this.maxY = 0;
 
         for (let i: number = 0; i < this.vertexCount; i++) {
             const x: number = this.vertexX[i];
             const y: number = this.vertexY[i];
             const z: number = this.vertexZ[i];
 
-            if (-y > this.maxY) {
-                this.maxY = -y;
+            if (-y > this.minY) {
+                this.minY = -y;
             }
 
-            if (y > this.minY) {
-                this.minY = y;
+            if (y > this.maxY) {
+                this.maxY = y;
             }
 
             const radiusSqr: number = x * x + z * z;
@@ -1226,47 +1189,98 @@ export default class Model extends DoublyLinkable {
         }
 
         this.radius = (Math.sqrt(this.radius) + 0.99) | 0;
-        this.minDepth = (Math.sqrt(this.radius * this.radius + this.maxY * this.maxY) + 0.99) | 0;
-        this.maxDepth = this.minDepth + ((Math.sqrt(this.radius * this.radius + this.minY * this.minY) + 0.99) | 0);
+        this.minDepth = (Math.sqrt(this.radius * this.radius + this.minY * this.minY) + 0.99) | 0;
+        this.maxDepth = this.minDepth + ((Math.sqrt(this.radius * this.radius + this.maxY * this.maxY) + 0.99) | 0);
     }
 
     calculateBoundsY(): void {
-        this.maxY = 0;
         this.minY = 0;
+        this.maxY = 0;
 
-        for (let v: number = 0; v < this.vertexCount; v++) {
-            const y: number = this.vertexY[v];
+        for (let i: number = 0; i < this.vertexCount; i++) {
+            const y: number = this.vertexY[i];
 
-            if (-y > this.maxY) {
-                this.maxY = -y;
+            if (-y > this.minY) {
+                this.minY = -y;
             }
 
-            if (y > this.minY) {
-                this.minY = y;
+            if (y > this.maxY) {
+                this.maxY = y;
             }
         }
 
-        this.minDepth = (Math.sqrt(this.radius * this.radius + this.maxY * this.maxY) + 0.99) | 0;
-        this.maxDepth = this.minDepth + ((Math.sqrt(this.radius * this.radius + this.minY * this.minY) + 0.99) | 0);
+        this.minDepth = (Math.sqrt(this.radius * this.radius + this.minY * this.minY) + 0.99) | 0;
+        this.maxDepth = this.minDepth + ((Math.sqrt(this.radius * this.radius + this.maxY * this.maxY) + 0.99) | 0);
+    }
+
+    private calculateBoundsAABB(): void {
+        this.minY = 0;
+        this.radius = 0;
+        this.maxY = 0;
+        this.minX = 999999;
+        this.maxX = -999999;
+        this.maxZ = -99999;
+        this.minZ = 99999;
+
+        for (let v: number = 0; v < this.vertexCount; v++) {
+            const x: number = this.vertexX[v];
+            const y: number = this.vertexY[v];
+            const z: number = this.vertexZ[v];
+
+            if (x < this.minX) {
+                this.minX = x;
+            }
+
+            if (x > this.maxX) {
+                this.maxX = x;
+            }
+
+            if (z < this.minZ) {
+                this.minZ = z;
+            }
+
+            if (z > this.maxZ) {
+                this.maxZ = z;
+            }
+
+            if (-y > this.minY) {
+                this.minY = -y;
+            }
+
+            if (y > this.maxY) {
+                this.maxY = y;
+            }
+
+            const radiusSqr: number = x * x + z * z;
+            if (radiusSqr > this.radius) {
+                this.radius = radiusSqr;
+            }
+        }
+
+        this.radius = Math.sqrt(this.radius) | 0;
+        this.minDepth = Math.sqrt(this.radius * this.radius + this.minY * this.minY) | 0;
+        this.maxDepth = this.minDepth + (Math.sqrt(this.radius * this.radius + this.maxY * this.maxY) | 0);
     }
 
     createLabelReferences(): void {
         if (this.vertexLabel) {
             const labelVertexCount: Int32Array = new Int32Array(256);
             let count: number = 0;
+
             for (let v: number = 0; v < this.vertexCount; v++) {
                 const label: number = this.vertexLabel[v];
-                // const countDebug: number = labelVertexCount[label]++; // dead var
                 labelVertexCount[label]++;
                 if (label > count) {
                     count = label;
                 }
             }
+
             this.labelVertices = new TypedArray1d(count + 1, null);
             for (let label: number = 0; label <= count; label++) {
                 this.labelVertices[label] = new Int32Array(labelVertexCount[label]);
                 labelVertexCount[label] = 0;
             }
+
             let v: number = 0;
             while (v < this.vertexCount) {
                 const label: number = this.vertexLabel[v];
@@ -1274,8 +1288,10 @@ export default class Model extends DoublyLinkable {
                 if (!verts) {
                     continue;
                 }
+
                 verts[labelVertexCount[label]++] = v++;
             }
+
             this.vertexLabel = null;
         }
 
@@ -1284,17 +1300,18 @@ export default class Model extends DoublyLinkable {
             let count: number = 0;
             for (let f: number = 0; f < this.faceCount; f++) {
                 const label: number = this.faceLabel[f];
-                // const countDebug: number = labelFaceCount[label]++; // dead var
                 labelFaceCount[label]++;
                 if (label > count) {
                     count = label;
                 }
             }
+
             this.labelFaces = new TypedArray1d(count + 1, null);
             for (let label: number = 0; label <= count; label++) {
                 this.labelFaces[label] = new Int32Array(labelFaceCount[label]);
                 labelFaceCount[label] = 0;
             }
+
             let face: number = 0;
             while (face < this.faceCount) {
                 const label: number = this.faceLabel[face];
@@ -1302,65 +1319,11 @@ export default class Model extends DoublyLinkable {
                 if (!faces) {
                     continue;
                 }
+
                 faces[labelFaceCount[label]++] = face++;
             }
+
             this.faceLabel = null;
-        }
-    }
-
-    applyTransforms(primaryId: number, secondaryId: number, mask: Int32Array | null): void {
-        if (primaryId === -1) {
-            return;
-        }
-
-        if (!mask || secondaryId === -1) {
-            this.applyTransform(primaryId);
-        } else {
-            const primary: AnimFrame = AnimFrame.instances[primaryId];
-            const secondary: AnimFrame = AnimFrame.instances[secondaryId];
-            const skeleton: AnimBase | null = primary.base;
-
-            Model.baseX = 0;
-            Model.baseY = 0;
-            Model.baseZ = 0;
-
-            let counter: number = 0;
-            let maskBase: number = mask[counter++];
-
-            for (let i: number = 0; i < primary.frameLength; i++) {
-                if (!primary.bases) {
-                    continue;
-                }
-                const base: number = primary.bases[i];
-                while (base > maskBase) {
-                    maskBase = mask[counter++];
-                }
-
-                if (skeleton && skeleton.animTypes && primary.x && primary.y && primary.z && skeleton.animLabels && (base !== maskBase || skeleton.animTypes[base] === 0)) {
-                    this.applyTransform2(primary.x[i], primary.y[i], primary.z[i], skeleton.animLabels[base], skeleton.animTypes[base]);
-                }
-            }
-
-            Model.baseX = 0;
-            Model.baseY = 0;
-            Model.baseZ = 0;
-
-            counter = 0;
-            maskBase = mask[counter++];
-
-            for (let i: number = 0; i < secondary.frameLength; i++) {
-                if (!secondary.bases) {
-                    continue;
-                }
-                const base: number = secondary.bases[i];
-                while (base > maskBase) {
-                    maskBase = mask[counter++];
-                }
-
-                if (skeleton && skeleton.animTypes && secondary.x && secondary.y && secondary.z && skeleton.animLabels && (base === maskBase || skeleton.animTypes[base] === 0)) {
-                    this.applyTransform2(secondary.x[i], secondary.y[i], secondary.z[i], skeleton.animLabels[base], skeleton.animTypes[base]);
-                }
-            }
         }
     }
 
@@ -1376,13 +1339,234 @@ export default class Model extends DoublyLinkable {
         Model.baseY = 0;
         Model.baseZ = 0;
 
-        for (let i: number = 0; i < transform.frameLength; i++) {
-            if (!transform.bases || !transform.x || !transform.y || !transform.z || !skeleton || !skeleton.animLabels || !skeleton.animTypes) {
+        for (let i: number = 0; i < transform.length; i++) {
+            if (!transform.groups || !transform.x || !transform.y || !transform.z || !skeleton || !skeleton.labels || !skeleton.types) {
                 continue;
             }
 
-            const base: number = transform.bases[i];
-            this.applyTransform2(transform.x[i], transform.y[i], transform.z[i], skeleton.animLabels[base], skeleton.animTypes[base]);
+            const base: number = transform.groups[i];
+            this.applyTransform2(transform.x[i], transform.y[i], transform.z[i], skeleton.labels[base], skeleton.types[base]);
+        }
+    }
+
+    applyTransforms(primaryId: number, secondaryId: number, mask: Int32Array | null): void {
+        if (primaryId === -1) {
+            return;
+        }
+
+        if (!mask || secondaryId === -1) {
+            this.applyTransform(primaryId);
+            return;
+        }
+
+        const primary: AnimFrame = AnimFrame.instances[primaryId];
+        const secondary: AnimFrame = AnimFrame.instances[secondaryId];
+        const skeleton: AnimBase | null = primary.base;
+
+        Model.baseX = 0;
+        Model.baseY = 0;
+        Model.baseZ = 0;
+
+        let counter: number = 0;
+        let maskBase: number = mask[counter++];
+
+        for (let i: number = 0; i < primary.length; i++) {
+            if (!primary.groups) {
+                continue;
+            }
+
+            const base: number = primary.groups[i];
+            while (base > maskBase) {
+                maskBase = mask[counter++];
+            }
+
+            if (skeleton && skeleton.types && primary.x && primary.y && primary.z && skeleton.labels && (base !== maskBase || skeleton.types[base] === 0)) {
+                this.applyTransform2(primary.x[i], primary.y[i], primary.z[i], skeleton.labels[base], skeleton.types[base]);
+            }
+        }
+
+        Model.baseX = 0;
+        Model.baseY = 0;
+        Model.baseZ = 0;
+
+        counter = 0;
+        maskBase = mask[counter++];
+
+        for (let i: number = 0; i < secondary.length; i++) {
+            if (!secondary.groups) {
+                continue;
+            }
+
+            const base: number = secondary.groups[i];
+            while (base > maskBase) {
+                maskBase = mask[counter++];
+            }
+
+            if (skeleton && skeleton.types && secondary.x && secondary.y && secondary.z && skeleton.labels && (base === maskBase || skeleton.types[base] === 0)) {
+                this.applyTransform2(secondary.x[i], secondary.y[i], secondary.z[i], skeleton.labels[base], skeleton.types[base]);
+            }
+        }
+    }
+
+    private applyTransform2(x: number, y: number, z: number, labels: Uint8Array | null, type: number): void {
+        if (!labels) {
+            return;
+        }
+
+        const labelCount: number = labels.length;
+
+        if (type === 0) {
+            let count: number = 0;
+            Model.baseX = 0;
+            Model.baseY = 0;
+            Model.baseZ = 0;
+
+            for (let g: number = 0; g < labelCount; g++) {
+                if (!this.labelVertices) {
+                    continue;
+                }
+                const label: number = labels[g];
+                if (label < this.labelVertices.length) {
+                    const vertices: Int32Array | null = this.labelVertices[label];
+                    if (vertices) {
+                        for (let i: number = 0; i < vertices.length; i++) {
+                            const v: number = vertices[i];
+                            Model.baseX += this.vertexX[v];
+                            Model.baseY += this.vertexY[v];
+                            Model.baseZ += this.vertexZ[v];
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            if (count > 0) {
+                Model.baseX = ((Model.baseX / count) | 0) + x;
+                Model.baseY = ((Model.baseY / count) | 0) + y;
+                Model.baseZ = ((Model.baseZ / count) | 0) + z;
+            } else {
+                Model.baseX = x;
+                Model.baseY = y;
+                Model.baseZ = z;
+            }
+        } else if (type === 1) {
+            for (let g: number = 0; g < labelCount; g++) {
+                const group: number = labels[g];
+                if (!this.labelVertices || group >= this.labelVertices.length) {
+                    continue;
+                }
+
+                const vertices: Int32Array | null = this.labelVertices[group];
+                if (vertices) {
+                    for (let i: number = 0; i < vertices.length; i++) {
+                        const v: number = vertices[i];
+                        this.vertexX[v] += x;
+                        this.vertexY[v] += y;
+                        this.vertexZ[v] += z;
+                    }
+                }
+            }
+        } else if (type === 2) {
+            for (let g: number = 0; g < labelCount; g++) {
+                const label: number = labels[g];
+                if (!this.labelVertices || label >= this.labelVertices.length) {
+                    continue;
+                }
+
+                const vertices: Int32Array | null = this.labelVertices[label];
+                if (vertices) {
+                    for (let i: number = 0; i < vertices.length; i++) {
+                        const v: number = vertices[i];
+                        this.vertexX[v] -= Model.baseX;
+                        this.vertexY[v] -= Model.baseY;
+                        this.vertexZ[v] -= Model.baseZ;
+
+                        const pitch: number = (x & 0xff) * 8;
+                        const yaw: number = (y & 0xff) * 8;
+                        const roll: number = (z & 0xff) * 8;
+
+                        let sin: number;
+                        let cos: number;
+
+                        if (roll !== 0) {
+                            sin = Pix3D.sinTable[roll];
+                            cos = Pix3D.cosTable[roll];
+                            const x_: number = (this.vertexY[v] * sin + this.vertexX[v] * cos) >> 16;
+                            this.vertexY[v] = (this.vertexY[v] * cos - this.vertexX[v] * sin) >> 16;
+                            this.vertexX[v] = x_;
+                        }
+
+                        if (pitch !== 0) {
+                            sin = Pix3D.sinTable[pitch];
+                            cos = Pix3D.cosTable[pitch];
+                            const y_: number = (this.vertexY[v] * cos - this.vertexZ[v] * sin) >> 16;
+                            this.vertexZ[v] = (this.vertexY[v] * sin + this.vertexZ[v] * cos) >> 16;
+                            this.vertexY[v] = y_;
+                        }
+
+                        if (yaw !== 0) {
+                            sin = Pix3D.sinTable[yaw];
+                            cos = Pix3D.cosTable[yaw];
+                            const x_: number = (this.vertexZ[v] * sin + this.vertexX[v] * cos) >> 16;
+                            this.vertexZ[v] = (this.vertexZ[v] * cos - this.vertexX[v] * sin) >> 16;
+                            this.vertexX[v] = x_;
+                        }
+
+                        this.vertexX[v] += Model.baseX;
+                        this.vertexY[v] += Model.baseY;
+                        this.vertexZ[v] += Model.baseZ;
+                    }
+                }
+            }
+        } else if (type === 3) {
+            for (let g: number = 0; g < labelCount; g++) {
+                const label: number = labels[g];
+                if (!this.labelVertices || label >= this.labelVertices.length) {
+                    continue;
+                }
+
+                const vertices: Int32Array | null = this.labelVertices[label];
+                if (vertices) {
+                    for (let i: number = 0; i < vertices.length; i++) {
+                        const v: number = vertices[i];
+
+                        this.vertexX[v] -= Model.baseX;
+                        this.vertexY[v] -= Model.baseY;
+                        this.vertexZ[v] -= Model.baseZ;
+
+                        this.vertexX[v] = ((this.vertexX[v] * x) / 128) | 0;
+                        this.vertexY[v] = ((this.vertexY[v] * y) / 128) | 0;
+                        this.vertexZ[v] = ((this.vertexZ[v] * z) / 128) | 0;
+
+                        this.vertexX[v] += Model.baseX;
+                        this.vertexY[v] += Model.baseY;
+                        this.vertexZ[v] += Model.baseZ;
+                    }
+                }
+            }
+        } else if (type === 5 && this.labelFaces && this.faceAlpha) {
+            for (let g: number = 0; g < labelCount; g++) {
+                const label: number = labels[g];
+                if (label >= this.labelFaces.length) {
+                    continue;
+                }
+
+                const triangles: Int32Array | null = this.labelFaces[label];
+                if (triangles) {
+                    for (let i: number = 0; i < triangles.length; i++) {
+                        const t: number = triangles[i];
+
+                        this.faceAlpha[t] += x * 8;
+                        if (this.faceAlpha[t] < 0) {
+                            this.faceAlpha[t] = 0;
+                        }
+
+                        if (this.faceAlpha[t] > 255) {
+                            this.faceAlpha[t] = 255;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1395,8 +1579,8 @@ export default class Model extends DoublyLinkable {
     }
 
     rotateX(angle: number): void {
-        const sin: number = Pix3D.sin[angle];
-        const cos: number = Pix3D.cos[angle];
+        const sin: number = Pix3D.sinTable[angle];
+        const cos: number = Pix3D.cosTable[angle];
 
         for (let v: number = 0; v < this.vertexCount; v++) {
             const tmp: number = (this.vertexY[v] * cos - this.vertexZ[v] * sin) >> 16;
@@ -1405,7 +1589,7 @@ export default class Model extends DoublyLinkable {
         }
     }
 
-    translateModel(y: number, x: number, z: number): void {
+    translate(y: number, x: number, z: number): void {
         for (let v: number = 0; v < this.vertexCount; v++) {
             this.vertexX[v] += x;
             this.vertexY[v] += y;
@@ -1413,14 +1597,14 @@ export default class Model extends DoublyLinkable {
         }
     }
 
-    recolor(src: number, dst: number): void {
-        if (!this.faceColor) {
+    recolour(src: number, dst: number): void {
+        if (!this.faceColour) {
             return;
         }
 
         for (let f: number = 0; f < this.faceCount; f++) {
-            if (this.faceColor[f] === src) {
-                this.faceColor[f] = dst;
+            if (this.faceColour[f] === src) {
+                this.faceColour[f] = dst;
             }
         }
     }
@@ -1431,9 +1615,9 @@ export default class Model extends DoublyLinkable {
         }
 
         for (let f: number = 0; f < this.faceCount; f++) {
-            const temp: number = this.faceVertexA[f];
+            const tmp: number = this.faceVertexA[f];
             this.faceVertexA[f] = this.faceVertexC[f];
-            this.faceVertexC[f] = temp;
+            this.faceVertexC[f] = tmp;
         }
     }
 
@@ -1449,10 +1633,10 @@ export default class Model extends DoublyLinkable {
         const lightMagnitude: number = Math.sqrt(lightSrcX * lightSrcX + lightSrcY * lightSrcY + lightSrcZ * lightSrcZ) | 0;
         const attenuation: number = (lightAttenuation * lightMagnitude) >> 8;
 
-        if (!this.faceColorA || !this.faceColorB || !this.faceColorC) {
-            this.faceColorA = new Int32Array(this.faceCount);
-            this.faceColorB = new Int32Array(this.faceCount);
-            this.faceColorC = new Int32Array(this.faceCount);
+        if (!this.faceColourA || !this.faceColourB || !this.faceColourC) {
+            this.faceColourA = new Int32Array(this.faceCount);
+            this.faceColourB = new Int32Array(this.faceCount);
+            this.faceColourC = new Int32Array(this.faceCount);
         }
 
         if (!this.vertexNormal) {
@@ -1521,8 +1705,8 @@ export default class Model extends DoublyLinkable {
                 }
             } else {
                 const lightness: number = lightAmbient + (((lightSrcX * nx + lightSrcY * ny + lightSrcZ * nz) / (attenuation + ((attenuation / 2) | 0))) | 0);
-                if (this.faceColor) {
-                    this.faceColorA[f] = Model.mulColorLightness(this.faceColor[f], lightness, this.faceInfo[f]);
+                if (this.faceColour) {
+                    this.faceColourA[f] = Model.mulColourLightness(this.faceColour[f], lightness, this.faceInfo[f]);
                 }
             }
         }
@@ -1560,40 +1744,40 @@ export default class Model extends DoublyLinkable {
             const b: number = this.faceVertexB[f];
             const c: number = this.faceVertexC[f];
 
-            if (!this.faceInfo && this.faceColor && this.vertexNormal && this.faceColorA && this.faceColorB && this.faceColorC) {
-                const color: number = this.faceColor[f];
+            if (!this.faceInfo && this.faceColour && this.vertexNormal && this.faceColourA && this.faceColourB && this.faceColourC) {
+                const colour: number = this.faceColour[f];
 
                 const va: VertexNormal | null = this.vertexNormal[a];
                 if (va) {
-                    this.faceColorA[f] = Model.mulColorLightness(color, lightAmbient + (((lightSrcX * va.x + lightSrcY * va.y + lightSrcZ * va.z) / (lightAttenuation * va.w)) | 0), 0);
+                    this.faceColourA[f] = Model.mulColourLightness(colour, lightAmbient + (((lightSrcX * va.x + lightSrcY * va.y + lightSrcZ * va.z) / (lightAttenuation * va.w)) | 0), 0);
                 }
 
                 const vb: VertexNormal | null = this.vertexNormal[b];
                 if (vb) {
-                    this.faceColorB[f] = Model.mulColorLightness(color, lightAmbient + (((lightSrcX * vb.x + lightSrcY * vb.y + lightSrcZ * vb.z) / (lightAttenuation * vb.w)) | 0), 0);
+                    this.faceColourB[f] = Model.mulColourLightness(colour, lightAmbient + (((lightSrcX * vb.x + lightSrcY * vb.y + lightSrcZ * vb.z) / (lightAttenuation * vb.w)) | 0), 0);
                 }
 
                 const vc: VertexNormal | null = this.vertexNormal[c];
                 if (vc) {
-                    this.faceColorC[f] = Model.mulColorLightness(color, lightAmbient + (((lightSrcX * vc.x + lightSrcY * vc.y + lightSrcZ * vc.z) / (lightAttenuation * vc.w)) | 0), 0);
+                    this.faceColourC[f] = Model.mulColourLightness(colour, lightAmbient + (((lightSrcX * vc.x + lightSrcY * vc.y + lightSrcZ * vc.z) / (lightAttenuation * vc.w)) | 0), 0);
                 }
-            } else if (this.faceInfo && (this.faceInfo[f] & 0x1) === 0 && this.faceColor && this.vertexNormal && this.faceColorA && this.faceColorB && this.faceColorC) {
-                const color: number = this.faceColor[f];
+            } else if (this.faceInfo && (this.faceInfo[f] & 0x1) === 0 && this.faceColour && this.vertexNormal && this.faceColourA && this.faceColourB && this.faceColourC) {
+                const colour: number = this.faceColour[f];
                 const info: number = this.faceInfo[f];
 
                 const va: VertexNormal | null = this.vertexNormal[a];
                 if (va) {
-                    this.faceColorA[f] = Model.mulColorLightness(color, lightAmbient + (((lightSrcX * va.x + lightSrcY * va.y + lightSrcZ * va.z) / (lightAttenuation * va.w)) | 0), info);
+                    this.faceColourA[f] = Model.mulColourLightness(colour, lightAmbient + (((lightSrcX * va.x + lightSrcY * va.y + lightSrcZ * va.z) / (lightAttenuation * va.w)) | 0), info);
                 }
 
                 const vb: VertexNormal | null = this.vertexNormal[b];
                 if (vb) {
-                    this.faceColorB[f] = Model.mulColorLightness(color, lightAmbient + (((lightSrcX * vb.x + lightSrcY * vb.y + lightSrcZ * vb.z) / (lightAttenuation * vb.w)) | 0), info);
+                    this.faceColourB[f] = Model.mulColourLightness(colour, lightAmbient + (((lightSrcX * vb.x + lightSrcY * vb.y + lightSrcZ * vb.z) / (lightAttenuation * vb.w)) | 0), info);
                 }
 
                 const vc: VertexNormal | null = this.vertexNormal[c];
                 if (vc) {
-                    this.faceColorC[f] = Model.mulColorLightness(color, lightAmbient + (((lightSrcX * vc.x + lightSrcY * vc.y + lightSrcZ * vc.z) / (lightAttenuation * vc.w)) | 0), info);
+                    this.faceColourC[f] = Model.mulColourLightness(colour, lightAmbient + (((lightSrcX * vc.x + lightSrcY * vc.y + lightSrcZ * vc.z) / (lightAttenuation * vc.w)) | 0), info);
                 }
             }
         }
@@ -1611,23 +1795,44 @@ export default class Model extends DoublyLinkable {
             }
         }
 
-        this.faceColor = null;
+        this.faceColour = null;
     }
 
-    // todo: better name, Java relies on overloads
+    static mulColourLightness(hsl: number, scalar: number, faceInfo: number): number {
+        if ((faceInfo & 0x2) === 2) {
+            if (scalar < 0) {
+                scalar = 0;
+            } else if (scalar > 127) {
+                scalar = 127;
+            }
+
+            return 127 - scalar;
+        }
+
+        scalar = (scalar * (hsl & 0x7f)) >> 7;
+
+        if (scalar < 2) {
+            scalar = 2;
+        } else if (scalar > 126) {
+            scalar = 126;
+        }
+
+        return (hsl & 0xff80) + scalar;
+    }
+
     // this function is NOT near-clipped (helps with performance) so be careful how you use it!
     drawSimple(pitch: number, yaw: number, roll: number, eyePitch: number, eyeX: number, eyeY: number, eyeZ: number): void {
-        const sinPitch: number = Pix3D.sin[pitch];
-        const cosPitch: number = Pix3D.cos[pitch];
+        const sinPitch: number = Pix3D.sinTable[pitch];
+        const cosPitch: number = Pix3D.cosTable[pitch];
 
-        const sinYaw: number = Pix3D.sin[yaw];
-        const cosYaw: number = Pix3D.cos[yaw];
+        const sinYaw: number = Pix3D.sinTable[yaw];
+        const cosYaw: number = Pix3D.cosTable[yaw];
 
-        const sinRoll: number = Pix3D.sin[roll];
-        const cosRoll: number = Pix3D.cos[roll];
+        const sinRoll: number = Pix3D.sinTable[roll];
+        const cosRoll: number = Pix3D.cosTable[roll];
 
-        const sinEyePitch: number = Pix3D.sin[eyePitch];
-        const cosEyePitch: number = Pix3D.cos[eyePitch];
+        const sinEyePitch: number = Pix3D.sinTable[eyePitch];
+        const cosEyePitch: number = Pix3D.cosTable[eyePitch];
 
         const midZ: number = (eyeY * sinEyePitch + eyeZ * cosEyePitch) >> 16;
 
@@ -1714,13 +1919,13 @@ export default class Model extends DoublyLinkable {
             return;
         }
 
-        const yPrime: number = radiusSinEyePitch + ((this.maxY * cosEyePitch) >> 16);
+        const yPrime: number = radiusSinEyePitch + ((this.minY * cosEyePitch) >> 16);
         let topY: number = (midY - yPrime) << 9;
         if (((topY / maxZ) | 0) >= Pix2D.centerY2d) {
             return;
         }
 
-        const radiusZ: number = radiusCosEyePitch + ((this.maxY * sinEyePitch) >> 16);
+        const radiusZ: number = radiusCosEyePitch + ((this.minY * sinEyePitch) >> 16);
 
         let clipped: boolean = midZ - radiusZ <= 50;
         let picking: boolean = false;
@@ -1750,8 +1955,8 @@ export default class Model extends DoublyLinkable {
             const mouseX: number = Model.mouseX - Pix3D.centerX;
             const mouseY: number = Model.mouseY - Pix3D.centerY;
             if (mouseX > leftX && mouseX < rightX && mouseY > topY && mouseY < bottomY) {
-                if (this.pickable) {
-                    Model.picked[Model.pickedCount++] = typecode;
+                if (this.picking) {
+                    Model.pickedBitsets[Model.pickedCount++] = typecode;
                 } else {
                     picking = true;
                 }
@@ -1764,8 +1969,8 @@ export default class Model extends DoublyLinkable {
         let sinYaw: number = 0;
         let cosYaw: number = 0;
         if (yaw !== 0) {
-            sinYaw = Pix3D.sin[yaw];
-            cosYaw = Pix3D.cos[yaw];
+            sinYaw = Pix3D.sinTable[yaw];
+            cosYaw = Pix3D.cosTable[yaw];
         }
 
         for (let v: number = 0; v < this.vertexCount; v++) {
@@ -1821,11 +2026,6 @@ export default class Model extends DoublyLinkable {
 
     // todo: better name, Java relies on overloads
     private draw2(clipped: boolean, picking: boolean, typecode: number, wireframe: boolean = false): void {
-        if (Model.checkHoverFace) {
-            this.pickedFace = -1;
-            this.pickedFaceDepth = -1;
-        }
-
         for (let depth: number = 0; depth < this.maxDepth; depth++) {
             if (Model.tmpDepthFaceCount) {
                 Model.tmpDepthFaceCount[depth] = 0;
@@ -1865,7 +2065,7 @@ export default class Model extends DoublyLinkable {
                     }
                 } else {
                     if (picking && this.pointWithinTriangle(Model.mouseX, Model.mouseY, yA, yB, yC, xA, xB, xC)) {
-                        Model.picked[Model.pickedCount++] = typecode;
+                        Model.pickedBitsets[Model.pickedCount++] = typecode;
                         picking = false;
                     }
 
@@ -1888,12 +2088,6 @@ export default class Model extends DoublyLinkable {
                     if (Model.tmpDepthFaces && Model.tmpDepthFaceCount) {
                         const depthAverage: number = (((zA + zB + zC) / 3) | 0) + this.minDepth;
                         Model.tmpDepthFaces[depthAverage][Model.tmpDepthFaceCount[depthAverage]++] = f;
-
-                        // todo: better check (depth avg isn't always accurate)
-                        if (Model.checkHoverFace && this.pointWithinTriangle(Model.mouseX, Model.mouseY, yA, yB, yC, xA, xB, xC) && this.pickedFaceDepth < depthAverage) {
-                            this.pickedFace = f;
-                            this.pickedFaceDepth = depthAverage;
-                        }
                     }
                 }
             }
@@ -2117,39 +2311,39 @@ export default class Model extends DoublyLinkable {
             type = this.faceInfo[face] & 0x3;
         }
 
-        if (wireframe && Model.vertexScreenX && Model.vertexScreenY && this.faceColorA && this.faceColorB && this.faceColorC) {
-            Pix3D.drawLine(Model.vertexScreenX[a], Model.vertexScreenY[a], Model.vertexScreenX[b], Model.vertexScreenY[b], Pix3D.hslPal[this.faceColorA[face]]);
-            Pix3D.drawLine(Model.vertexScreenX[b], Model.vertexScreenY[b], Model.vertexScreenX[c], Model.vertexScreenY[c], Pix3D.hslPal[this.faceColorB[face]]);
-            Pix3D.drawLine(Model.vertexScreenX[c], Model.vertexScreenY[c], Model.vertexScreenX[a], Model.vertexScreenY[a], Pix3D.hslPal[this.faceColorC[face]]);
-        } else if (type === 0 && this.faceColorA && this.faceColorB && this.faceColorC && Model.vertexScreenX && Model.vertexScreenY) {
-            Pix3D.fillGouraudTriangle(
+        if (wireframe && Model.vertexScreenX && Model.vertexScreenY && this.faceColourA && this.faceColourB && this.faceColourC) {
+            Pix3D.drawLine(Model.vertexScreenX[a], Model.vertexScreenY[a], Model.vertexScreenX[b], Model.vertexScreenY[b], Pix3D.colourTable[this.faceColourA[face]]);
+            Pix3D.drawLine(Model.vertexScreenX[b], Model.vertexScreenY[b], Model.vertexScreenX[c], Model.vertexScreenY[c], Pix3D.colourTable[this.faceColourB[face]]);
+            Pix3D.drawLine(Model.vertexScreenX[c], Model.vertexScreenY[c], Model.vertexScreenX[a], Model.vertexScreenY[a], Pix3D.colourTable[this.faceColourC[face]]);
+        } else if (type === 0 && this.faceColourA && this.faceColourB && this.faceColourC && Model.vertexScreenX && Model.vertexScreenY) {
+            Pix3D.gouraudTriangle(
                 Model.vertexScreenX[a],
                 Model.vertexScreenX[b],
                 Model.vertexScreenX[c],
                 Model.vertexScreenY[a],
                 Model.vertexScreenY[b],
                 Model.vertexScreenY[c],
-                this.faceColorA[face],
-                this.faceColorB[face],
-                this.faceColorC[face]
+                this.faceColourA[face],
+                this.faceColourB[face],
+                this.faceColourC[face]
             );
-        } else if (type === 1 && this.faceColorA && Model.vertexScreenX && Model.vertexScreenY) {
-            Pix3D.fillTriangle(Model.vertexScreenX[a], Model.vertexScreenX[b], Model.vertexScreenX[c], Model.vertexScreenY[a], Model.vertexScreenY[b], Model.vertexScreenY[c], Pix3D.hslPal[this.faceColorA[face]]);
-        } else if (type === 2 && this.faceInfo && this.faceColor && this.faceColorA && this.faceColorB && this.faceColorC && Model.vertexScreenX && Model.vertexScreenY && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+        } else if (type === 1 && this.faceColourA && Model.vertexScreenX && Model.vertexScreenY) {
+            Pix3D.flatTriangle(Model.vertexScreenX[a], Model.vertexScreenX[b], Model.vertexScreenX[c], Model.vertexScreenY[a], Model.vertexScreenY[b], Model.vertexScreenY[c], Pix3D.colourTable[this.faceColourA[face]]);
+        } else if (type === 2 && this.faceInfo && this.faceColour && this.faceColourA && this.faceColourB && this.faceColourC && Model.vertexScreenX && Model.vertexScreenY && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
             const texturedFace: number = this.faceInfo[face] >> 2;
             const tA: number = this.texturedVertexA[texturedFace];
             const tB: number = this.texturedVertexB[texturedFace];
             const tC: number = this.texturedVertexC[texturedFace];
-            Pix3D.fillTexturedTriangle(
+            Pix3D.textureTriangle(
                 Model.vertexScreenX[a],
                 Model.vertexScreenX[b],
                 Model.vertexScreenX[c],
                 Model.vertexScreenY[a],
                 Model.vertexScreenY[b],
                 Model.vertexScreenY[c],
-                this.faceColorA[face],
-                this.faceColorB[face],
-                this.faceColorC[face],
+                this.faceColourA[face],
+                this.faceColourB[face],
+                this.faceColourC[face],
                 Model.vertexViewSpaceX[tA],
                 Model.vertexViewSpaceY[tA],
                 Model.vertexViewSpaceZ[tA],
@@ -2159,23 +2353,23 @@ export default class Model extends DoublyLinkable {
                 Model.vertexViewSpaceY[tC],
                 Model.vertexViewSpaceZ[tB],
                 Model.vertexViewSpaceZ[tC],
-                this.faceColor[face]
+                this.faceColour[face]
             );
-        } else if (type === 3 && this.faceInfo && this.faceColor && this.faceColorA && Model.vertexScreenX && Model.vertexScreenY && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+        } else if (type === 3 && this.faceInfo && this.faceColour && this.faceColourA && Model.vertexScreenX && Model.vertexScreenY && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
             const texturedFace: number = this.faceInfo[face] >> 2;
             const tA: number = this.texturedVertexA[texturedFace];
             const tB: number = this.texturedVertexB[texturedFace];
             const tC: number = this.texturedVertexC[texturedFace];
-            Pix3D.fillTexturedTriangle(
+            Pix3D.textureTriangle(
                 Model.vertexScreenX[a],
                 Model.vertexScreenX[b],
                 Model.vertexScreenX[c],
                 Model.vertexScreenY[a],
                 Model.vertexScreenY[b],
                 Model.vertexScreenY[c],
-                this.faceColorA[face],
-                this.faceColorA[face],
-                this.faceColorA[face],
+                this.faceColourA[face],
+                this.faceColourA[face],
+                this.faceColourA[face],
                 Model.vertexViewSpaceX[tA],
                 Model.vertexViewSpaceY[tA],
                 Model.vertexViewSpaceZ[tA],
@@ -2185,7 +2379,7 @@ export default class Model extends DoublyLinkable {
                 Model.vertexViewSpaceY[tC],
                 Model.vertexViewSpaceZ[tB],
                 Model.vertexViewSpaceZ[tC],
-                this.faceColor[face]
+                this.faceColour[face]
             );
         }
     }
@@ -2205,75 +2399,75 @@ export default class Model extends DoublyLinkable {
             const zB: number = Model.vertexViewSpaceZ[b];
             const zC: number = Model.vertexViewSpaceZ[c];
 
-            if (zA >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColorA) {
+            if (zA >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColourA) {
                 Model.clippedX[elements] = Model.vertexScreenX[a];
                 Model.clippedY[elements] = Model.vertexScreenY[a];
-                Model.clippedColor[elements++] = this.faceColorA[face];
-            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColorA) {
+                Model.clippedColour[elements++] = this.faceColourA[face];
+            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColourA) {
                 const xA: number = Model.vertexViewSpaceX[a];
                 const yA: number = Model.vertexViewSpaceY[a];
-                const colorA: number = this.faceColorA[face];
+                const colorA: number = this.faceColourA[face];
 
-                if (zC >= 50 && this.faceColorC) {
-                    const scalar: number = (50 - zA) * Pix3D.reciprocal16[zC - zA];
+                if (zC >= 50 && this.faceColourC) {
+                    const scalar: number = (50 - zA) * Pix3D.divTable2[zC - zA];
                     Model.clippedX[elements] = centerX + ((((xA + (((Model.vertexViewSpaceX[c] - xA) * scalar) >> 16)) << 9) / 50) | 0);
                     Model.clippedY[elements] = centerY + ((((yA + (((Model.vertexViewSpaceY[c] - yA) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColor[elements++] = colorA + (((this.faceColorC[face] - colorA) * scalar) >> 16);
+                    Model.clippedColour[elements++] = colorA + (((this.faceColourC[face] - colorA) * scalar) >> 16);
                 }
 
-                if (zB >= 50 && this.faceColorB) {
-                    const scalar: number = (50 - zA) * Pix3D.reciprocal16[zB - zA];
+                if (zB >= 50 && this.faceColourB) {
+                    const scalar: number = (50 - zA) * Pix3D.divTable2[zB - zA];
                     Model.clippedX[elements] = centerX + ((((xA + (((Model.vertexViewSpaceX[b] - xA) * scalar) >> 16)) << 9) / 50) | 0);
                     Model.clippedY[elements] = centerY + ((((yA + (((Model.vertexViewSpaceY[b] - yA) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColor[elements++] = colorA + (((this.faceColorB[face] - colorA) * scalar) >> 16);
+                    Model.clippedColour[elements++] = colorA + (((this.faceColourB[face] - colorA) * scalar) >> 16);
                 }
             }
 
-            if (zB >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColorB) {
+            if (zB >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColourB) {
                 Model.clippedX[elements] = Model.vertexScreenX[b];
                 Model.clippedY[elements] = Model.vertexScreenY[b];
-                Model.clippedColor[elements++] = this.faceColorB[face];
-            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColorB) {
+                Model.clippedColour[elements++] = this.faceColourB[face];
+            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColourB) {
                 const xB: number = Model.vertexViewSpaceX[b];
                 const yB: number = Model.vertexViewSpaceY[b];
-                const colorB: number = this.faceColorB[face];
+                const colorB: number = this.faceColourB[face];
 
-                if (zA >= 50 && this.faceColorA) {
-                    const scalar: number = (50 - zB) * Pix3D.reciprocal16[zA - zB];
+                if (zA >= 50 && this.faceColourA) {
+                    const scalar: number = (50 - zB) * Pix3D.divTable2[zA - zB];
                     Model.clippedX[elements] = centerX + ((((xB + (((Model.vertexViewSpaceX[a] - xB) * scalar) >> 16)) << 9) / 50) | 0);
                     Model.clippedY[elements] = centerY + ((((yB + (((Model.vertexViewSpaceY[a] - yB) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColor[elements++] = colorB + (((this.faceColorA[face] - colorB) * scalar) >> 16);
+                    Model.clippedColour[elements++] = colorB + (((this.faceColourA[face] - colorB) * scalar) >> 16);
                 }
 
-                if (zC >= 50 && this.faceColorC) {
-                    const scalar: number = (50 - zB) * Pix3D.reciprocal16[zC - zB];
+                if (zC >= 50 && this.faceColourC) {
+                    const scalar: number = (50 - zB) * Pix3D.divTable2[zC - zB];
                     Model.clippedX[elements] = centerX + ((((xB + (((Model.vertexViewSpaceX[c] - xB) * scalar) >> 16)) << 9) / 50) | 0);
                     Model.clippedY[elements] = centerY + ((((yB + (((Model.vertexViewSpaceY[c] - yB) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColor[elements++] = colorB + (((this.faceColorC[face] - colorB) * scalar) >> 16);
+                    Model.clippedColour[elements++] = colorB + (((this.faceColourC[face] - colorB) * scalar) >> 16);
                 }
             }
 
-            if (zC >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColorC) {
+            if (zC >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColourC) {
                 Model.clippedX[elements] = Model.vertexScreenX[c];
                 Model.clippedY[elements] = Model.vertexScreenY[c];
-                Model.clippedColor[elements++] = this.faceColorC[face];
-            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColorC) {
+                Model.clippedColour[elements++] = this.faceColourC[face];
+            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColourC) {
                 const xC: number = Model.vertexViewSpaceX[c];
                 const yC: number = Model.vertexViewSpaceY[c];
-                const colorC: number = this.faceColorC[face];
+                const colorC: number = this.faceColourC[face];
 
-                if (zB >= 50 && this.faceColorB) {
-                    const scalar: number = (50 - zC) * Pix3D.reciprocal16[zB - zC];
+                if (zB >= 50 && this.faceColourB) {
+                    const scalar: number = (50 - zC) * Pix3D.divTable2[zB - zC];
                     Model.clippedX[elements] = centerX + ((((xC + (((Model.vertexViewSpaceX[b] - xC) * scalar) >> 16)) << 9) / 50) | 0);
                     Model.clippedY[elements] = centerY + ((((yC + (((Model.vertexViewSpaceY[b] - yC) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColor[elements++] = colorC + (((this.faceColorB[face] - colorC) * scalar) >> 16);
+                    Model.clippedColour[elements++] = colorC + (((this.faceColourB[face] - colorC) * scalar) >> 16);
                 }
 
-                if (zA >= 50 && this.faceColorA) {
-                    const scalar: number = (50 - zC) * Pix3D.reciprocal16[zA - zC];
+                if (zA >= 50 && this.faceColourA) {
+                    const scalar: number = (50 - zC) * Pix3D.divTable2[zA - zC];
                     Model.clippedX[elements] = centerX + ((((xC + (((Model.vertexViewSpaceX[a] - xC) * scalar) >> 16)) << 9) / 50) | 0);
                     Model.clippedY[elements] = centerY + ((((yC + (((Model.vertexViewSpaceY[a] - yC) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColor[elements++] = colorC + (((this.faceColorA[face] - colorC) * scalar) >> 16);
+                    Model.clippedColour[elements++] = colorC + (((this.faceColourA[face] - colorC) * scalar) >> 16);
                 }
             }
         }
@@ -2304,28 +2498,28 @@ export default class Model extends DoublyLinkable {
             }
 
             if (wireframe) {
-                Pix3D.drawLine(x0, x1, y0, y1, Model.clippedColor[0]);
-                Pix3D.drawLine(x1, x2, y1, y2, Model.clippedColor[1]);
-                Pix3D.drawLine(x2, x0, y2, y0, Model.clippedColor[2]);
+                Pix3D.drawLine(x0, x1, y0, y1, Model.clippedColour[0]);
+                Pix3D.drawLine(x1, x2, y1, y2, Model.clippedColour[1]);
+                Pix3D.drawLine(x2, x0, y2, y0, Model.clippedColour[2]);
             } else if (type === 0) {
-                Pix3D.fillGouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColor[0], Model.clippedColor[1], Model.clippedColor[2]);
-            } else if (type === 1 && this.faceColorA) {
-                Pix3D.fillTriangle(x0, x1, x2, y0, y1, y2, Pix3D.hslPal[this.faceColorA[face]]);
-            } else if (type === 2 && this.faceInfo && this.faceColor && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+                Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]);
+            } else if (type === 1 && this.faceColourA) {
+                Pix3D.flatTriangle(x0, x1, x2, y0, y1, y2, Pix3D.colourTable[this.faceColourA[face]]);
+            } else if (type === 2 && this.faceInfo && this.faceColour && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
                 const texturedFace: number = this.faceInfo[face] >> 2;
                 const tA: number = this.texturedVertexA[texturedFace];
                 const tB: number = this.texturedVertexB[texturedFace];
                 const tC: number = this.texturedVertexC[texturedFace];
-                Pix3D.fillTexturedTriangle(
+                Pix3D.textureTriangle(
                     x0,
                     x1,
                     x2,
                     y0,
                     y1,
                     y2,
-                    Model.clippedColor[0],
-                    Model.clippedColor[1],
-                    Model.clippedColor[2],
+                    Model.clippedColour[0],
+                    Model.clippedColour[1],
+                    Model.clippedColour[2],
                     Model.vertexViewSpaceX[tA],
                     Model.vertexViewSpaceY[tA],
                     Model.vertexViewSpaceZ[tA],
@@ -2335,23 +2529,23 @@ export default class Model extends DoublyLinkable {
                     Model.vertexViewSpaceY[tC],
                     Model.vertexViewSpaceZ[tB],
                     Model.vertexViewSpaceZ[tC],
-                    this.faceColor[face]
+                    this.faceColour[face]
                 );
-            } else if (type === 3 && this.faceInfo && this.faceColor && this.faceColorA && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+            } else if (type === 3 && this.faceInfo && this.faceColour && this.faceColourA && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
                 const texturedFace: number = this.faceInfo[face] >> 2;
                 const tA: number = this.texturedVertexA[texturedFace];
                 const tB: number = this.texturedVertexB[texturedFace];
                 const tC: number = this.texturedVertexC[texturedFace];
-                Pix3D.fillTexturedTriangle(
+                Pix3D.textureTriangle(
                     x0,
                     x1,
                     x2,
                     y0,
                     y1,
                     y2,
-                    this.faceColorA[face],
-                    this.faceColorA[face],
-                    this.faceColorA[face],
+                    this.faceColourA[face],
+                    this.faceColourA[face],
+                    this.faceColourA[face],
                     Model.vertexViewSpaceX[tA],
                     Model.vertexViewSpaceY[tA],
                     Model.vertexViewSpaceZ[tA],
@@ -2361,7 +2555,7 @@ export default class Model extends DoublyLinkable {
                     Model.vertexViewSpaceY[tC],
                     Model.vertexViewSpaceZ[tB],
                     Model.vertexViewSpaceZ[tC],
-                    this.faceColor[face]
+                    this.faceColour[face]
                 );
             }
         } else if (elements === 4) {
@@ -2377,34 +2571,34 @@ export default class Model extends DoublyLinkable {
             }
 
             if (wireframe) {
-                Pix3D.drawLine(x0, x1, y0, y1, Model.clippedColor[0]);
-                Pix3D.drawLine(x1, x2, y1, y2, Model.clippedColor[1]);
-                Pix3D.drawLine(x2, Model.clippedX[3], y2, Model.clippedY[3], Model.clippedColor[2]);
-                Pix3D.drawLine(Model.clippedX[3], x0, Model.clippedY[3], y0, Model.clippedColor[3]);
+                Pix3D.drawLine(x0, x1, y0, y1, Model.clippedColour[0]);
+                Pix3D.drawLine(x1, x2, y1, y2, Model.clippedColour[1]);
+                Pix3D.drawLine(x2, Model.clippedX[3], y2, Model.clippedY[3], Model.clippedColour[2]);
+                Pix3D.drawLine(Model.clippedX[3], x0, Model.clippedY[3], y0, Model.clippedColour[3]);
             } else if (type === 0) {
-                Pix3D.fillGouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColor[0], Model.clippedColor[1], Model.clippedColor[2]);
-                Pix3D.fillGouraudTriangle(x0, x2, Model.clippedX[3], y0, y2, Model.clippedY[3], Model.clippedColor[0], Model.clippedColor[2], Model.clippedColor[3]);
+                Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]);
+                Pix3D.gouraudTriangle(x0, x2, Model.clippedX[3], y0, y2, Model.clippedY[3], Model.clippedColour[0], Model.clippedColour[2], Model.clippedColour[3]);
             } else if (type === 1) {
-                if (this.faceColorA) {
-                    const colorA: number = Pix3D.hslPal[this.faceColorA[face]];
-                    Pix3D.fillTriangle(x0, x1, x2, y0, y1, y2, colorA);
-                    Pix3D.fillTriangle(x0, x2, Model.clippedX[3], y0, y2, Model.clippedY[3], colorA);
+                if (this.faceColourA) {
+                    const colorA: number = Pix3D.colourTable[this.faceColourA[face]];
+                    Pix3D.flatTriangle(x0, x1, x2, y0, y1, y2, colorA);
+                    Pix3D.flatTriangle(x0, x2, Model.clippedX[3], y0, y2, Model.clippedY[3], colorA);
                 }
-            } else if (type === 2 && this.faceInfo && this.faceColor && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+            } else if (type === 2 && this.faceInfo && this.faceColour && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
                 const texturedFace: number = this.faceInfo[face] >> 2;
                 const tA: number = this.texturedVertexA[texturedFace];
                 const tB: number = this.texturedVertexB[texturedFace];
                 const tC: number = this.texturedVertexC[texturedFace];
-                Pix3D.fillTexturedTriangle(
+                Pix3D.textureTriangle(
                     x0,
                     x1,
                     x2,
                     y0,
                     y1,
                     y2,
-                    Model.clippedColor[0],
-                    Model.clippedColor[1],
-                    Model.clippedColor[2],
+                    Model.clippedColour[0],
+                    Model.clippedColour[1],
+                    Model.clippedColour[2],
                     Model.vertexViewSpaceX[tA],
                     Model.vertexViewSpaceY[tA],
                     Model.vertexViewSpaceZ[tA],
@@ -2414,18 +2608,18 @@ export default class Model extends DoublyLinkable {
                     Model.vertexViewSpaceY[tC],
                     Model.vertexViewSpaceZ[tB],
                     Model.vertexViewSpaceZ[tC],
-                    this.faceColor[face]
+                    this.faceColour[face]
                 );
-                Pix3D.fillTexturedTriangle(
+                Pix3D.textureTriangle(
                     x0,
                     x2,
                     Model.clippedX[3],
                     y0,
                     y2,
                     Model.clippedY[3],
-                    Model.clippedColor[0],
-                    Model.clippedColor[2],
-                    Model.clippedColor[3],
+                    Model.clippedColour[0],
+                    Model.clippedColour[2],
+                    Model.clippedColour[3],
                     Model.vertexViewSpaceX[tA],
                     Model.vertexViewSpaceY[tA],
                     Model.vertexViewSpaceZ[tA],
@@ -2435,23 +2629,23 @@ export default class Model extends DoublyLinkable {
                     Model.vertexViewSpaceY[tC],
                     Model.vertexViewSpaceZ[tB],
                     Model.vertexViewSpaceZ[tC],
-                    this.faceColor[face]
+                    this.faceColour[face]
                 );
-            } else if (type === 3 && this.faceInfo && this.faceColor && this.faceColorA && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+            } else if (type === 3 && this.faceInfo && this.faceColour && this.faceColourA && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
                 const texturedFace: number = this.faceInfo[face] >> 2;
                 const tA: number = this.texturedVertexA[texturedFace];
                 const tB: number = this.texturedVertexB[texturedFace];
                 const tC: number = this.texturedVertexC[texturedFace];
-                Pix3D.fillTexturedTriangle(
+                Pix3D.textureTriangle(
                     x0,
                     x1,
                     x2,
                     y0,
                     y1,
                     y2,
-                    this.faceColorA[face],
-                    this.faceColorA[face],
-                    this.faceColorA[face],
+                    this.faceColourA[face],
+                    this.faceColourA[face],
+                    this.faceColourA[face],
                     Model.vertexViewSpaceX[tA],
                     Model.vertexViewSpaceY[tA],
                     Model.vertexViewSpaceZ[tA],
@@ -2461,18 +2655,18 @@ export default class Model extends DoublyLinkable {
                     Model.vertexViewSpaceY[tC],
                     Model.vertexViewSpaceZ[tB],
                     Model.vertexViewSpaceZ[tC],
-                    this.faceColor[face]
+                    this.faceColour[face]
                 );
-                Pix3D.fillTexturedTriangle(
+                Pix3D.textureTriangle(
                     x0,
                     x2,
                     Model.clippedX[3],
                     y0,
                     y2,
                     Model.clippedY[3],
-                    this.faceColorA[face],
-                    this.faceColorA[face],
-                    this.faceColorA[face],
+                    this.faceColourA[face],
+                    this.faceColourA[face],
+                    this.faceColourA[face],
                     Model.vertexViewSpaceX[tA],
                     Model.vertexViewSpaceY[tA],
                     Model.vertexViewSpaceZ[tA],
@@ -2482,218 +2676,10 @@ export default class Model extends DoublyLinkable {
                     Model.vertexViewSpaceY[tC],
                     Model.vertexViewSpaceZ[tB],
                     Model.vertexViewSpaceZ[tC],
-                    this.faceColor[face]
+                    this.faceColour[face]
                 );
             }
         }
-    }
-
-    private applyTransform2(x: number, y: number, z: number, labels: Uint8Array | null, type: number): void {
-        if (!labels) {
-            return;
-        }
-
-        const labelCount: number = labels.length;
-
-        if (type === 0) {
-            let count: number = 0;
-            Model.baseX = 0;
-            Model.baseY = 0;
-            Model.baseZ = 0;
-
-            for (let g: number = 0; g < labelCount; g++) {
-                if (!this.labelVertices) {
-                    continue;
-                }
-                const label: number = labels[g];
-                if (label < this.labelVertices.length) {
-                    const vertices: Int32Array | null = this.labelVertices[label];
-                    if (vertices) {
-                        for (let i: number = 0; i < vertices.length; i++) {
-                            const v: number = vertices[i];
-                            Model.baseX += this.vertexX[v];
-                            Model.baseY += this.vertexY[v];
-                            Model.baseZ += this.vertexZ[v];
-                            count++;
-                        }
-                    }
-                }
-            }
-
-            if (count > 0) {
-                Model.baseX = ((Model.baseX / count) | 0) + x;
-                Model.baseY = ((Model.baseY / count) | 0) + y;
-                Model.baseZ = ((Model.baseZ / count) | 0) + z;
-            } else {
-                Model.baseX = x;
-                Model.baseY = y;
-                Model.baseZ = z;
-            }
-        } else if (type === 1) {
-            for (let g: number = 0; g < labelCount; g++) {
-                const group: number = labels[g];
-                if (!this.labelVertices || group >= this.labelVertices.length) {
-                    continue;
-                }
-
-                const vertices: Int32Array | null = this.labelVertices[group];
-                if (vertices) {
-                    for (let i: number = 0; i < vertices.length; i++) {
-                        const v: number = vertices[i];
-                        this.vertexX[v] += x;
-                        this.vertexY[v] += y;
-                        this.vertexZ[v] += z;
-                    }
-                }
-            }
-        } else if (type === 2) {
-            for (let g: number = 0; g < labelCount; g++) {
-                const label: number = labels[g];
-                if (!this.labelVertices || label >= this.labelVertices.length) {
-                    continue;
-                }
-
-                const vertices: Int32Array | null = this.labelVertices[label];
-                if (vertices) {
-                    for (let i: number = 0; i < vertices.length; i++) {
-                        const v: number = vertices[i];
-                        this.vertexX[v] -= Model.baseX;
-                        this.vertexY[v] -= Model.baseY;
-                        this.vertexZ[v] -= Model.baseZ;
-
-                        const pitch: number = (x & 0xff) * 8;
-                        const yaw: number = (y & 0xff) * 8;
-                        const roll: number = (z & 0xff) * 8;
-
-                        let sin: number;
-                        let cos: number;
-
-                        if (roll !== 0) {
-                            sin = Pix3D.sin[roll];
-                            cos = Pix3D.cos[roll];
-                            const x_: number = (this.vertexY[v] * sin + this.vertexX[v] * cos) >> 16;
-                            this.vertexY[v] = (this.vertexY[v] * cos - this.vertexX[v] * sin) >> 16;
-                            this.vertexX[v] = x_;
-                        }
-
-                        if (pitch !== 0) {
-                            sin = Pix3D.sin[pitch];
-                            cos = Pix3D.cos[pitch];
-                            const y_: number = (this.vertexY[v] * cos - this.vertexZ[v] * sin) >> 16;
-                            this.vertexZ[v] = (this.vertexY[v] * sin + this.vertexZ[v] * cos) >> 16;
-                            this.vertexY[v] = y_;
-                        }
-
-                        if (yaw !== 0) {
-                            sin = Pix3D.sin[yaw];
-                            cos = Pix3D.cos[yaw];
-                            const x_: number = (this.vertexZ[v] * sin + this.vertexX[v] * cos) >> 16;
-                            this.vertexZ[v] = (this.vertexZ[v] * cos - this.vertexX[v] * sin) >> 16;
-                            this.vertexX[v] = x_;
-                        }
-
-                        this.vertexX[v] += Model.baseX;
-                        this.vertexY[v] += Model.baseY;
-                        this.vertexZ[v] += Model.baseZ;
-                    }
-                }
-            }
-        } else if (type === 3) {
-            for (let g: number = 0; g < labelCount; g++) {
-                const label: number = labels[g];
-                if (!this.labelVertices || label >= this.labelVertices.length) {
-                    continue;
-                }
-
-                const vertices: Int32Array | null = this.labelVertices[label];
-                if (vertices) {
-                    for (let i: number = 0; i < vertices.length; i++) {
-                        const v: number = vertices[i];
-                        this.vertexX[v] -= Model.baseX;
-                        this.vertexY[v] -= Model.baseY;
-                        this.vertexZ[v] -= Model.baseZ;
-                        this.vertexX[v] = ((this.vertexX[v] * x) / 128) | 0;
-                        this.vertexY[v] = ((this.vertexY[v] * y) / 128) | 0;
-                        this.vertexZ[v] = ((this.vertexZ[v] * z) / 128) | 0;
-                        this.vertexX[v] += Model.baseX;
-                        this.vertexY[v] += Model.baseY;
-                        this.vertexZ[v] += Model.baseZ;
-                    }
-                }
-            }
-        } else if (type === 5 && this.labelFaces && this.faceAlpha) {
-            for (let g: number = 0; g < labelCount; g++) {
-                const label: number = labels[g];
-                if (label >= this.labelFaces.length) {
-                    continue;
-                }
-
-                const triangles: Int32Array | null = this.labelFaces[label];
-                if (triangles) {
-                    for (let i: number = 0; i < triangles.length; i++) {
-                        const t: number = triangles[i];
-
-                        this.faceAlpha[t] += x * 8;
-                        if (this.faceAlpha[t] < 0) {
-                            this.faceAlpha[t] = 0;
-                        }
-
-                        if (this.faceAlpha[t] > 255) {
-                            this.faceAlpha[t] = 255;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private calculateBoundsAABB(): void {
-        this.maxY = 0;
-        this.radius = 0;
-        this.minY = 0;
-        this.minX = 999999;
-        this.maxX = -999999;
-        this.maxZ = -99999;
-        this.minZ = 99999;
-
-        for (let v: number = 0; v < this.vertexCount; v++) {
-            const x: number = this.vertexX[v];
-            const y: number = this.vertexY[v];
-            const z: number = this.vertexZ[v];
-
-            if (x < this.minX) {
-                this.minX = x;
-            }
-
-            if (x > this.maxX) {
-                this.maxX = x;
-            }
-
-            if (z < this.minZ) {
-                this.minZ = z;
-            }
-
-            if (z > this.maxZ) {
-                this.maxZ = z;
-            }
-
-            if (-y > this.maxY) {
-                this.maxY = -y;
-            }
-
-            if (y > this.minY) {
-                this.minY = y;
-            }
-
-            const radiusSqr: number = x * x + z * z;
-            if (radiusSqr > this.radius) {
-                this.radius = radiusSqr;
-            }
-        }
-
-        this.radius = Math.sqrt(this.radius) | 0;
-        this.minDepth = Math.sqrt(this.radius * this.radius + this.maxY * this.maxY) | 0;
-        this.maxDepth = this.minDepth + (Math.sqrt(this.radius * this.radius + this.minY * this.minY) | 0);
     }
 
     private pointWithinTriangle(x: number, y: number, yA: number, yB: number, yC: number, xA: number, xB: number, xC: number): boolean {
@@ -2706,19 +2692,5 @@ export default class Model extends DoublyLinkable {
         } else {
             return x <= xA || x <= xB || x <= xC;
         }
-    }
-
-    drawFaceOutline(face: number): void {
-        if (!Model.vertexScreenX || !Model.vertexScreenY || !this.faceColorA || !this.faceColorB || !this.faceColorC) {
-            return;
-        }
-
-        const a: number = this.faceVertexA[face];
-        const b: number = this.faceVertexB[face];
-        const c: number = this.faceVertexC[face];
-
-        Pix3D.drawLine(Model.vertexScreenX[a], Model.vertexScreenY[a], Model.vertexScreenX[b], Model.vertexScreenY[b], Pix3D.hslPal[1000]);
-        Pix3D.drawLine(Model.vertexScreenX[b], Model.vertexScreenY[b], Model.vertexScreenX[c], Model.vertexScreenY[c], Pix3D.hslPal[1000]);
-        Pix3D.drawLine(Model.vertexScreenX[c], Model.vertexScreenY[c], Model.vertexScreenX[a], Model.vertexScreenY[a], Pix3D.hslPal[1000]);
     }
 }

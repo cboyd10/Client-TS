@@ -2,7 +2,7 @@ import { ConfigType } from '#/config/ConfigType.js';
 
 import LruCache from '#/datastruct/LruCache.js';
 
-import Model from '#/graphics/Model.js';
+import Model from '#/dash3d/Model.js';
 
 import Jagfile from '#/io/Jagfile.js';
 import Packet from '#/io/Packet.js';
@@ -10,67 +10,22 @@ import Packet from '#/io/Packet.js';
 import { TypedArray1d } from '#/util/Arrays.js';
 
 export default class NpcType extends ConfigType {
-    static totalCount: number = 0;
-    static typeCache: (NpcType | null)[] | null = null;
-    static dat: Packet | null = null;
-    static offsets: Int32Array | null = null;
+    static count: number = 0;
+    static idx: Int32Array | null = null;
+    static data: Packet | null = null;
+    static cache: (NpcType | null)[] | null = null;
     static cachePos: number = 0;
-    static modelCache: LruCache | null = new LruCache(30);
-
-    static unpack(config: Jagfile): void {
-        this.dat = new Packet(config.read('npc.dat'));
-        const idx: Packet = new Packet(config.read('npc.idx'));
-
-        this.totalCount = idx.g2();
-        this.offsets = new Int32Array(this.totalCount);
-
-        let offset: number = 2;
-        for (let id: number = 0; id < this.totalCount; id++) {
-            this.offsets[id] = offset;
-            offset += idx.g2();
-        }
-
-        this.typeCache = new TypedArray1d(20, null);
-        for (let id: number = 0; id < 20; id++) {
-            this.typeCache[id] = new NpcType(-1);
-        }
-    }
-
-    static get(id: number): NpcType {
-        if (!this.typeCache || !this.offsets || !this.dat) {
-            throw new Error();
-        }
-
-        for (let i: number = 0; i < 20; i++) {
-            const type: NpcType | null = this.typeCache[i];
-            if (!type) {
-                continue;
-            }
-            if (type.id === id) {
-                return type;
-            }
-        }
-
-        this.cachePos = (this.cachePos + 1) % 20;
-        const loc: NpcType = (this.typeCache[this.cachePos] = new NpcType(id));
-        this.dat.pos = this.offsets[id];
-        loc.unpackType(this.dat);
-        return loc;
-    }
-
-    // ----
-
     name: string | null = null;
     desc: string | null = null;
     size: number = 1;
     models: Uint16Array | null = null;
     heads: Uint16Array | null = null;
-    disposeAlpha: boolean = false;
     readyanim: number = -1;
     walkanim: number = -1;
     walkanim_b: number = -1;
     walkanim_r: number = -1;
     walkanim_l: number = -1;
+    animHasAlpha: boolean = false;
     recol_s: Uint16Array | null = null;
     recol_d: Uint16Array | null = null;
     op: (string | null)[] | null = null;
@@ -81,6 +36,46 @@ export default class NpcType extends ConfigType {
     vislevel: number = -1;
     resizeh: number = 128;
     resizev: number = 128;
+    static modelCache: LruCache | null = new LruCache(30);
+
+    static unpack(config: Jagfile): void {
+        this.data = new Packet(config.read('npc.dat'));
+        const idx: Packet = new Packet(config.read('npc.idx'));
+
+        this.count = idx.g2();
+        this.idx = new Int32Array(this.count);
+
+        let offset: number = 2;
+        for (let id: number = 0; id < this.count; id++) {
+            this.idx[id] = offset;
+            offset += idx.g2();
+        }
+
+        this.cache = new TypedArray1d(20, null);
+        for (let id: number = 0; id < 20; id++) {
+            this.cache[id] = new NpcType(-1);
+        }
+    }
+
+    static get(id: number): NpcType {
+        if (!this.cache || !this.idx || !this.data) {
+            throw new Error();
+        }
+
+        for (let i: number = 0; i < 20; i++) {
+            const type: NpcType | null = this.cache[i];
+            if (type && type.id === id) {
+                return type;
+            }
+        }
+
+        this.cachePos = (this.cachePos + 1) % 20;
+
+        const loc: NpcType = (this.cache[this.cachePos] = new NpcType(id));
+        this.data.pos = this.idx[id];
+        loc.unpackType(this.data);
+        return loc;
+    }
 
     unpack(code: number, dat: Packet): void {
         if (code === 1) {
@@ -101,7 +96,7 @@ export default class NpcType extends ConfigType {
         } else if (code === 14) {
             this.walkanim = dat.g2();
         } else if (code === 16) {
-            this.disposeAlpha = true;
+            this.animHasAlpha = true;
         } else if (code === 17) {
             this.walkanim = dat.g2();
             this.walkanim_b = dat.g2();
@@ -149,16 +144,16 @@ export default class NpcType extends ConfigType {
         }
     }
 
-    getSequencedModel(primaryTransformId: number, secondaryTransformId: number, seqMask: Int32Array | null): Model | null {
-        let tmp: Model | null = null;
+    getModel(primaryTransformId: number, secondaryTransformId: number, seqMask: Int32Array | null): Model | null {
         let model: Model | null = null;
+
         if (NpcType.modelCache) {
             model = NpcType.modelCache.get(BigInt(this.id)) as Model | null;
 
             if (!model && this.models) {
                 const models: (Model | null)[] = new TypedArray1d(this.models.length, null);
                 for (let i: number = 0; i < this.models.length; i++) {
-                    models[i] = Model.model(this.models[i]);
+                    models[i] = Model.get(this.models[i]);
                 }
 
                 if (models.length === 1) {
@@ -169,7 +164,7 @@ export default class NpcType extends ConfigType {
 
                 if (this.recol_s && this.recol_d) {
                     for (let i: number = 0; i < this.recol_s.length; i++) {
-                        model?.recolor(this.recol_s[i], this.recol_d[i]);
+                        model?.recolour(this.recol_s[i], this.recol_d[i]);
                     }
                 }
 
@@ -181,8 +176,10 @@ export default class NpcType extends ConfigType {
             }
         }
 
+        let tmp: Model | null = null;
+
         if (model) {
-            tmp = Model.modelShareAlpha(model, !this.disposeAlpha);
+            tmp = Model.modelShareAlpha(model, !this.animHasAlpha);
             if (primaryTransformId !== -1 && secondaryTransformId !== -1) {
                 tmp.applyTransforms(primaryTransformId, secondaryTransformId, seqMask);
             } else if (primaryTransformId !== -1) {
@@ -198,7 +195,7 @@ export default class NpcType extends ConfigType {
             tmp.labelVertices = null;
 
             if (this.size === 1) {
-                tmp.pickable = true;
+                tmp.picking = true;
             }
             return tmp;
         }
@@ -213,7 +210,7 @@ export default class NpcType extends ConfigType {
 
         const models: (Model | null)[] = new TypedArray1d(this.heads.length, null);
         for (let i: number = 0; i < this.heads.length; i++) {
-            models[i] = Model.model(this.heads[i]);
+            models[i] = Model.get(this.heads[i]);
         }
 
         let model: Model | null;
@@ -225,7 +222,7 @@ export default class NpcType extends ConfigType {
 
         if (this.recol_s && this.recol_d) {
             for (let i: number = 0; i < this.recol_s.length; i++) {
-                model?.recolor(this.recol_s[i], this.recol_d[i]);
+                model?.recolour(this.recol_s[i], this.recol_d[i]);
             }
         }
 

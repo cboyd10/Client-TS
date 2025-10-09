@@ -5,6 +5,9 @@ import { TypedArray1d } from '#/util/Arrays.js';
 
 export default class AnimBase {
     static instances: AnimBase[] = [];
+    length: number = 0;
+    types: Uint8Array | null = null;
+    labels: (Uint8Array | null)[] | null = null;
 
     static unpack(models: Jagfile): void {
         const head: Packet = new Packet(models.read('base_head.dat'));
@@ -34,15 +37,9 @@ export default class AnimBase {
             }
 
             this.instances[id] = new AnimBase();
-            this.instances[id].animLength = length;
-            this.instances[id].animTypes = transformTypes;
-            this.instances[id].animLabels = groupLabels;
+            this.instances[id].length = length;
+            this.instances[id].types = transformTypes;
+            this.instances[id].labels = groupLabels;
         }
     }
-
-    // ----
-
-    animLength: number = 0;
-    animTypes: Uint8Array | null = null;
-    animLabels: (Uint8Array | null)[] | null = null;
 }

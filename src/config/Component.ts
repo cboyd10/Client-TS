@@ -1,14 +1,14 @@
 import Jagfile from '#/io/Jagfile.js';
 import Packet from '#/io/Packet.js';
 
-import Model from '#/graphics/Model.js';
+import Model from '#/dash3d/Model.js';
 import PixFont from '#/graphics/PixFont.js';
 
 import LruCache from '#/datastruct/LruCache.js';
 import JString from '#/datastruct/JString.js';
 
 import Pix2D from '#/graphics/Pix2D.js';
-import Pix24 from '#/graphics/Pix24.js';
+import Pix32 from '#/graphics/Pix32.js';
 
 import { TypedArray1d } from '#/util/Arrays.js';
 
@@ -33,231 +33,281 @@ export const enum ButtonType {
 };
 
 export default class Component {
-    static instances: Component[] = [];
+    static types: Component[] = [];
+    invSlotObjId: Int32Array | null = null;
+    invSlotObjCount: Int32Array | null = null;
+    seqFrame: number = 0;
+    seqCycle: number = 0;
+    id: number = -1;
+    layer: number = -1;
+    type: number = -1;
+    buttonType: number = -1;
+    clientCode: number = 0;
+    width: number = 0;
+    height: number = 0;
+    x: number = 0;
+    y: number = 0;
+    scripts: (Uint16Array | null)[] | null = null;
+    scriptComparator: Uint8Array | null = null;
+    scriptOperand: Uint16Array | null = null;
+    overlayer: number = -1;
+    scroll: number = 0;
+    scrollPosition: number = 0;
+    hide: boolean = false;
+    children: number[] | null = null;
+    activeModel: Model | null = null;
+    anim: number = -1;
+    activeAnim: number = -1;
+    zoom: number = 0;
+    xan: number = 0;
+    yan: number = 0;
+    targetVerb: string | null = null;
+    targetText: string | null = null;
+    targetMask: number = -1;
+    option: string | null = null;
     static imageCache: LruCache | null = null;
     static modelCache: LruCache | null = null;
+    marginX: number = 0;
+    marginY: number = 0;
+    colour: number = 0;
+    activeColour: number = 0;
+    overColour: number = 0;
+    model: Model | null = null;
+    graphic: Pix32 | null = null;
+    activeGraphic: Pix32 | null = null;
+    font: PixFont | null = null;
+    text: string | null = null;
+    activeText: string | null = null;
+    draggable: boolean = false;
+    interactable: boolean = false;
+    usable: boolean = false;
+    fill: boolean = false;
+    center: boolean = false;
+    shadowed: boolean = false;
+    invSlotOffsetX: Int16Array | null = null;
+    invSlotOffsetY: Int16Array | null = null;
+    childX: number[] | null = null;
+    childY: number[] | null = null;
+    invSlotGraphic: (Pix32 | null)[] | null = null;
+    iop: (string | null)[] | null = null;
 
     static unpack(interfaces: Jagfile, media: Jagfile, fonts: PixFont[]): void {
         this.imageCache = new LruCache(50000);
         this.modelCache = new LruCache(50000);
 
-        const dat: Packet = new Packet(interfaces.read('data'));
+        const data: Packet = new Packet(interfaces.read('data'));
         let layer: number = -1;
 
-        dat.pos += 2; // const count = dat.g2();
+        const count = data.g2();
+        this.types = new Array(count);
 
-        while (dat.pos < dat.length) {
-            let id: number = dat.g2();
+        while (data.pos < data.length) {
+            let id: number = data.g2();
             if (id === 65535) {
-                layer = dat.g2();
-                id = dat.g2();
+                layer = data.g2();
+                id = data.g2();
             }
 
-            const com: Component = (this.instances[id] = new Component());
+            const com: Component = (this.types[id] = new Component());
             com.id = id;
             com.layer = layer;
-            com.comType = dat.g1();
-            com.buttonType = dat.g1();
-            com.clientCode = dat.g2();
-            com.width = dat.g2();
-            com.height = dat.g2();
+            com.type = data.g1();
+            com.buttonType = data.g1();
+            com.clientCode = data.g2();
+            com.width = data.g2();
+            com.height = data.g2();
 
-            com.overLayer = dat.g1();
-            if (com.overLayer === 0) {
-                com.overLayer = -1;
+            com.overlayer = data.g1();
+            if (com.overlayer === 0) {
+                com.overlayer = -1;
             } else {
-                com.overLayer = ((com.overLayer - 1) << 8) + dat.g1();
+                com.overlayer = ((com.overlayer - 1) << 8) + data.g1();
             }
 
-            const comparatorCount: number = dat.g1();
+            const comparatorCount: number = data.g1();
             if (comparatorCount > 0) {
                 com.scriptComparator = new Uint8Array(comparatorCount);
                 com.scriptOperand = new Uint16Array(comparatorCount);
 
                 for (let i: number = 0; i < comparatorCount; i++) {
-                    com.scriptComparator[i] = dat.g1();
-                    com.scriptOperand[i] = dat.g2();
+                    com.scriptComparator[i] = data.g1();
+                    com.scriptOperand[i] = data.g2();
                 }
             }
 
-            const scriptCount: number = dat.g1();
+            const scriptCount: number = data.g1();
             if (scriptCount > 0) {
-                com.script = new TypedArray1d(scriptCount, null);
+                com.scripts = new TypedArray1d(scriptCount, null);
 
                 for (let i: number = 0; i < scriptCount; i++) {
-                    const opcodeCount: number = dat.g2();
+                    const opcodeCount: number = data.g2();
 
                     const script: Uint16Array = new Uint16Array(opcodeCount);
-                    com.script[i] = script;
+                    com.scripts[i] = script;
                     for (let j: number = 0; j < opcodeCount; j++) {
-                        script[j] = dat.g2();
+                        script[j] = data.g2();
                     }
                 }
             }
 
-            if (com.comType === ComponentType.TYPE_LAYER) {
-                com.scroll = dat.g2();
-                com.hide = dat.g1() === 1;
+            if (com.type === ComponentType.TYPE_LAYER) {
+                com.scroll = data.g2();
+                com.hide = data.g1() === 1;
 
-                const childCount: number = dat.g1();
-                com.childId = new Array(childCount);
+                const childCount: number = data.g1();
+                com.children = new Array(childCount);
                 com.childX = new Array(childCount);
                 com.childY = new Array(childCount);
 
                 for (let i: number = 0; i < childCount; i++) {
-                    com.childId[i] = dat.g2();
-                    com.childX[i] = dat.g2b();
-                    com.childY[i] = dat.g2b();
+                    com.children[i] = data.g2();
+                    com.childX[i] = data.g2b();
+                    com.childY[i] = data.g2b();
                 }
             }
 
-            if (com.comType === ComponentType.TYPE_UNUSED) {
-                dat.pos += 3;
+            if (com.type === ComponentType.TYPE_UNUSED) {
+                data.pos += 3;
             }
 
-            if (com.comType === ComponentType.TYPE_INV) {
+            if (com.type === ComponentType.TYPE_INV) {
                 com.invSlotObjId = new Int32Array(com.width * com.height);
                 com.invSlotObjCount = new Int32Array(com.width * com.height);
 
-                com.draggable = dat.g1() === 1;
-                com.interactable = dat.g1() === 1;
-                com.usable = dat.g1() === 1;
-                com.marginX = dat.g1();
-                com.marginY = dat.g1();
+                com.draggable = data.g1() === 1;
+                com.interactable = data.g1() === 1;
+                com.usable = data.g1() === 1;
+                com.marginX = data.g1();
+                com.marginY = data.g1();
 
                 com.invSlotOffsetX = new Int16Array(20);
                 com.invSlotOffsetY = new Int16Array(20);
-                com.invSlotSprite = new TypedArray1d(20, null);
+                com.invSlotGraphic = new TypedArray1d(20, null);
 
                 for (let i: number = 0; i < 20; i++) {
-                    if (dat.g1() === 1) {
-                        com.invSlotOffsetX[i] = dat.g2b();
-                        com.invSlotOffsetY[i] = dat.g2b();
-                        const sprite: string = dat.gjstr();
-                        if (sprite.length > 0) {
-                            const spriteIndex: number = sprite.lastIndexOf(',');
-                            // com.inventorySlotImage[i] = {name: sprite.substring(0, spriteIndex), sprite: parseInt(sprite.substring(spriteIndex + 1), 10)}; // Pix24.fromArchive(media, sprite.substring(0, spriteIndex), parseInt(sprite.substring(spriteIndex + 1), 10));
-                            com.invSlotSprite[i] = this.getImage(media, sprite.substring(0, spriteIndex), parseInt(sprite.substring(spriteIndex + 1), 10));
+                    if (data.g1() === 1) {
+                        com.invSlotOffsetX[i] = data.g2b();
+                        com.invSlotOffsetY[i] = data.g2b();
+
+                        const graphic: string = data.gjstr();
+                        if (graphic.length > 0) {
+                            const spriteIndex: number = graphic.lastIndexOf(',');
+                            com.invSlotGraphic[i] = this.getImage(media, graphic.substring(0, spriteIndex), parseInt(graphic.substring(spriteIndex + 1)));
                         }
                     }
                 }
 
-                com.iops = new TypedArray1d(5, null);
+                com.iop = new TypedArray1d(5, null);
                 for (let i: number = 0; i < 5; i++) {
-                    const iop: string = dat.gjstr();
-                    com.iops[i] = iop;
-
-                    if (iop.length === 0) {
-                        com.iops[i] = null;
+                    com.iop[i] = data.gjstr();
+                    if (com.iop[i]!.length === 0) {
+                        com.iop[i] = null;
                     }
                 }
             }
 
-            if (com.comType === ComponentType.TYPE_RECT) {
-                com.fill = dat.g1() === 1;
+            if (com.type === ComponentType.TYPE_RECT) {
+                com.fill = data.g1() === 1;
             }
 
-            if (com.comType === ComponentType.TYPE_TEXT || com.comType === ComponentType.TYPE_UNUSED) {
-                com.center = dat.g1() === 1;
-                const fontId: number = dat.g1();
+            if (com.type === ComponentType.TYPE_TEXT || com.type === ComponentType.TYPE_UNUSED) {
+                com.center = data.g1() === 1;
+                const font: number = data.g1();
                 if (fonts) {
-                    com.font = fonts[fontId];
+                    com.font = fonts[font];
                 }
-                com.shadowed = dat.g1() === 1;
+                com.shadowed = data.g1() === 1;
             }
 
-            if (com.comType === ComponentType.TYPE_TEXT) {
-                com.text = dat.gjstr();
-                com.activeText = dat.gjstr();
+            if (com.type === ComponentType.TYPE_TEXT) {
+                com.text = data.gjstr();
+                com.activeText = data.gjstr();
             }
 
-            if (com.comType === ComponentType.TYPE_UNUSED || com.comType === ComponentType.TYPE_RECT || com.comType === ComponentType.TYPE_TEXT) {
-                com.colour = dat.g4();
+            if (com.type === ComponentType.TYPE_UNUSED || com.type === ComponentType.TYPE_RECT || com.type === ComponentType.TYPE_TEXT) {
+                com.colour = data.g4();
             }
 
-            if (com.comType === ComponentType.TYPE_RECT || com.comType === ComponentType.TYPE_TEXT) {
-                com.activeColour = dat.g4();
-                com.overColour = dat.g4();
+            if (com.type === ComponentType.TYPE_RECT || com.type === ComponentType.TYPE_TEXT) {
+                com.activeColour = data.g4();
+                com.overColour = data.g4();
             }
 
-            if (com.comType === ComponentType.TYPE_GRAPHIC) {
-                const graphic: string = dat.gjstr();
+            if (com.type === ComponentType.TYPE_GRAPHIC) {
+                const graphic: string = data.gjstr();
                 if (graphic.length > 0) {
                     const index: number = graphic.lastIndexOf(',');
                     com.graphic = this.getImage(media, graphic.substring(0, index), parseInt(graphic.substring(index + 1), 10));
                 }
-                const activeGraphic: string = dat.gjstr();
+                const activeGraphic: string = data.gjstr();
                 if (activeGraphic.length > 0) {
                     const index: number = activeGraphic.lastIndexOf(',');
                     com.activeGraphic = this.getImage(media, activeGraphic.substring(0, index), parseInt(activeGraphic.substring(index + 1), 10));
                 }
             }
 
-            if (com.comType === ComponentType.TYPE_MODEL) {
-                const model: number = dat.g1();
+            if (com.type === ComponentType.TYPE_MODEL) {
+                const model: number = data.g1();
                 if (model !== 0) {
-                    com.model = this.getModel(((model - 1) << 8) + dat.g1());
+                    com.model = this.getModel(((model - 1) << 8) + data.g1());
                 }
 
-                const activeModel: number = dat.g1();
+                const activeModel: number = data.g1();
                 if (activeModel !== 0) {
-                    com.activeModel = this.getModel(((activeModel - 1) << 8) + dat.g1());
+                    com.activeModel = this.getModel(((activeModel - 1) << 8) + data.g1());
                 }
 
-                com.anim = dat.g1();
+                com.anim = data.g1();
                 if (com.anim === 0) {
                     com.anim = -1;
                 } else {
-                    com.anim = ((com.anim - 1) << 8) + dat.g1();
+                    com.anim = ((com.anim - 1) << 8) + data.g1();
                 }
 
-                com.activeAnim = dat.g1();
+                com.activeAnim = data.g1();
                 if (com.activeAnim === 0) {
                     com.activeAnim = -1;
                 } else {
-                    com.activeAnim = ((com.activeAnim - 1) << 8) + dat.g1();
+                    com.activeAnim = ((com.activeAnim - 1) << 8) + data.g1();
                 }
 
-                com.zoom = dat.g2();
-                com.xan = dat.g2();
-                com.yan = dat.g2();
+                com.zoom = data.g2();
+                com.xan = data.g2();
+                com.yan = data.g2();
             }
 
-            if (com.comType === ComponentType.TYPE_INV_TEXT) {
+            if (com.type === ComponentType.TYPE_INV_TEXT) {
                 com.invSlotObjId = new Int32Array(com.width * com.height);
                 com.invSlotObjCount = new Int32Array(com.width * com.height);
 
-                com.center = dat.g1() === 1;
-                const fontId: number = dat.g1();
+                com.center = data.g1() === 1;
+                const font: number = data.g1();
                 if (fonts) {
-                    com.font = fonts[fontId];
+                    com.font = fonts[font];
                 }
+                com.shadowed = data.g1() === 1;
+                com.colour = data.g4();
+                com.marginX = data.g2b();
+                com.marginY = data.g2b();
+                com.interactable = data.g1() === 1;
 
-                com.shadowed = dat.g1() === 1;
-                com.colour = dat.g4();
-                com.marginX = dat.g2b();
-                com.marginY = dat.g2b();
-                com.interactable = dat.g1() === 1;
-
-                com.iops = new TypedArray1d(5, null);
+                com.iop = new TypedArray1d(5, null);
                 for (let i: number = 0; i < 5; i++) {
-                    const iop: string = dat.gjstr();
-                    com.iops[i] = iop;
-
-                    if (iop.length === 0) {
-                        com.iops[i] = null;
+                    com.iop[i] = data.gjstr();
+                    if (com.iop[i]!.length === 0) {
+                        com.iop[i] = null;
                     }
                 }
             }
 
-            if (com.buttonType === ButtonType.BUTTON_TARGET || com.comType === ComponentType.TYPE_INV) {
-                com.actionVerb = dat.gjstr();
-                com.action = dat.gjstr();
-                com.actionTarget = dat.g2();
+            if (com.buttonType === ButtonType.BUTTON_TARGET || com.type === ComponentType.TYPE_INV) {
+                com.targetVerb = data.gjstr();
+                com.targetText = data.gjstr();
+                com.targetMask = data.g2();
             }
 
             if (com.buttonType === ButtonType.BUTTON_OK || com.buttonType === ButtonType.BUTTON_TOGGLE || com.buttonType === ButtonType.BUTTON_SELECT || com.buttonType === ButtonType.BUTTON_CONTINUE) {
-                com.option = dat.gjstr();
+                com.option = data.gjstr();
 
                 if (com.option.length === 0) {
                     if (com.buttonType === ButtonType.BUTTON_OK) {
@@ -277,18 +327,18 @@ export default class Component {
         this.modelCache = null;
     }
 
-    private static getImage(media: Jagfile, sprite: string, spriteId: number): Pix24 | null {
+    private static getImage(media: Jagfile, sprite: string, spriteId: number): Pix32 | null {
         const uid: bigint = (JString.hashCode(sprite) << 8n) | BigInt(spriteId);
         if (this.imageCache) {
-            const image: Pix24 | null = this.imageCache.get(uid) as Pix24 | null;
+            const image: Pix32 | null = this.imageCache.get(uid) as Pix32 | null;
             if (image) {
                 return image;
             }
         }
 
-        let image: Pix24;
+        let image: Pix32;
         try {
-            image = Pix24.fromArchive(media, sprite, spriteId);
+            image = Pix32.fromArchive(media, sprite, spriteId);
             this.imageCache?.put(uid, image);
         } catch (e) {
             return null;
@@ -303,131 +353,10 @@ export default class Component {
                 return model;
             }
         }
-        const model: Model = Model.model(id);
+        const model: Model = Model.get(id);
         this.modelCache?.put(BigInt(id), model);
         return model;
     }
-
-    /* Client codes:
-     * ---- friends
-     * 1-200: friends list
-     * 201: add friend
-     * 202: delete friend
-     * 203: friends list scrollbar size
-     * ---- logout
-     * 205: logout
-     * ---- player_design
-     * 300: change head (left)
-     * 301: change head (right)
-     * 302: change jaw (left)
-     * 303: change jaw (right)
-     * 304: change torso (left)
-     * 305: change torso (right)
-     * 306: change arms (left)
-     * 307: change arms (right)
-     * 308: change hands (left)
-     * 309: change hands (right)
-     * 310: change legs (left)
-     * 311: change legs (right)
-     * 312: change feet (left)
-     * 313: change feet (right)
-     * 314: recolour hair (left)
-     * 315: recolour hair (right)
-     * 316: recolour torso (left)
-     * 317: recolour torso (right)
-     * 318: recolour legs (left)
-     * 319: recolour legs (right)
-     * 320: recolour feet (left)
-     * 321: recolour feet (right)
-     * 322: recolour skin (left)
-     * 323: recolour skin (right)
-     * 324: switch to male
-     * 325: switch to female
-     * 326: accept design
-     * 327: design preview
-     * ---- ignore
-     * 401-500: ignore list
-     * 501: add ignore
-     * 502: delete ignore
-     * 503: ignore list scrollbar size
-     * ---- reportabuse
-     * 601: rule 1
-     * 602: rule 2
-     * 603: rule 3
-     * 604: rule 4
-     * 605: rule 5
-     * 606: rule 6
-     * 607: rule 7
-     * 608: rule 8
-     * 609: rule 9
-     * 610: rule 10
-     * 611: rule 11
-     * 612: rule 12
-     * 613: moderator mute
-     * ---- welcome_screen / welcome_screen2
-     * 650: last login info (has recovery questions set)
-     * 651: unread messages
-     * 655: last login info (no recovery questions set)
-     */
-
-    // ----
-
-    id: number = -1;
-    layer: number = -1;
-    comType: number = -1;
-    buttonType: number = -1;
-    clientCode: number = 0;
-    width: number = 0;
-    height: number = 0;
-    overLayer: number = -1;
-    scriptComparator: Uint8Array | null = null;
-    scriptOperand: Uint16Array | null = null;
-    script: (Uint16Array | null)[] | null = null;
-    scroll: number = 0;
-    hide: boolean = false;
-    draggable: boolean = false;
-    interactable: boolean = false;
-    usable: boolean = false;
-    marginX: number = 0;
-    marginY: number = 0;
-    invSlotOffsetX: Int16Array | null = null;
-    invSlotOffsetY: Int16Array | null = null;
-    invSlotSprite: (Pix24 | null)[] | null = null;
-    iops: (string | null)[] | null = null;
-    fill: boolean = false;
-    center: boolean = false;
-    font: PixFont | null = null;
-    shadowed: boolean = false;
-    text: string | null = null;
-    activeText: string | null = null;
-    colour: number = 0;
-    activeColour: number = 0;
-    overColour: number = 0;
-    graphic: Pix24 | null = null;
-    activeGraphic: Pix24 | null = null;
-    model: Model | null = null;
-    activeModel: Model | null = null;
-    anim: number = -1;
-    activeAnim: number = -1;
-    zoom: number = 0;
-    xan: number = 0;
-    yan: number = 0;
-    actionVerb: string | null = null;
-    action: string | null = null;
-    actionTarget: number = -1;
-    option: string | null = null;
-    childId: number[] | null = null;
-    childX: number[] | null = null;
-    childY: number[] | null = null;
-
-    // other
-    x: number = 0;
-    y: number = 0;
-    scrollPosition: number = 0;
-    invSlotObjId: Int32Array | null = null;
-    invSlotObjCount: Int32Array | null = null;
-    seqFrame: number = 0;
-    seqCycle: number = 0;
 
     getModel(primaryFrame: number, secondaryFrame: number, active: boolean): Model | null {
         let model: Model | null = this.model;
@@ -439,7 +368,7 @@ export default class Component {
             return null;
         }
 
-        if (primaryFrame === -1 && secondaryFrame === -1 && !model.faceColor) {
+        if (primaryFrame === -1 && secondaryFrame === -1 && !model.faceColour) {
             return model;
         }
 
@@ -465,21 +394,21 @@ export default class Component {
             return this.x;
         }
 
-        let parent: Component = Component.instances[this.layer];
-        if (!parent.childId || !parent.childX || !parent.childY) {
+        let parent: Component = Component.types[this.layer];
+        if (!parent.children || !parent.childX || !parent.childY) {
             return this.x;
         }
 
-        let childIndex: number = parent.childId.indexOf(this.id);
+        let childIndex: number = parent.children.indexOf(this.id);
         if (childIndex === -1) {
             return this.x;
         }
 
         let x: number = parent.childX[childIndex];
         while (parent.layer !== parent.id) {
-            const grandParent: Component = Component.instances[parent.layer];
-            if (grandParent.childId && grandParent.childX && grandParent.childY) {
-                childIndex = grandParent.childId.indexOf(parent.id);
+            const grandParent: Component = Component.types[parent.layer];
+            if (grandParent.children && grandParent.childX && grandParent.childY) {
+                childIndex = grandParent.children.indexOf(parent.id);
                 if (childIndex !== -1) {
                     x += grandParent.childX[childIndex];
                 }
@@ -495,21 +424,21 @@ export default class Component {
             return this.y;
         }
 
-        let parent: Component = Component.instances[this.layer];
-        if (!parent.childId || !parent.childX || !parent.childY) {
+        let parent: Component = Component.types[this.layer];
+        if (!parent.children || !parent.childX || !parent.childY) {
             return this.y;
         }
 
-        let childIndex: number = parent.childId.indexOf(this.id);
+        let childIndex: number = parent.children.indexOf(this.id);
         if (childIndex === -1) {
             return this.y;
         }
 
         let y: number = parent.childY[childIndex];
         while (parent.layer !== parent.id) {
-            const grandParent: Component = Component.instances[parent.layer];
-            if (grandParent.childId && grandParent.childX && grandParent.childY) {
-                childIndex = grandParent.childId.indexOf(parent.id);
+            const grandParent: Component = Component.types[parent.layer];
+            if (grandParent.children && grandParent.childX && grandParent.childY) {
+                childIndex = grandParent.children.indexOf(parent.id);
                 if (childIndex !== -1) {
                     y += grandParent.childY[childIndex];
                 }
@@ -534,10 +463,10 @@ export default class Component {
         this.x = 0;
         this.y = 0;
 
-        const parent: Component = Component.instances[this.layer];
+        const parent: Component = Component.types[this.layer];
 
-        if (parent.childId && parent.childX && parent.childY) {
-            const childIndex: number = parent.childId.indexOf(this.id);
+        if (parent.children && parent.childX && parent.childY) {
+            const childIndex: number = parent.children.indexOf(this.id);
 
             if (childIndex !== -1) {
                 parent.childX[childIndex] = x;
@@ -551,13 +480,13 @@ export default class Component {
             return;
         }
 
-        const parent: Component = Component.instances[this.layer];
+        const parent: Component = Component.types[this.layer];
 
-        if (parent.childId && parent.childX && parent.childY) {
-            const childIndex: number = parent.childId.indexOf(this.id);
+        if (parent.children && parent.childX && parent.childY) {
+            const childIndex: number = parent.children.indexOf(this.id);
 
             if (childIndex !== -1) {
-                parent.childId.splice(childIndex, 1);
+                parent.children.splice(childIndex, 1);
                 parent.childX.splice(childIndex, 1);
                 parent.childY.splice(childIndex, 1);
             }

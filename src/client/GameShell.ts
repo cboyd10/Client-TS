@@ -1,12 +1,12 @@
+import InputTracking from '#/client/InputTracking.js';
+import { CanvasEnabledKeys, KeyCodes } from '#/client/KeyCodes.js';
+import MobileKeyboard from '#/client/MobileKeyboard.js';
+
 import { canvas, canvas2d } from '#/graphics/Canvas.js';
 import Pix3D from '#/graphics/Pix3D.js';
 import PixMap from '#/graphics/PixMap.js';
 
 import { sleep } from '#/util/JsUtil.js';
-
-import { CanvasEnabledKeys, KeyCodes } from '#/client/KeyCodes.js';
-import InputTracking from '#/client/InputTracking.js';
-import { MobileKeyboard } from '#3rdparty/deps.js';
 
 export default abstract class GameShell {
     protected slowestMS: number = 0.0; // custom
@@ -62,7 +62,7 @@ export default abstract class GameShell {
     protected async load() {}
     protected async update() {}
     protected async draw() {}
-    protected async refresh() {}
+    protected refresh() {}
 
     constructor(resizetoFit: boolean = false) {
         canvas.tabIndex = -1;
@@ -130,7 +130,7 @@ export default abstract class GameShell {
             e.preventDefault();
         };
 
-        await this.showProgress(0, 'Loading...');
+        await this.drawProgress(0, 'Loading...');
         await this.load();
 
         for (let i: number = 0; i < 10; i++) {
@@ -257,7 +257,7 @@ export default abstract class GameShell {
         this.state = -1;
     }
 
-    protected async showProgress(progress: number, message: string): Promise<void> {
+    protected async drawProgress(progress: number, message: string): Promise<void> {
         const width: number = this.width;
         const height: number = this.height;
 
@@ -344,7 +344,7 @@ export default abstract class GameShell {
             this.keyQueueWritePos = (this.keyQueueWritePos + 1) & 0x7f;
         }
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.keyPressed(ch);
         }
 
@@ -375,7 +375,7 @@ export default abstract class GameShell {
             this.actionKey[ch] = 0;
         }
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.keyReleased(ch);
         }
 
@@ -430,7 +430,7 @@ export default abstract class GameShell {
             }
         }
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.mousePressed(this.mouseClickX, this.mouseClickY, e.button);
         }
     }
@@ -440,7 +440,7 @@ export default abstract class GameShell {
         this.idleCycles = performance.now();
         this.mouseButton = 0;
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.mouseReleased(e.button);
         }
         // CUSTOM: Mobile Keyboard
@@ -462,7 +462,7 @@ export default abstract class GameShell {
     private onmouseenter(e: MouseEvent) {
         this.setMousePosition(e);
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.mouseEntered();
         }
     }
@@ -480,7 +480,7 @@ export default abstract class GameShell {
         this.mouseClickX = -1;
         this.mouseClickY = -1;
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.mouseExited();
         }
     }
@@ -496,7 +496,7 @@ export default abstract class GameShell {
             }
         }
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.mouseMoved(this.mouseX, this.mouseY);
         }
     }
@@ -506,7 +506,7 @@ export default abstract class GameShell {
         this.redrawScreen = true;
         this.refresh();
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.focusGained();
         }
     }
@@ -519,7 +519,7 @@ export default abstract class GameShell {
             this.actionKey[i] = 0;
         }
 
-        if (InputTracking.trackingActive) {
+        if (InputTracking.enabled) {
             InputTracking.focusLost();
         }
     }

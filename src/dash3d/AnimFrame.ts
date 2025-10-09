@@ -1,10 +1,17 @@
-import AnimBase from '#/graphics/AnimBase.js';
+import AnimBase from '#/dash3d/AnimBase.js';
 
 import Jagfile from '#/io/Jagfile.js';
 import Packet from '#/io/Packet.js';
 
 export default class AnimFrame {
     static instances: AnimFrame[] = [];
+    delay: number = 0;
+    base: AnimBase | null = null;
+    length: number = 0;
+    groups: Int32Array | null = null;
+    x: Int32Array | null = null;
+    y: Int32Array | null = null;
+    z: Int32Array | null = null;
 
     static unpack(models: Jagfile): void {
         const head: Packet = new Packet(models.read('frame_head.dat'));
@@ -22,8 +29,9 @@ export default class AnimFrame {
 
         for (let i: number = 0; i < total; i++) {
             const id: number = head.g2();
+
             const frame: AnimFrame = (this.instances[id] = new AnimFrame());
-            frame.frameDelay = del.g1();
+            frame.delay = del.g1();
 
             const baseId: number = head.g2();
             const base: AnimBase = AnimBase.instances[baseId];
@@ -34,15 +42,15 @@ export default class AnimFrame {
             let current: number = 0;
 
             for (let j: number = 0; j < groupCount; j++) {
-                if (!base.animTypes) {
+                if (!base.types) {
                     throw new Error();
                 }
-                const flags: number = tran1.g1();
 
+                const flags: number = tran1.g1();
                 if (flags > 0) {
-                    if (base.animTypes[j] !== 0) {
+                    if (base.types[j] !== 0) {
                         for (let group: number = j - 1; group > lastGroup; group--) {
-                            if (base.animTypes[group] === 0) {
+                            if (base.types[group] === 0) {
                                 labels[current] = group;
                                 x[current] = 0;
                                 y[current] = 0;
@@ -56,7 +64,7 @@ export default class AnimFrame {
                     labels[current] = j;
 
                     let defaultValue: number = 0;
-                    if (base.animTypes[labels[current]] === 3) {
+                    if (base.types[labels[current]] === 3) {
                         defaultValue = 128;
                     }
 
@@ -83,28 +91,18 @@ export default class AnimFrame {
                 }
             }
 
-            frame.frameLength = current;
-            frame.bases = new Int32Array(current);
+            frame.length = current;
+            frame.groups = new Int32Array(current);
             frame.x = new Int32Array(current);
             frame.y = new Int32Array(current);
             frame.z = new Int32Array(current);
 
             for (let j: number = 0; j < current; j++) {
-                frame.bases[j] = labels[j];
+                frame.groups[j] = labels[j];
                 frame.x[j] = x[j];
                 frame.y[j] = y[j];
                 frame.z[j] = z[j];
             }
         }
     }
-
-    // ----
-
-    frameDelay: number = 0;
-    base: AnimBase | null = null;
-    frameLength: number = 0;
-    bases: Int32Array | null = null;
-    x: Int32Array | null = null;
-    y: Int32Array | null = null;
-    z: Int32Array | null = null;
 }

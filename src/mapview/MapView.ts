@@ -1,13 +1,13 @@
-import GameShell from '#/client/GameShell.ts';
-import Pix24 from '#/graphics/Pix24.ts';
-import Pix2D from '#/graphics/Pix2D.ts';
-import Pix8 from '#/graphics/Pix8.ts';
-import PixFont from '#/graphics/PixFont.ts';
-import Database from '#/io/Database.ts';
-import Jagfile from '#/io/Jagfile.ts';
-import Packet from '#/io/Packet.ts';
-import { TypedArray1d, TypedArray2d } from '#/util/Arrays.ts';
-import { downloadUrl, sleep } from '#/util/JsUtil.ts';
+import GameShell from '#/client/GameShell.js';
+import Pix32 from '#/graphics/Pix32.js';
+import Pix2D from '#/graphics/Pix2D.js';
+import Pix8 from '#/graphics/Pix8.js';
+import PixFont from '#/graphics/PixFont.js';
+import Database from '#/io/Database.js';
+import Jagfile from '#/io/Jagfile.js';
+import Packet from '#/io/Packet.js';
+import { TypedArray1d, TypedArray2d } from '#/util/Arrays.js';
+import { downloadUrl, sleep } from '#/util/JsUtil.js';
 
 export class MapView extends GameShell {
     static shouldDrawBorders: boolean = false;
@@ -65,11 +65,11 @@ export class MapView extends GameShell {
     npcTiles: boolean[][] = [];
 
     imageMapscene: Pix8[] = [];
-    imageMapfunction: Pix24[] = [];
-    imageMapdot0: Pix24 | null = null;
-    imageMapdot1: Pix24 | null = null;
-    imageMapdot2: Pix24 | null = null;
-    imageMapdot3: Pix24 | null = null;
+    imageMapfunction: Pix32[] = [];
+    imageMapdot0: Pix32 | null = null;
+    imageMapdot1: Pix32 | null = null;
+    imageMapdot2: Pix32 | null = null;
+    imageMapdot3: Pix32 | null = null;
 
     b12: PixFont | null = null;
 
@@ -77,8 +77,8 @@ export class MapView extends GameShell {
 
     redraw: boolean = true;
     redrawTimer: number = 0;
-    lastMouseClickX: number = -1;
-    lastMouseClickY: number = -1;
+    nextMouseClickX: number = -1;
+    nextMouseClickY: number = -1;
     lastOffsetX: number = -1;
     lastOffsetZ: number = -1;
 
@@ -103,7 +103,7 @@ export class MapView extends GameShell {
     activeMapFunctions: Int32Array = new Int32Array(2000);
     activeMapFunctionCount: number = 0;
 
-    imageOverview: Pix24 | null = null;
+    imageOverview: Pix32 | null = null;
     imageOverviewHeight: number = 200;
     imageOverviewWidth: number = ((this.imageOverviewHeight * this.sizeX) / this.sizeZ) | 0;
     overviewX: number = 635 - this.imageOverviewWidth - 5;
@@ -193,7 +193,7 @@ export class MapView extends GameShell {
 
         const worldmap: Jagfile = await this.loadWorldmap();
 
-        await this.showProgress(100, 'Please wait... Rendering Map');
+        await this.drawProgress(100, 'Please wait... Rendering Map');
 
         const labelData: Packet = new Packet(worldmap.read('labels.dat'));
         this.labelCount = labelData.g2();
@@ -244,16 +244,16 @@ export class MapView extends GameShell {
 
         try {
             for (let i: number = 0; i < 50; i++) {
-                this.imageMapfunction[i] = Pix24.fromArchive(worldmap, 'mapfunction', i);
+                this.imageMapfunction[i] = Pix32.fromArchive(worldmap, 'mapfunction', i);
             }
         } catch (ignore) {
             // empty
         }
 
-        this.imageMapdot0 = Pix24.fromArchive(worldmap, 'mapdots', 0);
-        this.imageMapdot1 = Pix24.fromArchive(worldmap, 'mapdots', 1);
-        this.imageMapdot2 = Pix24.fromArchive(worldmap, 'mapdots', 2);
-        this.imageMapdot3 = Pix24.fromArchive(worldmap, 'mapdots', 3);
+        this.imageMapdot0 = Pix32.fromArchive(worldmap, 'mapdots', 0);
+        this.imageMapdot1 = Pix32.fromArchive(worldmap, 'mapdots', 1);
+        this.imageMapdot2 = Pix32.fromArchive(worldmap, 'mapdots', 2);
+        this.imageMapdot3 = Pix32.fromArchive(worldmap, 'mapdots', 3);
 
         this.b12 = PixFont.fromArchive(worldmap, 'b12');
         // this.f11 = new WorldmapFont(11, true, this);
@@ -269,13 +269,15 @@ export class MapView extends GameShell {
         this.averageUnderlayColors();
         if (this.shouldClearEmptyTiles) this.clearEmptyTiles();
 
-        this.imageOverview = new Pix24(this.imageOverviewWidth, this.imageOverviewHeight);
+        this.imageOverview = new Pix32(this.imageOverviewWidth, this.imageOverviewHeight);
         this.imageOverview.bind();
         this.drawMap(0, 0, this.sizeX, this.sizeZ, 0, 0, this.imageOverviewWidth, this.imageOverviewHeight);
         Pix2D.drawRect(0, 0, this.imageOverviewWidth, this.imageOverviewHeight, 0);
         Pix2D.drawRect(1, 1, this.imageOverviewWidth - 2, this.imageOverviewHeight - 2, this.colorInactiveBorderTL);
 
-        this.drawArea!.bind();
+        if (this.drawArea) {
+            this.drawArea.bind();
+        }
     }
 
     async draw(): Promise<void> {
@@ -389,7 +391,7 @@ export class MapView extends GameShell {
         }
     }
 
-    async refresh(): Promise<void> {
+    refresh() {
         this.redrawTimer = 0;
     }
 
@@ -454,35 +456,35 @@ export class MapView extends GameShell {
         } while (key > 0);
 
         if (this.mouseClickButton == 1) {
-            this.lastMouseClickX = this.mouseClickX;
-            this.lastMouseClickY = this.mouseClickY;
+            this.nextMouseClickX = this.mouseClickX;
+            this.nextMouseClickY = this.mouseClickY;
             this.lastOffsetX = this.offsetX;
             this.lastOffsetZ = this.offsetZ;
 
             let zoomY: number = this.height - this.keyY - 20 + 1;
             if (this.mouseClickX > 170 && this.mouseClickX < 220 && this.mouseClickY > zoomY) {
                 this.targetZoom = 3.0;
-                this.lastMouseClickX = -1;
+                this.nextMouseClickX = -1;
             } else if (this.mouseClickX > 230 && this.mouseClickX < 280 && this.mouseClickY > zoomY) {
                 this.targetZoom = 4.0;
-                this.lastMouseClickX = -1;
+                this.nextMouseClickX = -1;
             } else if (this.mouseClickX > 290 && this.mouseClickX < 340 && this.mouseClickY > zoomY) {
                 this.targetZoom = 6.0;
-                this.lastMouseClickX = -1;
+                this.nextMouseClickX = -1;
             } else if (this.mouseClickX > 350 && this.mouseClickX < 400 && this.mouseClickY > zoomY) {
                 this.targetZoom = 8.0;
-                this.lastMouseClickX = -1;
+                this.nextMouseClickX = -1;
             } else if (this.mouseClickX > this.keyX && this.mouseClickY > this.keyY + this.keyHeight && this.mouseClickX < this.keyX + this.keyWidth) {
                 this.showKey = !this.showKey;
-                this.lastMouseClickX = -1;
+                this.nextMouseClickX = -1;
             } else if (this.mouseClickX > this.overviewX && this.mouseClickY > this.overviewY + this.imageOverviewHeight && this.mouseClickX < this.overviewX + this.imageOverviewWidth) {
                 this.showOverview = !this.showOverview;
-                this.lastMouseClickX = -1;
+                this.nextMouseClickX = -1;
             }
 
             if (this.showKey) {
                 if (this.mouseClickX > this.keyX && this.mouseClickY > this.keyY && this.mouseClickX < this.keyX + this.keyWidth && this.mouseClickY < this.keyY + this.keyHeight) {
-                    this.lastMouseClickX = -1;
+                    this.nextMouseClickX = -1;
                 }
 
                 if (this.mouseClickX > this.keyX && this.mouseClickY > this.keyY && this.mouseClickX < this.keyX + this.keyWidth && this.mouseClickY < this.keyY + 18) {
@@ -535,14 +537,14 @@ export class MapView extends GameShell {
             if (mouseClickX > this.overviewX && mouseClickY > this.overviewY && mouseClickX < this.overviewX + this.imageOverviewWidth && mouseClickY < this.overviewY + this.imageOverviewHeight) {
                 this.offsetX = (((mouseClickX - this.overviewX) * this.sizeX) / this.imageOverviewWidth) | 0;
                 this.offsetZ = (((mouseClickY - this.overviewY) * this.sizeZ) / this.imageOverviewHeight) | 0;
-                this.lastMouseClickX = -1;
+                this.nextMouseClickX = -1;
                 this.redraw = true;
             }
         }
 
-        if (this.mouseButton == 1 && this.lastMouseClickX != -1) {
-            this.offsetX = this.lastOffsetX + ((((this.lastMouseClickX - this.mouseX) * 2.0) / this.targetZoom) | 0);
-            this.offsetZ = this.lastOffsetZ + ((((this.lastMouseClickY - this.mouseY) * 2.0) / this.targetZoom) | 0);
+        if (this.mouseButton == 1 && this.nextMouseClickX != -1) {
+            this.offsetX = this.lastOffsetX + ((((this.nextMouseClickX - this.mouseX) * 2.0) / this.targetZoom) | 0);
+            this.offsetZ = this.lastOffsetZ + ((((this.nextMouseClickY - this.mouseY) * 2.0) / this.targetZoom) | 0);
             this.redraw = true;
         }
 
@@ -605,14 +607,14 @@ export class MapView extends GameShell {
 
         let retry: number = 5;
         while (!data) {
-            await this.showProgress(0, 'Requesting map');
+            await this.drawProgress(0, 'Requesting map');
 
             try {
                 data = await downloadUrl('/worldmap.jag');
             } catch (e) {
                 data = undefined;
                 for (let i: number = retry; i > 0; i--) {
-                    await this.showProgress(0, `Error loading - Will retry in ${i} secs.`);
+                    await this.drawProgress(0, `Error loading - Will retry in ${i} secs.`);
                     await sleep(1000);
                 }
 
