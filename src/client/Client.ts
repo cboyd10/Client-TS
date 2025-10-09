@@ -4705,7 +4705,15 @@ export class Client extends GameShell {
                 continue;
             }
 
-            if (index < this.playerCount) {
+            if (index >= this.playerCount) {
+                if (this.hintType === 1 && this.hintNpc === this.npcIds[index - this.playerCount] && this.loopCycle % 20 < 10) {
+                    this.projectFromEntity(entity, entity.height + 15);
+
+                    if (this.projectX > -1) {
+                        this.imageHeadicon[2]?.draw(this.projectX - 12, this.projectY - 28);
+                    }
+                }
+            } else {
                 let y: number = 30;
 
                 const player: ClientPlayer = entity as ClientPlayer;
@@ -4728,12 +4736,6 @@ export class Client extends GameShell {
                     if (this.projectX > -1) {
                         this.imageHeadicon[7]?.draw(this.projectX - 12, this.projectY - y);
                     }
-                }
-            } else if (this.hintType === 1 && this.hintNpc === this.npcIds[index - this.playerCount] && this.loopCycle % 20 < 10) {
-                this.projectFromEntity(entity, entity.height + 15);
-
-                if (this.projectX > -1) {
-                    this.imageHeadicon[2]?.draw(this.projectX - 12, this.projectY - 28);
                 }
             }
 
@@ -5087,9 +5089,10 @@ export class Client extends GameShell {
             }
 
             const type: number = this.messageType[i];
-            let y: number;
-            if ((type === 3 || type === 7) && (type === 7 || this.chatPrivateMode === 0 || (this.chatPrivateMode === 1 && this.isFriend(this.messageSender[i])))) {
-                y = 329 - lineOffset * 13;
+
+            if ((type == 3 || type == 7) && (type == 7 || this.chatPrivateMode == 0 || (this.chatPrivateMode == 1 && this.isFriend(this.messageSender[i])))) {
+                const y = 329 - lineOffset * 13;
+
                 font?.drawString(4, y, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.BLACK);
                 font?.drawString(4, y - 1, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.CYAN);
 
@@ -5097,10 +5100,9 @@ export class Client extends GameShell {
                 if (lineOffset >= 5) {
                     return;
                 }
-            }
+            } else if (type === 5 && this.chatPrivateMode < 2) {
+                const y = 329 - lineOffset * 13;
 
-            if (type === 5 && this.chatPrivateMode < 2) {
-                y = 329 - lineOffset * 13;
                 font?.drawString(4, y, this.messageText[i], Colors.BLACK);
                 font?.drawString(4, y - 1, this.messageText[i], Colors.CYAN);
 
@@ -5108,10 +5110,9 @@ export class Client extends GameShell {
                 if (lineOffset >= 5) {
                     return;
                 }
-            }
+            } else if (type === 6 && this.chatPrivateMode < 2) {
+                const y = 329 - lineOffset * 13;
 
-            if (type === 6 && this.chatPrivateMode < 2) {
-                y = 329 - lineOffset * 13;
                 font?.drawString(4, y, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.BLACK);
                 font?.drawString(4, y - 1, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.CYAN);
 
@@ -5332,32 +5333,34 @@ export class Client extends GameShell {
             const locId: number = (typecode >> 14) & 0x7fff;
 
             const loc: LocType = LocType.get(locId);
-            if (loc.mapscene !== -1) {
+            if (loc.mapscene === -1) {
+                if (shape === LocShape.WALL_DIAGONAL.id) {
+                    let rgb: number = 0xeeeeee;
+                    if (typecode > 0) {
+                        rgb = 0xee0000;
+                    }
+
+                    const dst: Int32Array = this.imageMinimap.pixels;
+                    const offset: number = tileX * 4 + (CollisionConstants.SIZE - 1 - tileZ) * 512 * 4 + 24624;
+
+                    if (angle === LocAngle.WEST || angle === LocAngle.EAST) {
+                        dst[offset + 1536] = rgb;
+                        dst[offset + 1024 + 1] = rgb;
+                        dst[offset + 512 + 2] = rgb;
+                        dst[offset + 3] = rgb;
+                    } else {
+                        dst[offset] = rgb;
+                        dst[offset + 512 + 1] = rgb;
+                        dst[offset + 1024 + 2] = rgb;
+                        dst[offset + 1536 + 3] = rgb;
+                    }
+                }
+            } else {
                 const scene: Pix8 | null = this.imageMapscene[loc.mapscene];
                 if (scene) {
                     const offsetX: number = ((loc.width * 4 - scene.width2d) / 2) | 0;
                     const offsetY: number = ((loc.length * 4 - scene.height2d) / 2) | 0;
                     scene.draw(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
-                }
-            } else if (shape === LocShape.WALL_DIAGONAL.id) {
-                let rgb: number = 0xeeeeee;
-                if (typecode > 0) {
-                    rgb = 0xee0000;
-                }
-
-                const dst: Int32Array = this.imageMinimap.pixels;
-                const offset: number = tileX * 4 + (CollisionConstants.SIZE - 1 - tileZ) * 512 * 4 + 24624;
-
-                if (angle === LocAngle.WEST || angle === LocAngle.EAST) {
-                    dst[offset + 1536] = rgb;
-                    dst[offset + 1024 + 1] = rgb;
-                    dst[offset + 512 + 2] = rgb;
-                    dst[offset + 3] = rgb;
-                } else {
-                    dst[offset] = rgb;
-                    dst[offset + 512 + 1] = rgb;
-                    dst[offset + 1024 + 2] = rgb;
-                    dst[offset + 1536 + 3] = rgb;
                 }
             }
         }
@@ -7187,17 +7190,18 @@ export class Client extends GameShell {
             }
 
             if (player && this.levelHeightmap) {
-                this.appendLoc(start + this.loopCycle, -1, angle, layer, z, shape, this.currentLevel, x, end + this.loopCycle);
-
-                const y0: number = this.levelHeightmap[this.currentLevel][x][z];
-                const y1: number = this.levelHeightmap[this.currentLevel][x + 1][z];
-                const y2: number = this.levelHeightmap[this.currentLevel][x + 1][z + 1];
-                const y3: number = this.levelHeightmap[this.currentLevel][x][z + 1];
                 const loc: LocType = LocType.get(id);
+
+                const heightSW: number = this.levelHeightmap[this.currentLevel][x][z];
+                const heightSE: number = this.levelHeightmap[this.currentLevel][x + 1][z];
+                const heightNE: number = this.levelHeightmap[this.currentLevel][x + 1][z + 1];
+                const heightNW: number = this.levelHeightmap[this.currentLevel][x][z + 1];
+
+                this.appendLoc(start + this.loopCycle, -1, angle, layer, z, shape, this.currentLevel, x, end + this.loopCycle);
 
                 player.locStartCycle = start + this.loopCycle;
                 player.locStopCycle = end + this.loopCycle;
-                player.locModel = loc.getModel(shape, angle, y0, y1, y2, y3, -1);
+                player.locModel = loc.getModel(shape, angle, heightSW, heightSE, heightNE, heightNW, -1);
 
                 let width: number = loc.width;
                 let height: number = loc.length;
