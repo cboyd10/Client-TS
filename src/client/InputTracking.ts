@@ -57,7 +57,7 @@ export default class InputTracking {
         }
     }
 
-    static mousePressed(x: number, y: number, button: number): void {
+    static mousePressed(x: number, y: number, button: number, _pointerType: string): void {
         if (!this.outBuffer) {
             return;
         }
@@ -87,7 +87,7 @@ export default class InputTracking {
         this.outBuffer.p3(x + (y << 10));
     }
 
-    static mouseReleased(button: number): void {
+    static mouseReleased(button: number, _pointerType: string): void {
         if (!this.outBuffer) {
             return;
         }
@@ -116,7 +116,7 @@ export default class InputTracking {
         this.outBuffer.p1(delta);
     }
 
-    static mouseMoved(x: number, y: number): void {
+    static mouseMoved(x: number, y: number, _pointerType: string): void {
         if (!this.outBuffer) {
             return;
         }
@@ -254,6 +254,7 @@ export default class InputTracking {
         }
 
         this.lastTime = now;
+
         this.ensureCapacity(2);
         this.outBuffer.p1(10);
         this.outBuffer.p1(delta);
@@ -277,6 +278,7 @@ export default class InputTracking {
         }
 
         this.lastTime = now;
+
         this.ensureCapacity(2);
         this.outBuffer.p1(11);
         this.outBuffer.p1(delta);
@@ -300,6 +302,7 @@ export default class InputTracking {
         }
 
         this.lastTime = now;
+
         this.ensureCapacity(2);
         this.outBuffer.p1(12);
         this.outBuffer.p1(delta);
@@ -323,6 +326,7 @@ export default class InputTracking {
         }
 
         this.lastTime = now;
+
         this.ensureCapacity(2);
         this.outBuffer.p1(13);
         this.outBuffer.p1(delta);

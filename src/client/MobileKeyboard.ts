@@ -102,17 +102,17 @@ class MobileKeyboard {
         }
     }
 
-    public show(originX?: number, originY?: number) {
+    public show(originX?: number, originY?: number, clientX?: number, clientY?: number) {
         if (this.mode === UserKeyboardMode.Hybrid) {
             if (isFullScreen()) {
-                this.canvasKeyboard.show();
+                this.canvasKeyboard.show(originX, originY);
             } else {
-                this.nativeKeyboard.show();
+                this.nativeKeyboard.show(clientX ?? originX, clientY ?? originY);
             }
         } else if (this.mode === UserKeyboardMode.Canvas) {
             this.canvasKeyboard.show(originX, originY);
         } else if (this.mode === UserKeyboardMode.Native) {
-            this.nativeKeyboard.show(originX, originY);
+            this.nativeKeyboard.show(clientX ?? originX, clientY ?? originY);
         }
     }
 
@@ -169,7 +169,7 @@ class CanvasMobileKeyboard implements Keyboard {
     private height: number = (HEIGHT_PER_KEYBOX * 4) + 10;
     private width: number = (WIDTH_PER_KEYBOX * 10 + 10);
     private startX: number = 0;
-    private startY: number = 532 - this.height;
+    private startY: number = 503 - this.height;
     private mode: KeyboardMode = KeyboardMode.Regular;
     private animateBoxIndex: number = -1;
     private animateBoxTimeout: number = 0;

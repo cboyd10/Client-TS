@@ -1064,6 +1064,7 @@ export class Client extends GameShell {
                     await this.drawProgress(progress, `Error loading - Will retry in ${i} secs.`);
                     await sleep(1000);
                 }
+
                 retry *= 2;
                 if (retry > 60) {
                     retry = 60;
@@ -1487,6 +1488,8 @@ export class Client extends GameShell {
         }
 
         if (this.ingame) {
+            this.updateSceneState();
+            this.updateLocChanges();
             await this.updateAudio();
 
             const tracking: Packet | null = InputTracking.flush();
@@ -1496,9 +1499,6 @@ export class Client extends GameShell {
                 this.out.pdata(tracking.data, tracking.pos, 0);
                 tracking.release();
             }
-
-            this.updateSceneState();
-            this.updateLocChanges();
 
             this.idleNetCycles++;
             if (this.idleNetCycles > 250) {
@@ -1623,10 +1623,14 @@ export class Client extends GameShell {
                 this.mouseClickButton = 0;
             }
 
-            await this.handleMouseInput();
-            this.handleMinimapInput();
-            this.handleTabInput();
-            this.handleChatModeInput();
+            const checkClickInput = !this.isMobile || (this.isMobile && !MobileKeyboard.isWithinCanvasKeyboard(this.mouseClickX, this.mouseClickY));
+
+            if (checkClickInput) {
+                this.handleMouseInput();
+                this.handleMinimapInput();
+                this.handleTabInput();
+                this.handleChatModeInput();
+            }
 
             if (this.mouseButton === 1 || this.mouseClickButton === 1) {
                 this.dragCycles++;
@@ -1793,7 +1797,7 @@ export class Client extends GameShell {
             return -1000;
         }
 
-        for (let i: number = 0; i < this.sceneMapLandReady.length; i++) {
+        for (let i = 0; i < this.sceneMapLandReady.length; i++) {
             if (this.sceneMapLandReady[i] === false) {
                 return -1;
             }
@@ -2498,6 +2502,10 @@ export class Client extends GameShell {
 
     private async handleMouseInput(): Promise<void> {
         if (this.objDragArea !== 0) {
+            return;
+        }
+
+        if (this.isMobile && this.chatbackInputOpen && this.insideChatPopupArea()) {
             return;
         }
 
@@ -4357,7 +4365,7 @@ export class Client extends GameShell {
 
             if (!player.locModel || this.loopCycle < player.locStartCycle || this.loopCycle >= player.locStopCycle) {
                 if ((player.x & 0x7f) === 64 && (player.z & 0x7f) === 64) {
-                    if (this.tileLastOccupiedCycle[stx][stz] === this.sceneCycle) {
+                    if (this.tileLastOccupiedCycle[stx][stz] == this.sceneCycle) {
                         continue;
                     }
 
