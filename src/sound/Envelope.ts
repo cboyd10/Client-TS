@@ -4,6 +4,7 @@ export default class Envelope {
     private length: number = 0;
     private shapeDelta: Int32Array | null = null;
     private shapePeak: Int32Array | null = null;
+
     start: number = 0;
     end: number = 0;
     form: number = 0;
@@ -13,7 +14,7 @@ export default class Envelope {
     private amplitude: number = 0;
     private ticks: number = 0;
 
-    unpack(dat: Packet): void {
+    load(dat: Packet): void {
         this.form = dat.g1();
         this.start = dat.g4();
         this.end = dat.g4();
@@ -28,7 +29,7 @@ export default class Envelope {
         }
     }
 
-    reset(): void {
+    genInit(): void {
         this.threshold = 0;
         this.position = 0;
         this.delta = 0;
@@ -36,7 +37,7 @@ export default class Envelope {
         this.ticks = 0;
     }
 
-    evaluate(delta: number): number {
+    genNext(delta: number): number {
         if (this.ticks >= this.threshold && this.shapePeak && this.shapeDelta) {
             this.amplitude = this.shapePeak[this.position++] << 15;
 

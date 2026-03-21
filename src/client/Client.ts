@@ -66,7 +66,7 @@ import { ServerProt, ServerProtSizes } from '#/io/ServerProt.js';
 import WordFilter from '#/wordenc/WordFilter.js';
 import WordPack from '#/wordenc/WordPack.js';
 
-import Wave from '#/sound/Wave.js';
+import JagFX from '#/sound/JagFX.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
 
 const enum Constants {
@@ -809,7 +809,7 @@ export class Client extends GameShell {
 
             if (!Client.lowMemory) {
                 await this.drawProgress(90, 'Unpacking sounds');
-                Wave.unpack(jagSounds);
+                JagFX.init(jagSounds);
             }
 
             await this.drawProgress(92, 'Unpacking interfaces');
@@ -2075,7 +2075,7 @@ export class Client extends GameShell {
         for (let wave: number = 0; wave < this.waveCount; wave++) {
             if (this.waveDelay[wave] <= 0) {
                 try {
-                    const buf: Packet | null = Wave.generate(this.waveIds[wave], this.waveLoops[wave]);
+                    const buf: Packet | null = JagFX.generate(this.waveIds[wave], this.waveLoops[wave]);
                     if (!buf) {
                         throw new Error();
                     }
@@ -6927,7 +6927,7 @@ export class Client extends GameShell {
                 if (this.waveEnabled && !Client.lowMemory && this.waveCount < 50) {
                     this.waveIds[this.waveCount] = id;
                     this.waveLoops[this.waveCount] = loop;
-                    this.waveDelay[this.waveCount] = delay + Wave.delays[id];
+                    this.waveDelay[this.waveCount] = delay + JagFX.delays[id];
                     this.waveCount++;
                 }
 
