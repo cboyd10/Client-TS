@@ -6,7 +6,7 @@ import Pix3D from '#/graphics/Pix3D.js';
 import Jagfile from '#/io/Jagfile.js';
 import Packet from '#/io/Packet.js';
 
-import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
+import Linkable2 from '#/datastruct/Linkable2.js';
 
 import { Int32Array2d, TypedArray1d } from '#/util/Arrays.js';
 import VertexNormal from '#/dash3d/VertexNormal.js';
@@ -69,7 +69,7 @@ type ModelType = {
     vertexNormalOriginal?: (VertexNormal | null)[] | null;
 };
 
-export default class Model extends DoublyLinkable {
+export default class Model extends Linkable2 {
     static head: Packet | null = null;
     static face1: Packet | null = null;
     static face2: Packet | null = null;

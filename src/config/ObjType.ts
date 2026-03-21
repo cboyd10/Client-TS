@@ -18,8 +18,8 @@ export default class ObjType {
     static recent: (ObjType | null)[] | null = null;
     static recentPos: number = 0;
     static memServer: boolean = true;
-    static modelCache: LruCache | null = new LruCache(50);
-    static spriteCache: LruCache | null = new LruCache(200);
+    static modelCache: LruCache<Model> | null = new LruCache(50);
+    static spriteCache: LruCache<Pix32> | null = new LruCache(200);
 
     id: number = -1;
 
@@ -290,7 +290,7 @@ export default class ObjType {
         }
 
         if (ObjType.modelCache) {
-            const model: Model | null = ObjType.modelCache.get(BigInt(this.id)) as Model | null;
+            const model: Model | null = ObjType.modelCache.find(BigInt(this.id)) as Model | null;
             if (model) {
                 return model;
             }
@@ -311,7 +311,7 @@ export default class ObjType {
 
     static getSprite(id: number, count: number): Pix32 {
         if (ObjType.spriteCache) {
-            let icon: Pix32 | null = ObjType.spriteCache.get(BigInt(id)) as Pix32 | null;
+            let icon: Pix32 | null = ObjType.spriteCache.find(BigInt(id)) as Pix32 | null;
 
             if (icon && icon.height !== count && icon.height !== -1) {
                 icon.unlink();

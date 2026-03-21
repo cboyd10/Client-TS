@@ -1,19 +1,19 @@
-import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
+import Linkable2 from '#/datastruct/Linkable2.js';
 import LinkList from '#/datastruct/LinkList.js';
 
 import Isaac from '#/io/Isaac.js';
 
 import { bigIntModPow, bigIntToBytes, bytesToBigInt } from '#/util/JsUtil.js';
 
-export default class Packet extends DoublyLinkable {
+export default class Packet extends Linkable2 {
     private static readonly CRC32_POLYNOMIAL: number = 0xedb88320;
 
     private static readonly crctable: Int32Array = new Int32Array(256);
     private static readonly bitmask: Uint32Array = new Uint32Array(33);
 
-    private static readonly cacheMin: LinkList = new LinkList();
-    private static readonly cacheMid: LinkList = new LinkList();
-    private static readonly cacheMax: LinkList = new LinkList();
+    private static readonly cacheMin: LinkList<Packet> = new LinkList();
+    private static readonly cacheMid: LinkList<Packet> = new LinkList();
+    private static readonly cacheMax: LinkList<Packet> = new LinkList();
 
     private static cacheMinCount: number = 0;
     private static cacheMidCount: number = 0;
@@ -89,13 +89,13 @@ export default class Packet extends DoublyLinkable {
         let cached: Packet | null = null;
         if (type === 0 && Packet.cacheMinCount > 0) {
             Packet.cacheMinCount--;
-            cached = Packet.cacheMin.pop() as Packet | null;
+            cached = Packet.cacheMin.popFront() as Packet | null;
         } else if (type === 1 && Packet.cacheMidCount > 0) {
             Packet.cacheMidCount--;
-            cached = Packet.cacheMid.pop() as Packet | null;
+            cached = Packet.cacheMid.popFront() as Packet | null;
         } else if (type === 2 && Packet.cacheMaxCount > 0) {
             Packet.cacheMaxCount--;
-            cached = Packet.cacheMax.pop() as Packet | null;
+            cached = Packet.cacheMax.popFront() as Packet | null;
         }
 
         if (cached) {

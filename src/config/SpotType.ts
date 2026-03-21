@@ -10,7 +10,7 @@ import Packet from '#/io/Packet.js';
 export default class SpotType {
     static numDefinitions: number = 0;
     static list: SpotType[] = [];
-    static modelCache: LruCache | null = new LruCache(30);
+    static modelCache: LruCache<Model> | null = new LruCache(30);
 
     id: number = 0;
 
@@ -83,7 +83,7 @@ export default class SpotType {
         let model: Model | null = null;
 
         if (SpotType.modelCache) {
-            model = SpotType.modelCache.get(BigInt(this.id)) as Model | null;
+            model = SpotType.modelCache.find(BigInt(this.id)) as Model | null;
 
             if (model) {
                 return model;

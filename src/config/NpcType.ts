@@ -13,7 +13,7 @@ export default class NpcType {
     static dat: Packet | null = null;
     static recent: (NpcType | null)[] | null = null;
     static recentPos: number = 0;
-    static modelCache: LruCache | null = new LruCache(30);
+    static modelCache: LruCache<Model> | null = new LruCache(30);
 
     id: number = -1;
 
@@ -154,7 +154,7 @@ export default class NpcType {
         let model: Model | null = null;
 
         if (NpcType.modelCache) {
-            model = NpcType.modelCache.get(BigInt(this.id)) as Model | null;
+            model = NpcType.modelCache.find(BigInt(this.id)) as Model | null;
 
             if (!model && this.model) {
                 const models: (Model | null)[] = new TypedArray1d(this.model.length, null);

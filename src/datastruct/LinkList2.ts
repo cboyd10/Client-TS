@@ -1,15 +1,15 @@
-import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
+import Linkable2 from '#/datastruct/Linkable2.js';
 
-export default class DoublyLinkList {
-    readonly sentinel: DoublyLinkable = new DoublyLinkable();
-    cursor: DoublyLinkable | null = null;
+export default class LinkList2<T extends Linkable2> {
+    readonly sentinel: Linkable2 = new Linkable2();
+    cursor: Linkable2 | null = null;
 
     constructor() {
         this.sentinel.next2 = this.sentinel;
         this.sentinel.prev2 = this.sentinel;
     }
 
-    push(node: DoublyLinkable): void {
+    push(node: T): void {
         if (node.prev2) {
             node.unlink2();
         }
@@ -22,8 +22,8 @@ export default class DoublyLinkList {
         node.next2.prev2 = node;
     }
 
-    pop(): DoublyLinkable | null {
-        const node: DoublyLinkable | null = this.sentinel.next2;
+    popFront(): T | null {
+        const node: T | null = this.sentinel.next2 as T | null;
         if (node === this.sentinel) {
             return null;
         } else {
@@ -33,24 +33,24 @@ export default class DoublyLinkList {
     }
 
     head() {
-        const node: DoublyLinkable | null = this.sentinel.next2;
+        const node: T | null = this.sentinel.next2 as T | null;
         if (node === this.sentinel) {
             this.cursor = null;
             return null;
         }
 
-        this.cursor = node?.next2 || null;
+        this.cursor = node?.next2 ?? null;
         return node;
     }
 
     next() {
-        const node: DoublyLinkable | null = this.cursor;
+        const node: T | null = this.cursor as T | null;
         if (node === this.sentinel) {
             this.cursor = null;
             return null;
         }
 
-        this.cursor = node?.next2 || null;
+        this.cursor = node?.next2 ?? null;
         return node;
     }
 

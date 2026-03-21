@@ -65,8 +65,8 @@ export default class Component {
     targetText: string | null = null;
     targetMask: number = -1;
     option: string | null = null;
-    static imageCache: LruCache | null = null;
-    static modelCache: LruCache | null = null;
+    static imageCache: LruCache<Pix32> | null = null;
+    static modelCache: LruCache<Model> | null = null;
     marginX: number = 0;
     marginY: number = 0;
     colour: number = 0;
@@ -330,7 +330,7 @@ export default class Component {
     private static getImage(media: Jagfile, sprite: string, spriteId: number): Pix32 | null {
         const uid: bigint = (JString.hashCode(sprite) << 8n) | BigInt(spriteId);
         if (this.imageCache) {
-            const image: Pix32 | null = this.imageCache.get(uid) as Pix32 | null;
+            const image: Pix32 | null = this.imageCache.find(uid) as Pix32 | null;
             if (image) {
                 return image;
             }
@@ -348,7 +348,7 @@ export default class Component {
 
     private static getModel(id: number): Model {
         if (this.modelCache) {
-            const model: Model | null = this.modelCache.get(BigInt(id)) as Model | null;
+            const model: Model | null = this.modelCache.find(BigInt(id)) as Model | null;
             if (model) {
                 return model;
             }

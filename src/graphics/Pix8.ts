@@ -1,4 +1,4 @@
-import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
+import Linkable2 from '#/datastruct/Linkable2.js';
 
 import Pix2D from '#/graphics/Pix2D.js';
 
@@ -6,7 +6,7 @@ import Jagfile from '#/io/Jagfile.js';
 import Packet from '#/io/Packet.js';
 
 // identical to Pix24 except the image is indexed by a palette
-export default class Pix8 extends DoublyLinkable {
+export default class Pix8 extends Linkable2 {
     pixels: Int8Array;
     width2d: number;
     height2d: number;

@@ -202,7 +202,7 @@ export default class ClientPlayer extends ClientEntity {
     combatLevel: number = 0;
     hash: bigint = 0n;
     lowMemory: boolean = false;
-    static modelCache: LruCache | null = new LruCache(200);
+    static modelCache: LruCache<Model> | null = new LruCache(200);
     y: number = 0;
     locStartCycle: number = 0;
     locStopCycle: number = 0;
@@ -274,7 +274,7 @@ export default class ClientPlayer extends ClientEntity {
             this.runanim = -1;
         }
 
-        this.name = JString.formatName(JString.fromBase37(buf.g8()));
+        this.name = JString.toScreenName(JString.toRawUsername(buf.g8()));
         this.combatLevel = buf.g1();
         this.visible = true;
 
@@ -409,7 +409,7 @@ export default class ClientPlayer extends ClientEntity {
             }
         }
 
-        let model: Model | null = ClientPlayer.modelCache?.get(hashCode) as Model | null;
+        let model: Model | null = ClientPlayer.modelCache?.find(hashCode) as Model | null;
         if (!model) {
             const models: (Model | null)[] = new TypedArray1d(12, null);
             let modelCount: number = 0;

@@ -1,4 +1,4 @@
-import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
+import Linkable2 from '#/datastruct/Linkable2.js';
 
 import { Colors } from '#/graphics/Colors.js';
 import Pix2D from '#/graphics/Pix2D.js';
@@ -8,7 +8,7 @@ import Packet from '#/io/Packet.js';
 
 import JavaRandom from '#/util/JavaRandom.js';
 
-export default class PixFont extends DoublyLinkable {
+export default class PixFont extends Linkable2 {
     static readonly CHARSET: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!"£$%^&*()-_=+[{]};:\'@#~,<.>/?\\| ';
     static readonly CHARCODESET: number[] = [];
 

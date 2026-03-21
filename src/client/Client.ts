@@ -423,11 +423,11 @@ export class Client extends GameShell {
     private npcs: (ClientNpc | null)[] = new TypedArray1d(8192, null);
     private npcCount: number = 0;
     private npcIds: Int32Array = new Int32Array(8192);
-    private projectiles: LinkList = new LinkList();
-    private spotanims: LinkList = new LinkList();
-    private objStacks: (LinkList | null)[][][] = new TypedArray3d(CollisionConstants.LEVELS, CollisionConstants.SIZE, CollisionConstants.SIZE, null);
-    private locChanges: LinkList = new LinkList();
-    private locList: LinkList = new LinkList();
+    private projectiles: LinkList<ClientProj> = new LinkList();
+    private spotanims: LinkList<MapSpotAnim> = new LinkList();
+    private objStacks: (LinkList<ClientObj> | null)[][][] = new TypedArray3d(CollisionConstants.LEVELS, CollisionConstants.SIZE, CollisionConstants.SIZE, null);
+    private locChanges: LinkList<LocChange> = new LinkList();
+    private locList: LinkList<ClientLocAnim> = new LinkList();
 
     // bfs pathfinder
     private bfsStepX: Int32Array = new Int32Array(4000);
@@ -2436,7 +2436,7 @@ export class Client extends GameShell {
                     this.addPlayerOptions(player, typeId, x, z);
                 }
             } else if (entityType === 3) {
-                const objs: LinkList | null = this.objStacks[this.currentLevel][x][z];
+                const objs: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][x][z];
                 if (!objs) {
                     continue;
                 }
@@ -3070,12 +3070,12 @@ export class Client extends GameShell {
 
                             let username: bigint;
                             if (this.socialInputType === 1) {
-                                username = JString.toBase37(this.socialInput);
+                                username = JString.toUserhash(this.socialInput);
                                 this.addFriend(username);
                             }
 
                             if (this.socialInputType === 2 && this.friendCount > 0) {
-                                username = JString.toBase37(this.socialInput);
+                                username = JString.toUserhash(this.socialInput);
                                 this.removeFriend(username);
                             }
 
@@ -3090,7 +3090,7 @@ export class Client extends GameShell {
 
                                 this.socialInput = JString.toSentenceCase(this.socialInput);
                                 this.socialInput = WordFilter.filter(this.socialInput);
-                                this.addMessage(6, this.socialInput, JString.formatName(JString.fromBase37(this.socialName37)));
+                                this.addMessage(6, this.socialInput, JString.toScreenName(JString.toRawUsername(this.socialName37)));
 
                                 if (this.chatPrivateMode === 2) {
                                     this.chatPrivateMode = 1;
@@ -3104,12 +3104,12 @@ export class Client extends GameShell {
                             }
 
                             if (this.socialInputType === 4 && this.ignoreCount < 100) {
-                                username = JString.toBase37(this.socialInput);
+                                username = JString.toUserhash(this.socialInput);
                                 this.addIgnore(username);
                             }
 
                             if (this.socialInputType === 5 && this.ignoreCount > 0) {
-                                username = JString.toBase37(this.socialInput);
+                                username = JString.toUserhash(this.socialInput);
                                 this.removeIgnore(username);
                             }
                         }
@@ -3887,7 +3887,7 @@ export class Client extends GameShell {
             this.fontBold12?.drawStringTaggable(w / 2 - 90, y, `Username: ${this.username}${this.titleLoginField === 0 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggable(w / 2 - 88, y, `Password: ${JString.toAsterisks(this.password)}${this.titleLoginField === 1 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
+            this.fontBold12?.drawStringTaggable(w / 2 - 88, y, `Password: ${JString.getRepeatedCharacter(this.password)}${this.titleLoginField === 1 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
             y += 15;
 
             x = ((w / 2) | 0) - 80;
@@ -6241,7 +6241,7 @@ export class Client extends GameShell {
 
                 if (message.endsWith(':tradereq:')) {
                     const player: string = message.substring(0, message.indexOf(':'));
-                    const username = JString.toBase37(player);
+                    const username = JString.toUserhash(player);
 
                     let ignored: boolean = false;
                     for (let i: number = 0; i < this.ignoreCount; i++) {
@@ -6256,7 +6256,7 @@ export class Client extends GameShell {
                     }
                 } else if (message.endsWith(':duelreq:')) {
                     const player: string = message.substring(0, message.indexOf(':'));
-                    const username = JString.toBase37(player);
+                    const username = JString.toUserhash(player);
 
                     let ignored: boolean = false;
                     for (let i: number = 0; i < this.ignoreCount; i++) {
@@ -6329,9 +6329,9 @@ export class Client extends GameShell {
                         const filtered: string = WordFilter.filter(uncompressed);
 
                         if (staffModLevel > 1) {
-                            this.addMessage(7, filtered, JString.formatName(JString.fromBase37(from)));
+                            this.addMessage(7, filtered, JString.toScreenName(JString.toRawUsername(from)));
                         } else {
-                            this.addMessage(3, filtered, JString.formatName(JString.fromBase37(from)));
+                            this.addMessage(3, filtered, JString.toScreenName(JString.toRawUsername(from)));
                         }
                     } catch (e) {
                         // signlink.reporterror('cde1'); TODO?
@@ -6346,7 +6346,7 @@ export class Client extends GameShell {
                 const username: bigint = this.in.g8();
                 const world: number = this.in.g1();
 
-                let displayName: string | null = JString.formatName(JString.fromBase37(username));
+                let displayName: string | null = JString.toScreenName(JString.toRawUsername(username));
                 for (let i: number = 0; i < this.friendCount; i++) {
                     if (username === this.friendName37[i]) {
                         if (this.friendWorld[i] !== world) {
@@ -7111,7 +7111,7 @@ export class Client extends GameShell {
             const id: number = buf.g2();
 
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
-                const list: LinkList | null = this.objStacks[this.currentLevel][x][z];
+                const list: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][x][z];
                 if (list) {
                     for (let obj: ClientObj | null = list.head() as ClientObj | null; obj; obj = list.next() as ClientObj | null) {
                         if (obj.index === (id & 0x7fff)) {
@@ -7246,7 +7246,7 @@ export class Client extends GameShell {
             const newCount: number = buf.g2();
 
             if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
-                const list: LinkList | null = this.objStacks[this.currentLevel][x][z];
+                const list: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][x][z];
                 if (list) {
                     for (let obj: ClientObj | null = list.head() as ClientObj | null; obj; obj = list.next() as ClientObj | null) {
                         if (obj.index === (id & 0x7fff) && obj.count === oldCount) {
@@ -7392,7 +7392,7 @@ export class Client extends GameShell {
     }
 
     private sortObjStacks(x: number, z: number): void {
-        const objStacks: LinkList | null = this.objStacks[this.currentLevel][x][z];
+        const objStacks: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][x][z];
         if (!objStacks) {
             this.scene?.removeGroundObject(this.currentLevel, x, z);
             return;
@@ -7419,7 +7419,7 @@ export class Client extends GameShell {
             return; // custom
         }
 
-        objStacks.addHead(topObj);
+        objStacks.pushFront(topObj);
 
         let bottomObjId: number = -1;
         let middleObjId: number = -1;
@@ -7734,7 +7734,7 @@ export class Client extends GameShell {
             const start: number = buf.pos;
 
             if (player.name) {
-                const username: bigint = JString.toBase37(player.name);
+                const username: bigint = JString.toUserhash(player.name);
                 let ignored: boolean = false;
 
                 if (type <= 1) {
@@ -8468,7 +8468,7 @@ export class Client extends GameShell {
 
             if (tag !== -1) {
                 option = option.substring(tag + 5).trim();
-                const name: string = JString.formatName(JString.fromBase37(JString.toBase37(option)));
+                const name: string = JString.toScreenName(JString.toRawUsername(JString.toUserhash(option)));
                 let found: boolean = false;
 
                 for (let i: number = 0; i < this.playerCount; i++) {
@@ -8828,7 +8828,7 @@ export class Client extends GameShell {
             const tag: number = option.indexOf('@whi@');
 
             if (tag !== -1) {
-                const username: bigint = JString.toBase37(option.substring(tag + 5).trim());
+                const username: bigint = JString.toUserhash(option.substring(tag + 5).trim());
                 if (action === 406) {
                     this.addFriend(username);
                 } else if (action === 436) {
@@ -8846,7 +8846,7 @@ export class Client extends GameShell {
             const tag: number = option.indexOf('@whi@');
 
             if (tag !== -1) {
-                const name37: bigint = JString.toBase37(option.substring(tag + 5).trim());
+                const name37: bigint = JString.toUserhash(option.substring(tag + 5).trim());
                 let friend: number = -1;
 
                 for (let i: number = 0; i < this.friendCount; i++) {
@@ -10014,7 +10014,7 @@ export class Client extends GameShell {
                 com.text = '';
                 com.buttonType = 0;
             } else {
-                com.text = JString.formatName(JString.fromBase37(this.ignoreName37[clientCode]));
+                com.text = JString.toScreenName(JString.toRawUsername(this.ignoreName37[clientCode]));
                 com.buttonType = 1;
             }
         } else if (clientCode === ClientCode.CC_IGNORES_SIZE) {
@@ -10274,7 +10274,7 @@ export class Client extends GameShell {
 
             if (this.reportAbuseInput.length > 0) {
                 this.out.p1isaac(ClientProt.REPORT_ABUSE);
-                this.out.p8(JString.toBase37(this.reportAbuseInput));
+                this.out.p8(JString.toUserhash(this.reportAbuseInput));
                 this.out.p1(clientCode - 601);
                 this.out.p1(this.reportAbuseMuteOption ? 1 : 0);
             }
@@ -10416,7 +10416,7 @@ export class Client extends GameShell {
 
             this.drawScrollbar(463, 0, this.chatScrollHeight - this.chatScrollOffset - 77, this.chatScrollHeight, 77);
 
-            font?.drawString(4, 90, JString.formatName(this.username) + ':', Colors.BLACK);
+            font?.drawString(4, 90, JString.toScreenName(this.username) + ':', Colors.BLACK);
             font?.drawString(font.stringWidth(this.username + ': ') + 6, 90, this.chatTyped + '*', Colors.BLUE);
 
             Pix2D.drawHorizontalLine(0, 77, Colors.BLACK, 479);
@@ -10456,7 +10456,7 @@ export class Client extends GameShell {
 
         for (let ltx: number = 0; ltx < CollisionConstants.SIZE; ltx++) {
             for (let ltz: number = 0; ltz < CollisionConstants.SIZE; ltz++) {
-                const stack: LinkList | null = this.objStacks[this.currentLevel][ltx][ltz];
+                const stack: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][ltx][ltz];
                 if (stack) {
                     anchorX = ltx * 4 + 2 - ((this.localPlayer.x / 32) | 0);
                     anchorY = ltz * 4 + 2 - ((this.localPlayer.z / 32) | 0);
@@ -10481,7 +10481,7 @@ export class Client extends GameShell {
                 anchorY = ((player.z / 32) | 0) - ((this.localPlayer.z / 32) | 0);
 
                 let friend: boolean = false;
-                const name37: bigint = JString.toBase37(player.name);
+                const name37: bigint = JString.toUserhash(player.name);
                 for (let j: number = 0; j < this.friendCount; j++) {
                     if (name37 === this.friendName37[j] && this.friendWorld[j] !== 0) {
                         friend = true;
@@ -10586,7 +10586,7 @@ export class Client extends GameShell {
             return;
         }
 
-        const displayName: string = JString.formatName(JString.fromBase37(username));
+        const displayName: string = JString.toScreenName(JString.toRawUsername(username));
         for (let i: number = 0; i < this.friendCount; i++) {
             if (this.friendName37[i] === username) {
                 this.addMessage(0, displayName + ' is already on your friend list', '');
@@ -10651,7 +10651,7 @@ export class Client extends GameShell {
             return;
         }
 
-        const displayName: string = JString.formatName(JString.fromBase37(username));
+        const displayName: string = JString.toScreenName(JString.toRawUsername(username));
         for (let i: number = 0; i < this.ignoreCount; i++) {
             if (this.ignoreName37[i] === username) {
                 this.addMessage(0, displayName + ' is already on your ignore list', '');

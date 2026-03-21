@@ -28,7 +28,7 @@ export default class World3D {
     static levelOccluderCount: Int32Array = new Int32Array(CollisionConstants.LEVELS);
     private static levelOccluders: (Occlude | null)[][] = new TypedArray2d(CollisionConstants.LEVELS, 500, null);
     private static activeOccluders: (Occlude | null)[] = new TypedArray1d(500, null);
-    private static drawTileQueue: LinkList = new LinkList();
+    private static drawTileQueue: LinkList<Square> = new LinkList();
 
     private static cycle: number = 0;
 
@@ -1436,7 +1436,7 @@ export default class World3D {
             let tile: Square | null;
 
             do {
-                tile = World3D.drawTileQueue.pop() as Square | null;
+                tile = World3D.drawTileQueue.popFront() as Square | null;
 
                 if (!tile) {
                     return;

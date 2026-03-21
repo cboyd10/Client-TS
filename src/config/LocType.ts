@@ -16,8 +16,8 @@ export default class LocType {
     static dat: Packet | null = null;
     static recent: (LocType | null)[] | null = null;
     static recentPos: number = 0;
-    static mc1: LruCache | null = new LruCache(500);
-    static mc2: LruCache | null = new LruCache(30);
+    static mc1: LruCache<Model> | null = new LruCache(500);
+    static mc2: LruCache<Model> | null = new LruCache(30);
 
     id: number = -1;
 
@@ -268,7 +268,7 @@ export default class LocType {
             typecode = 0L;
         }*/
 
-        let cached: Model | null = LocType.mc2?.get(typecode) as Model | null;
+        let cached: Model | null = LocType.mc2?.find(typecode) as Model | null;
         if (cached) {
             /*if (reset) {
                 return cached;
@@ -316,7 +316,7 @@ export default class LocType {
             modelId += 65536;
         }
 
-        let model: Model | null = LocType.mc1?.get(BigInt(modelId)) as Model | null;
+        let model: Model | null = LocType.mc1?.find(BigInt(modelId)) as Model | null;
         if (!model) {
             model = Model.get(modelId & 0xffff);
             if (flip) {

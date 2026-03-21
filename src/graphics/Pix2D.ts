@@ -1,6 +1,6 @@
-import DoublyLinkable from '#/datastruct/DoublyLinkable.js';
+import Linkable2 from '#/datastruct/Linkable2.js';
 
-export default class Pix2D extends DoublyLinkable {
+export default class Pix2D extends Linkable2 {
     static pixels: Int32Array = new Int32Array();
 
     static width2d: number = 0;
