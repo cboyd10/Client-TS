@@ -299,7 +299,7 @@ export default class ClientPlayer extends ClientEntity {
         this.hash += BigInt(this.gender);
     }
 
-    getModel(loopCycle: number): Model | null {
+    override getModel(loopCycle: number): Model | null {
         if (!this.visible) {
             return null;
         }

@@ -43,7 +43,7 @@ export default class MapSpotAnim extends ModelSource {
         }
     }
 
-    getModel(): Model {
+    override getModel(): Model {
         const tmp: Model = this.spotType.getTempModel2();
         const model: Model = Model.modelShareColored(tmp, true, !this.spotType.animateTransparencies, false);
         if (!this.seqComplete && this.spotType.seq && this.spotType.seq.frames) {

@@ -1,4 +1,4 @@
-import { BZip2 } from '#3rdparty/deps.js';
+import BZip2 from '#3rdparty/bzip2-wasm.js';
 
 import Packet from '#/io/Packet.js';
 

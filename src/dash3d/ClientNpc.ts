@@ -19,7 +19,7 @@ export const enum NpcUpdate {
 export default class ClientNpc extends ClientEntity {
     type: NpcType | null = null;
 
-    getModel(_loopCycle: number): Model | null {
+    override getModel(_loopCycle: number): Model | null {
         if (this.type == null) {
             return null;
         }

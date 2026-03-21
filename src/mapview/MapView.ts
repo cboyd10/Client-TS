@@ -184,7 +184,7 @@ export class MapView extends GameShell {
         this.run();
     }
 
-    async load(): Promise<void> {
+    override async load(): Promise<void> {
         this.keyHeight = this.height - this.keyY - 20;
         this.overviewX = this.width - this.imageOverviewWidth - 5;
         this.overviewY = this.height - this.imageOverviewHeight - 20;
@@ -280,7 +280,7 @@ export class MapView extends GameShell {
         }
     }
 
-    async draw(): Promise<void> {
+    override async draw(): Promise<void> {
         if (this.redraw) {
             this.redraw = false;
             this.redrawTimer = 0;
@@ -391,11 +391,11 @@ export class MapView extends GameShell {
         }
     }
 
-    refresh() {
+    override refresh() {
         this.redrawTimer = 0;
     }
 
-    async update(): Promise<void> {
+    override async update(): Promise<void> {
         if (this.actionKey[1] == 1) {
             this.offsetX = (this.offsetX - 16.0 / this.zoom) | 0;
             this.redraw = true;

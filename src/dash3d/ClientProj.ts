@@ -89,7 +89,7 @@ export default class ClientProj extends ModelSource {
         }
     }
 
-    getModel(): Model | null {
+    override getModel(): Model | null {
         const tmp: Model = this.spotanim.getTempModel2();
         const model: Model = Model.modelShareColored(tmp, true, !this.spotanim.animateTransparencies, false);
 

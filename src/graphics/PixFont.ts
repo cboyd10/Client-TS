@@ -19,7 +19,7 @@ export default class PixFont extends Linkable2 {
     readonly charOffsetY: Int32Array = new Int32Array(94);
     readonly charAdvance: Int32Array = new Int32Array(95);
     readonly drawWidth: Int32Array = new Int32Array(256);
-    private readonly random: JavaRandom = new JavaRandom(BigInt(Date.now()));
+    private readonly random: JavaRandom = new JavaRandom(Date.now());
 
     height2d: number = 0;
 
@@ -207,7 +207,7 @@ export default class PixFont extends Linkable2 {
         x |= 0;
         y |= 0;
 
-        this.random.setSeed(BigInt(seed));
+        this.random.setSeed(seed);
 
         const rand: number = (this.random.nextInt() & 0x1f) + 192;
         const offY: number = y - this.height2d;

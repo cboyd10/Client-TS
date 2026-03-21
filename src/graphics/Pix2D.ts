@@ -15,7 +15,7 @@ export default class Pix2D extends Linkable2 {
     static centerX2d: number = 0;
     static centerY2d: number = 0;
 
-    static bind(pixels: Int32Array, width: number, height: number): void {
+    static override bind(pixels: Int32Array, width: number, height: number): void {
         this.pixels = pixels;
         this.width2d = width;
         this.height2d = height;

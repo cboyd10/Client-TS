@@ -78,7 +78,7 @@ export default class World {
         return Number(((n1 * (n1 * n1 * 15731n + 789221n) + 1376312589n) & 0x7fffffffn) >> 19n) & 0xff;
     }
 
-    static addLoc(level: number, x: number, z: number, scene: World3D | null, levelHeightmap: Int32Array[][], locs: LinkList, collision: CollisionMap | null, locId: number, shape: number, angle: number, trueLevel: number): void {
+    static addLoc(level: number, x: number, z: number, scene: World3D | null, levelHeightmap: Int32Array[][], locs: LinkList<ClientLocAnim>, collision: CollisionMap | null, locId: number, shape: number, angle: number, trueLevel: number): void {
         const heightSW: number = levelHeightmap[trueLevel][x][z];
         const heightSE: number = levelHeightmap[trueLevel][x + 1][z];
         const heightNW: number = levelHeightmap[trueLevel][x + 1][z + 1];
@@ -825,7 +825,7 @@ export default class World {
         }
     }
 
-    loadLocations(scene: World3D | null, locs: LinkList, collision: (CollisionMap | null)[], src: Uint8Array, xOffset: number, zOffset: number): void {
+    loadLocations(scene: World3D | null, locs: LinkList<ClientLocAnim>, collision: (CollisionMap | null)[], src: Uint8Array, xOffset: number, zOffset: number): void {
         const buf: Packet = new Packet(src);
         let locId: number = -1;
 
@@ -874,7 +874,7 @@ export default class World {
         }
     }
 
-    private addLoc(level: number, x: number, z: number, scene: World3D | null, locs: LinkList, collision: CollisionMap | null, locId: number, shape: number, angle: number): void {
+    private addLoc(level: number, x: number, z: number, scene: World3D | null, locs: LinkList<ClientLocAnim>, collision: CollisionMap | null, locId: number, shape: number, angle: number): void {
         if (World.lowMemory) {
             if ((this.flags[level][x][z] & 0x10) !== 0) {
                 return;

@@ -1,4 +1,6 @@
-import { playWave, setWaveVolume, BZip2, stopMidi, setMidiVolume, playMidi } from '#3rdparty/deps.js';
+import { playWave, setWaveVolume } from '#3rdparty/audio.js';
+import { stopMidi, setMidiVolume, playMidi } from '#3rdparty/tinymidipcm.js';
+import BZip2 from '#3rdparty/bzip2-wasm.js';
 
 import GameShell from '#/client/GameShell.js';
 import InputTracking from '#/client/InputTracking.js';
@@ -575,7 +577,7 @@ export class Client extends GameShell {
 
     // ----
 
-    async load() {
+    override async load() {
         if (this.isMobile && Client.lowMemory) {
             // force mobile on low detail mode to 30 fps
             this.setTargetedFramerate(30);
@@ -886,7 +888,7 @@ export class Client extends GameShell {
         }
     }
 
-    async update() {
+    override async update() {
         if (this.errorStarted || this.errorLoading || this.errorHost) {
             return;
         }
@@ -900,7 +902,7 @@ export class Client extends GameShell {
         }
     }
 
-    async draw() {
+    override async draw() {
         if (this.errorStarted || this.errorLoading || this.errorHost) {
             this.drawError();
             return;
@@ -915,13 +917,13 @@ export class Client extends GameShell {
         this.dragCycles = 0;
     }
 
-    refresh() {
+    override refresh() {
         this.redrawFrame = true;
     }
 
 	// ----
 
-    async drawProgress(percent: number, message: string): Promise<void> {
+    override async drawProgress(percent: number, message: string): Promise<void> {
         console.log(`${percent}%: ${message}`);
 
         await this.loadTitle();
