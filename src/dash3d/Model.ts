@@ -1902,12 +1902,12 @@ export default class Model extends Linkable2 {
 
         const midX: number = (relativeZ * sinEyeYaw + relativeX * cosEyeYaw) >> 16;
         let leftX: number = (midX - this.radius) << 9;
-        if (((leftX / maxZ) | 0) >= Pix2D.centerX2d) {
+        if (((leftX / maxZ) | 0) >= Pix2D.maxX) {
             return;
         }
 
         let rightX: number = (midX + this.radius) << 9;
-        if (((rightX / maxZ) | 0) <= -Pix2D.centerX2d) {
+        if (((rightX / maxZ) | 0) <= -Pix2D.maxX) {
             return;
         }
 
@@ -1915,13 +1915,13 @@ export default class Model extends Linkable2 {
         const radiusSinEyePitch: number = (this.radius * sinEyePitch) >> 16;
 
         let bottomY: number = (midY + radiusSinEyePitch) << 9;
-        if (((bottomY / maxZ) | 0) <= -Pix2D.centerY2d) {
+        if (((bottomY / maxZ) | 0) <= -Pix2D.maxY) {
             return;
         }
 
         const yPrime: number = radiusSinEyePitch + ((this.minY * cosEyePitch) >> 16);
         let topY: number = (midY - yPrime) << 9;
-        if (((topY / maxZ) | 0) >= Pix2D.centerY2d) {
+        if (((topY / maxZ) | 0) >= Pix2D.maxY) {
             return;
         }
 
@@ -2082,7 +2082,7 @@ export default class Model extends Linkable2 {
                         Model.faceNearClipped[f] = false;
                     }
                     if (Model.faceClippedX) {
-                        Model.faceClippedX[f] = xA < 0 || xB < 0 || xC < 0 || xA > Pix2D.boundX || xB > Pix2D.boundX || xC > Pix2D.boundX;
+                        Model.faceClippedX[f] = xA < 0 || xB < 0 || xC < 0 || xA > Pix2D.sizeX || xB > Pix2D.sizeX || xC > Pix2D.sizeX;
                     }
 
                     if (Model.tmpDepthFaces && Model.tmpDepthFaceCount) {
@@ -2486,7 +2486,7 @@ export default class Model extends Linkable2 {
         Pix3D.clipX = false;
 
         if (elements === 3) {
-            if (x0 < 0 || x1 < 0 || x2 < 0 || x0 > Pix2D.boundX || x1 > Pix2D.boundX || x2 > Pix2D.boundX) {
+            if (x0 < 0 || x1 < 0 || x2 < 0 || x0 > Pix2D.sizeX || x1 > Pix2D.sizeX || x2 > Pix2D.sizeX) {
                 Pix3D.clipX = true;
             }
 
@@ -2559,7 +2559,7 @@ export default class Model extends Linkable2 {
                 );
             }
         } else if (elements === 4) {
-            if (x0 < 0 || x1 < 0 || x2 < 0 || x0 > Pix2D.boundX || x1 > Pix2D.boundX || x2 > Pix2D.boundX || Model.clippedX[3] < 0 || Model.clippedX[3] > Pix2D.boundX) {
+            if (x0 < 0 || x1 < 0 || x2 < 0 || x0 > Pix2D.sizeX || x1 > Pix2D.sizeX || x2 > Pix2D.sizeX || Model.clippedX[3] < 0 || Model.clippedX[3] > Pix2D.sizeX) {
                 Pix3D.clipX = true;
             }
 

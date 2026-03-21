@@ -2048,7 +2048,7 @@ export default class World3D {
         Pix3D.alpha = 0;
 
         if ((py1 - px3) * (px1 - py3) - (pz1 - py3) * (pz0 - px3) > 0) {
-            Pix3D.clipX = py1 < 0 || px3 < 0 || pz0 < 0 || py1 > Pix2D.boundX || px3 > Pix2D.boundX || pz0 > Pix2D.boundX;
+            Pix3D.clipX = py1 < 0 || px3 < 0 || pz0 < 0 || py1 > Pix2D.sizeX || px3 > Pix2D.sizeX || pz0 > Pix2D.sizeX;
 
             if (World3D.takingInput && this.pointInsideTriangle(World3D.mouseX, World3D.mouseY, pz1, py3, px1, py1, px3, pz0)) {
                 World3D.clickTileX = tileX;
@@ -2073,7 +2073,7 @@ export default class World3D {
             return;
         }
 
-        Pix3D.clipX = px0 < 0 || pz0 < 0 || px3 < 0 || px0 > Pix2D.boundX || pz0 > Pix2D.boundX || px3 > Pix2D.boundX;
+        Pix3D.clipX = px0 < 0 || pz0 < 0 || px3 < 0 || px0 > Pix2D.sizeX || pz0 > Pix2D.sizeX || px3 > Pix2D.sizeX;
         if (World3D.takingInput && this.pointInsideTriangle(World3D.mouseX, World3D.mouseY, py0, px1, py3, px0, pz0, px3)) {
             World3D.clickTileX = tileX;
             World3D.clickTileZ = tileZ;
@@ -2136,7 +2136,7 @@ export default class World3D {
             const y2: number = Ground.tmpScreenY[c];
 
             if ((x0 - x1) * (y2 - y1) - (y0 - y1) * (x2 - x1) > 0) {
-                Pix3D.clipX = x0 < 0 || x1 < 0 || x2 < 0 || x0 > Pix2D.boundX || x1 > Pix2D.boundX || x2 > Pix2D.boundX;
+                Pix3D.clipX = x0 < 0 || x1 < 0 || x2 < 0 || x0 > Pix2D.sizeX || x1 > Pix2D.sizeX || x2 > Pix2D.sizeX;
 
                 if (World3D.takingInput && this.pointInsideTriangle(World3D.mouseX, World3D.mouseY, y0, y1, y2, x0, x1, x2)) {
                     World3D.clickTileX = tileX;

@@ -236,7 +236,7 @@ export class MapView extends GameShell {
 
         try {
             for (let i: number = 0; i < 50; i++) {
-                this.imageMapscene[i] = Pix8.fromArchive(worldmap, 'mapscene', i);
+                this.imageMapscene[i] = Pix8.depack(worldmap, 'mapscene', i);
             }
         } catch (ignore) {
             // empty
@@ -244,18 +244,18 @@ export class MapView extends GameShell {
 
         try {
             for (let i: number = 0; i < 50; i++) {
-                this.imageMapfunction[i] = Pix32.fromArchive(worldmap, 'mapfunction', i);
+                this.imageMapfunction[i] = Pix32.depack(worldmap, 'mapfunction', i);
             }
         } catch (ignore) {
             // empty
         }
 
-        this.imageMapdot0 = Pix32.fromArchive(worldmap, 'mapdots', 0);
-        this.imageMapdot1 = Pix32.fromArchive(worldmap, 'mapdots', 1);
-        this.imageMapdot2 = Pix32.fromArchive(worldmap, 'mapdots', 2);
-        this.imageMapdot3 = Pix32.fromArchive(worldmap, 'mapdots', 3);
+        this.imageMapdot0 = Pix32.depack(worldmap, 'mapdots', 0);
+        this.imageMapdot1 = Pix32.depack(worldmap, 'mapdots', 1);
+        this.imageMapdot2 = Pix32.depack(worldmap, 'mapdots', 2);
+        this.imageMapdot3 = Pix32.depack(worldmap, 'mapdots', 3);
 
-        this.b12 = PixFont.fromArchive(worldmap, 'b12');
+        this.b12 = PixFont.depack(worldmap, 'b12');
         // this.f11 = new WorldmapFont(11, true, this);
         // this.f12 = new WorldmapFont(12, true, this);
         // this.f14 = new WorldmapFont(14, true, this);
@@ -270,13 +270,13 @@ export class MapView extends GameShell {
         if (this.shouldClearEmptyTiles) this.clearEmptyTiles();
 
         this.imageOverview = new Pix32(this.imageOverviewWidth, this.imageOverviewHeight);
-        this.imageOverview.bind();
+        this.imageOverview.setPixels();
         this.drawMap(0, 0, this.sizeX, this.sizeZ, 0, 0, this.imageOverviewWidth, this.imageOverviewHeight);
         Pix2D.drawRect(0, 0, this.imageOverviewWidth, this.imageOverviewHeight, 0);
         Pix2D.drawRect(1, 1, this.imageOverviewWidth - 2, this.imageOverviewHeight - 2, this.colorInactiveBorderTL);
 
         if (this.drawArea) {
-            this.drawArea.bind();
+            this.drawArea.setPixels();
         }
     }
 
@@ -285,7 +285,7 @@ export class MapView extends GameShell {
             this.redraw = false;
             this.redrawTimer = 0;
 
-            Pix2D.clear();
+            Pix2D.cls();
 
             const left: number = this.offsetX - ((this.width / this.zoom) | 0);
             const top: number = this.offsetZ - ((this.height / this.zoom) | 0);
@@ -294,9 +294,9 @@ export class MapView extends GameShell {
             this.drawMap(left, top, right, bottom, 0, 0, this.width, this.height);
 
             if (this.showOverview) {
-                this.imageOverview?.blitOpaque(this.overviewX, this.overviewY);
+                this.imageOverview?.quickPlotSprite(this.overviewX, this.overviewY);
 
-                Pix2D.fillRectAlpha(
+                Pix2D.fillRectTrans(
                     (this.overviewX + (this.imageOverviewWidth * left) / this.sizeX) | 0,
                     (this.overviewY + (this.imageOverviewHeight * top) / this.sizeZ) | 0,
                     (((right - left) * this.imageOverviewWidth) / this.sizeX) | 0,
@@ -337,7 +337,7 @@ export class MapView extends GameShell {
                             continue;
                         }
 
-                        this.imageMapfunction[row + this.lastKeyPage].draw(this.keyX + 3, y);
+                        this.imageMapfunction[row + this.lastKeyPage].plotSprite(this.keyX + 3, y);
                         this.b12?.drawString(this.keyX + 21, y + 14, this.keyNames[row + this.lastKeyPage], 0);
 
                         let rgb: number = 0xffffff;
@@ -642,14 +642,14 @@ export class MapView extends GameShell {
         const widthPad: number = width - 2;
         const heightPad: number = height - 2;
 
-        Pix2D.fillRect2d(xPad, yPad, widthPad, heightPad, fillColor);
-        Pix2D.drawHorizontalLine(xPad, yPad, colorBorderTL, widthPad);
-        Pix2D.drawVerticalLine(xPad, yPad, colorBorderTL, heightPad);
-        Pix2D.drawHorizontalLine(xPad, yPad + heightPad - 1, colorBorderBR, widthPad);
-        Pix2D.drawVerticalLine(xPad + widthPad - 1, yPad, colorBorderBR, heightPad);
+        Pix2D.fillRect(xPad, yPad, widthPad, heightPad, fillColor);
+        Pix2D.hline(xPad, yPad, colorBorderTL, widthPad);
+        Pix2D.vline(xPad, yPad, colorBorderTL, heightPad);
+        Pix2D.hline(xPad, yPad + heightPad - 1, colorBorderBR, widthPad);
+        Pix2D.vline(xPad + widthPad - 1, yPad, colorBorderBR, heightPad);
 
-        this.b12?.drawStringCenter(xPad + widthPad / 2 + 1, yPad + heightPad / 2 + 1 + 4, str, 0);
-        this.b12?.drawStringCenter(xPad + widthPad / 2, yPad + heightPad / 2 + 4, str, 0xffffff);
+        this.b12?.centreString(xPad + widthPad / 2 + 1, yPad + heightPad / 2 + 1 + 4, str, 0);
+        this.b12?.centreString(xPad + widthPad / 2, yPad + heightPad / 2 + 4, str, 0xffffff);
     }
 
     clearEmptyTiles(): void {
@@ -924,14 +924,14 @@ export class MapView extends GameShell {
 
                 const overlay: number = this.overlayTiles[x + left][y + top];
                 if (overlay === 0) {
-                    Pix2D.fillRect2d(startX, startY, endX - startX, endY - startY, this.floormapColors[x + left][y + top]);
+                    Pix2D.fillRect(startX, startY, endX - startX, endY - startY, this.floormapColors[x + left][y + top]);
                 } else {
                     const info: number = this.overlayInfo[x + left][y + top];
                     const shape: number = info & 0xfc;
                     if (shape == 0 || lengthX <= 1 || lengthY <= 1) {
-                        Pix2D.fillRect2d(startX, startY, lengthX, lengthY, overlay);
+                        Pix2D.fillRect(startX, startY, lengthX, lengthY, overlay);
                     } else {
-                        this.drawSmoothEdges(Pix2D.pixels, startY * Pix2D.width2d + startX, this.floormapColors[x + left][y + top], overlay, lengthX, lengthY, shape >> 2, info & 0x3);
+                        this.drawSmoothEdges(Pix2D.pixels, startY * Pix2D.width + startX, this.floormapColors[x + left][y + top], overlay, lengthX, lengthY, shape >> 2, info & 0x3);
                     }
                 }
             }
@@ -996,47 +996,47 @@ export class MapView extends GameShell {
                     }
 
                     if (wall == 1) {
-                        Pix2D.drawVerticalLine(startX, startY, rgb, lengthY);
+                        Pix2D.vline(startX, startY, rgb, lengthY);
                     } else if (wall == 2) {
-                        Pix2D.drawHorizontalLine(startX, startY, rgb, lengthX);
+                        Pix2D.hline(startX, startY, rgb, lengthX);
                     } else if (wall == 3) {
-                        Pix2D.drawVerticalLine(edgeX, startY, rgb, lengthY);
+                        Pix2D.vline(edgeX, startY, rgb, lengthY);
                     } else if (wall == 4) {
-                        Pix2D.drawHorizontalLine(startX, edgeY, rgb, lengthX);
+                        Pix2D.hline(startX, edgeY, rgb, lengthX);
                     } else if (wall == 9) {
-                        Pix2D.drawVerticalLine(startX, startY, 0xffffff, lengthY);
-                        Pix2D.drawHorizontalLine(startX, startY, rgb, lengthX);
+                        Pix2D.vline(startX, startY, 0xffffff, lengthY);
+                        Pix2D.hline(startX, startY, rgb, lengthX);
                     } else if (wall == 10) {
-                        Pix2D.drawVerticalLine(edgeX, startY, 0xffffff, lengthY);
-                        Pix2D.drawHorizontalLine(startX, startY, rgb, lengthX);
+                        Pix2D.vline(edgeX, startY, 0xffffff, lengthY);
+                        Pix2D.hline(startX, startY, rgb, lengthX);
                     } else if (wall == 11) {
-                        Pix2D.drawVerticalLine(edgeX, startY, 0xffffff, lengthY);
-                        Pix2D.drawHorizontalLine(startX, edgeY, rgb, lengthX);
+                        Pix2D.vline(edgeX, startY, 0xffffff, lengthY);
+                        Pix2D.hline(startX, edgeY, rgb, lengthX);
                     } else if (wall == 12) {
-                        Pix2D.drawVerticalLine(startX, startY, 0xffffff, lengthY);
-                        Pix2D.drawHorizontalLine(startX, edgeY, rgb, lengthX);
+                        Pix2D.vline(startX, startY, 0xffffff, lengthY);
+                        Pix2D.hline(startX, edgeY, rgb, lengthX);
                     } else if (wall == 17) {
-                        Pix2D.drawHorizontalLine(startX, startY, rgb, 1);
+                        Pix2D.hline(startX, startY, rgb, 1);
                     } else if (wall == 18) {
-                        Pix2D.drawHorizontalLine(edgeX, startY, rgb, 1);
+                        Pix2D.hline(edgeX, startY, rgb, 1);
                     } else if (wall == 19) {
-                        Pix2D.drawHorizontalLine(edgeX, edgeY, rgb, 1);
+                        Pix2D.hline(edgeX, edgeY, rgb, 1);
                     } else if (wall == 20) {
-                        Pix2D.drawHorizontalLine(startX, edgeY, rgb, 1);
+                        Pix2D.hline(startX, edgeY, rgb, 1);
                     } else if (wall == 25) {
                         for (let i: number = 0; i < lengthY; i++) {
-                            Pix2D.drawHorizontalLine(startX + i, edgeY - i, rgb, 1);
+                            Pix2D.hline(startX + i, edgeY - i, rgb, 1);
                         }
                     } else if (wall == 26) {
                         for (let i: number = 0; i < lengthY; i++) {
-                            Pix2D.drawHorizontalLine(startX + i, startY + i, rgb, 1);
+                            Pix2D.hline(startX + i, startY + i, rgb, 1);
                         }
                     }
                 }
 
                 const mapscene: number = this.locMapscenes[x + left][y + top];
                 if (mapscene != 0) {
-                    this.imageMapscene[mapscene - 1].clip(startX - lengthX / 2, startY - lengthY / 2, lengthX * 2, lengthY * 2);
+                    this.imageMapscene[mapscene - 1].scalePlotSprite(startX - lengthX / 2, startY - lengthY / 2, lengthX * 2, lengthY * 2);
                 }
 
                 const mapfunction: number = this.locMapfunction[x + left][y + top];
@@ -1050,7 +1050,7 @@ export class MapView extends GameShell {
         }
 
         for (let i: number = 0; i < visibleMapFunctionCount; i++) {
-            this.imageMapfunction[this.visibleMapFunctions[i]].draw(this.visibleMapFunctionsX[i] - 7, this.visibleMapFunctionsY[i] - 7);
+            this.imageMapfunction[this.visibleMapFunctions[i]].plotSprite(this.visibleMapFunctionsX[i] - 7, this.visibleMapFunctionsY[i] - 7);
         }
 
         if (MapView.shouldDrawItems) {
@@ -1081,7 +1081,7 @@ export class MapView extends GameShell {
                     endY += heightOffset;
 
                     if (this.objTiles[x + left][y + top]) {
-                        this.imageMapdot0?.draw(startX, startY);
+                        this.imageMapdot0?.plotSprite(startX, startY);
                     }
                 }
             }
@@ -1115,7 +1115,7 @@ export class MapView extends GameShell {
                     endY += heightOffset;
 
                     if (this.npcTiles[x + left][y + top]) {
-                        this.imageMapdot1?.draw(startX, startY);
+                        this.imageMapdot1?.plotSprite(startX, startY);
                     }
                 }
             }
@@ -1124,7 +1124,7 @@ export class MapView extends GameShell {
         if (this.flashTimer > 0) {
             for (let i: number = 0; i < visibleMapFunctionCount; i++) {
                 if (this.visibleMapFunctions[i] == this.currentKey) {
-                    this.imageMapfunction[this.visibleMapFunctions[i]].draw(this.visibleMapFunctionsX[i] - 7, this.visibleMapFunctionsY[i] - 7);
+                    this.imageMapfunction[this.visibleMapFunctions[i]].plotSprite(this.visibleMapFunctionsX[i] - 7, this.visibleMapFunctionsY[i] - 7);
 
                     if (this.flashTimer % 10 < 5) {
                         Pix2D.fillCircle(this.visibleMapFunctionsX[i], this.visibleMapFunctionsY[i], 15, 0xffff00, 128);
@@ -1164,21 +1164,21 @@ export class MapView extends GameShell {
                         }
                     }
 
-                    drawY -= font.height2d * (lineCount - 1) / 2;
+                    drawY -= font.height * (lineCount - 1) / 2;
 
                     while (true) {
                         let newline = label.indexOf('/');
                         if (newline === -1) {
-                            font.drawStringCenter(drawX + 1, drawY + 1, label, 0);
-                            font.drawStringCenter(drawX, drawY, label, rgb);
+                            font.centreString(drawX + 1, drawY + 1, label, 0);
+                            font.centreString(drawX, drawY, label, rgb);
                             break;
                         }
 
                         let part = label.substring(0, newline);
-                        font.drawStringCenter(drawX + 1, drawY + 1, part, 0);
-                        font.drawStringCenter(drawX, drawY, part, rgb);
+                        font.centreString(drawX + 1, drawY + 1, part, 0);
+                        font.centreString(drawX, drawY, part, rgb);
 
-                        drawY += font.height2d;
+                        drawY += font.height;
                         label = label.substring(newline + 1);
                     }
                 }
@@ -1212,9 +1212,9 @@ export class MapView extends GameShell {
                     this.b12?.drawStringRight(drawRight - 5, drawBottom - 5, mx + '_' + mz, color, false);
 
                     if (mx == 33 && mz >= 71 && mz <= 73) {
-                        this.b12?.drawStringCenter((drawRight + drawLeft) / 2, (drawBottom + drawTop) / 2, 'u_pass', 0xff0000);
+                        this.b12?.centreString((drawRight + drawLeft) / 2, (drawBottom + drawTop) / 2, 'u_pass', 0xff0000);
                     } else if (mx >= 32 && mx <= 34 && mz >= 70 && mz <= 74) {
-                        this.b12?.drawStringCenter((drawRight + drawLeft) / 2, (drawBottom + drawTop) / 2, 'u_pass', 0xffff00);
+                        this.b12?.centreString((drawRight + drawLeft) / 2, (drawBottom + drawTop) / 2, 'u_pass', 0xffff00);
                     }
                 }
             }
@@ -1222,7 +1222,7 @@ export class MapView extends GameShell {
     }
 
     drawSmoothEdges(data: Int32Array, off: number, color: number, overlay: number, width: number, height: number, shape: number, rotation: number): void {
-        const step: number = Pix2D.width2d - width;
+        const step: number = Pix2D.width - width;
         if (shape == 9) {
             shape = 1;
             rotation = (rotation + 1) & 0x3;

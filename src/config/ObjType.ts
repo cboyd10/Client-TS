@@ -3,7 +3,7 @@ import LruCache from '#/datastruct/LruCache.js';
 import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
-import { Colors } from '#/graphics/Colors.js';
+import { Colour } from '#/graphics/Colour.js';
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/graphics/Pix3D.js';
 import Model from '#/dash3d/Model.js';
@@ -313,7 +313,7 @@ export default class ObjType {
         if (ObjType.spriteCache) {
             let icon: Pix32 | null = ObjType.spriteCache.find(BigInt(id)) as Pix32 | null;
 
-            if (icon && icon.height !== count && icon.height !== -1) {
+            if (icon && icon.ohi !== count && icon.ohi !== -1) {
                 icon.unlink();
                 icon = null;
             }
@@ -348,16 +348,16 @@ export default class ObjType {
         const _cy: number = Pix3D.centerY;
         const _loff: Int32Array = Pix3D.lineOffset;
         const _data: Int32Array = Pix2D.pixels;
-        const _w: number = Pix2D.width2d;
-        const _h: number = Pix2D.height2d;
-        const _l: number = Pix2D.left;
+        const _w: number = Pix2D.width;
+        const _h: number = Pix2D.height;
+        const _l: number = Pix2D.clipMinY;
         const _r: number = Pix2D.right;
-        const _t: number = Pix2D.top;
-        const _b: number = Pix2D.bottom;
+        const _t: number = Pix2D.clipMinX;
+        const _b: number = Pix2D.clipMaxX;
 
         Pix3D.jagged = false;
-        Pix2D.bind(icon.pixels, 32, 32);
-        Pix2D.fillRect2d(0, 0, 32, 32, Colors.BLACK);
+        Pix2D.setPixels(icon.data, 32, 32);
+        Pix2D.fillRect(0, 0, 32, 32, Colour.BLACK);
         Pix3D.init2D();
 
         const iModel: Model = obj.getModelLit(1);
@@ -368,18 +368,18 @@ export default class ObjType {
         // draw outline
         for (let x: number = 31; x >= 0; x--) {
             for (let y: number = 31; y >= 0; y--) {
-                if (icon.pixels[x + y * 32] !== 0) {
+                if (icon.data[x + y * 32] !== 0) {
                     continue;
                 }
 
-                if (x > 0 && icon.pixels[x + y * 32 - 1] > 1) {
-                    icon.pixels[x + y * 32] = 1;
-                } else if (y > 0 && icon.pixels[x + (y - 1) * 32] > 1) {
-                    icon.pixels[x + y * 32] = 1;
-                } else if (x < 31 && icon.pixels[x + y * 32 + 1] > 1) {
-                    icon.pixels[x + y * 32] = 1;
-                } else if (y < 31 && icon.pixels[x + (y + 1) * 32] > 1) {
-                    icon.pixels[x + y * 32] = 1;
+                if (x > 0 && icon.data[x + y * 32 - 1] > 1) {
+                    icon.data[x + y * 32] = 1;
+                } else if (y > 0 && icon.data[x + (y - 1) * 32] > 1) {
+                    icon.data[x + y * 32] = 1;
+                } else if (x < 31 && icon.data[x + y * 32 + 1] > 1) {
+                    icon.data[x + y * 32] = 1;
+                } else if (y < 31 && icon.data[x + (y + 1) * 32] > 1) {
+                    icon.data[x + y * 32] = 1;
                 }
             }
         }
@@ -387,36 +387,36 @@ export default class ObjType {
         // draw shadow
         for (let x: number = 31; x >= 0; x--) {
             for (let y: number = 31; y >= 0; y--) {
-                if (icon.pixels[x + y * 32] === 0 && x > 0 && y > 0 && icon.pixels[x + (y - 1) * 32 - 1] > 0) {
-                    icon.pixels[x + y * 32] = 3153952;
+                if (icon.data[x + y * 32] === 0 && x > 0 && y > 0 && icon.data[x + (y - 1) * 32 - 1] > 0) {
+                    icon.data[x + y * 32] = 3153952;
                 }
             }
         }
 
         if (obj.certtemplate !== -1) {
             const linkedIcon: Pix32 = this.getSprite(obj.certlink, 10);
-            const w: number = linkedIcon.width;
-            const h: number = linkedIcon.height;
-            linkedIcon.width = 32;
-            linkedIcon.height = 32;
-            linkedIcon.crop(5, 5, 22, 22);
-            linkedIcon.width = w;
-            linkedIcon.height = h;
+            const w: number = linkedIcon.owi;
+            const h: number = linkedIcon.ohi;
+            linkedIcon.owi = 32;
+            linkedIcon.ohi = 32;
+            linkedIcon.scalePlotSprite(5, 5, 22, 22);
+            linkedIcon.owi = w;
+            linkedIcon.ohi = h;
         }
 
         ObjType.spriteCache?.put(BigInt(id), icon);
-        Pix2D.bind(_data, _w, _h);
-        Pix2D.setBounds(_l, _t, _r, _b);
+        Pix2D.setPixels(_data, _w, _h);
+        Pix2D.setClipping(_l, _t, _r, _b);
         Pix3D.centerX = _cx;
         Pix3D.centerY = _cy;
         Pix3D.lineOffset = _loff;
         Pix3D.jagged = true;
         if (obj.stackable) {
-            icon.width = 33;
+            icon.owi = 33;
         } else {
-            icon.width = 32;
+            icon.owi = 32;
         }
-        icon.height = count;
+        icon.ohi = count;
         return icon;
     }
 

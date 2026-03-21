@@ -13,7 +13,7 @@ import ClientLocAnim from '#/dash3d/ClientLocAnim.js';
 
 import { OverlayShape } from '#/dash3d/OverlayShape.js';
 
-import { Colors } from '#/graphics/Colors.js';
+import { Colour } from '#/graphics/Colour.js';
 import Pix3D from '#/graphics/Pix3D.js';
 import Model from '#/dash3d/Model.js';
 
@@ -496,12 +496,12 @@ export default class World {
                                         World.mulHSL(baseColor, lightSE),
                                         World.mulHSL(baseColor, lightNE),
                                         World.mulHSL(baseColor, lightNW),
-                                        Colors.BLACK,
-                                        Colors.BLACK,
-                                        Colors.BLACK,
-                                        Colors.BLACK,
+                                        Colour.BLACK,
+                                        Colour.BLACK,
+                                        Colour.BLACK,
+                                        Colour.BLACK,
                                         shadeColor,
-                                        Colors.BLACK
+                                        Colour.BLACK
                                     );
                                 } else {
                                     const shape: number = this.overlayShape[level][x0][z0] + 1;
@@ -514,7 +514,7 @@ export default class World {
                                     if (textureId >= 0) {
                                         rgb = Pix3D.getAverageTextureRgb(textureId);
                                         hsl = -1;
-                                    } else if (flo.colour === Colors.MAGENTA) {
+                                    } else if (flo.colour === Colour.MAGENTA) {
                                         rgb = 0;
                                         hsl = -2;
                                         textureId = -1;

@@ -338,7 +338,7 @@ export default class Component {
 
         let image: Pix32;
         try {
-            image = Pix32.fromArchive(media, sprite, spriteId);
+            image = Pix32.depack(media, sprite, spriteId);
             this.imageCache?.put(uid, image);
         } catch (e) {
             return null;

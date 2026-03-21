@@ -54,12 +54,12 @@ export default class Pix3D extends Pix2D {
     }
 
     static init2D(): void {
-        this.lineOffset = new Int32Array(Pix2D.height2d);
-        for (let y: number = 0; y < Pix2D.height2d; y++) {
-            this.lineOffset[y] = Pix2D.width2d * y;
+        this.lineOffset = new Int32Array(Pix2D.height);
+        for (let y: number = 0; y < Pix2D.height; y++) {
+            this.lineOffset[y] = Pix2D.width * y;
         }
-        this.centerX = (Pix2D.width2d / 2) | 0;
-        this.centerY = (Pix2D.height2d / 2) | 0;
+        this.centerX = (Pix2D.width / 2) | 0;
+        this.centerY = (Pix2D.height / 2) | 0;
     }
 
     static init3D(width: number, height: number): void {
@@ -81,11 +81,11 @@ export default class Pix3D extends Pix2D {
 
         for (let i: number = 0; i < 50; i++) {
             try {
-                this.textures[i] = Pix8.fromArchive(textures, i.toString());
-                if (this.lowMemory && this.textures[i]?.cropW === 128) {
-                    this.textures[i]?.shrink();
+                this.textures[i] = Pix8.depack(textures, i.toString());
+                if (this.lowMemory && this.textures[i]?.owi === 128) {
+                    this.textures[i]?.halveSize();
                 } else {
-                    this.textures[i]?.crop();
+                    this.textures[i]?.trim();
                 }
                 this.textureCount++;
             } catch (err) {
@@ -190,7 +190,7 @@ export default class Pix3D extends Pix2D {
             if (!texture) {
                 continue;
             }
-            const palette: Int32Array = texture.rgbPal;
+            const palette: Int32Array = texture.bpal;
             this.texPal[id] = new Int32Array(palette.length);
             for (let i: number = 0; i < palette.length; i++) {
                 const texturePalette: Int32Array | null = this.texPal[id];
@@ -273,7 +273,7 @@ export default class Pix3D extends Pix2D {
         if (this.lowMemory) {
             this.textureTranslucent[id] = false;
             for (let i: number = 0; i < 4096; i++) {
-                const rgb: number = (texels[i] = palette[texture.pixels[i]] & 0xf8f8ff);
+                const rgb: number = (texels[i] = palette[texture.data[i]] & 0xf8f8ff);
                 if (rgb === 0) {
                     this.textureTranslucent[id] = true;
                 }
@@ -282,15 +282,15 @@ export default class Pix3D extends Pix2D {
                 texels[i + 12288] = (rgb - (rgb >>> 2) - (rgb >>> 3)) & 0xf8f8ff;
             }
         } else {
-            if (texture.width2d === 64) {
+            if (texture.wi === 64) {
                 for (let y: number = 0; y < 128; y++) {
                     for (let x: number = 0; x < 128; x++) {
-                        texels[x + ((y << 7) | 0)] = palette[texture.pixels[(x >> 1) + (((y >> 1) << 6) | 0)]];
+                        texels[x + ((y << 7) | 0)] = palette[texture.data[(x >> 1) + (((y >> 1) << 6) | 0)]];
                     }
                 }
             } else {
                 for (let i: number = 0; i < 16384; i++) {
-                    texels[i] = palette[texture.pixels[i]];
+                    texels[i] = palette[texture.data[i]];
                 }
             }
 
@@ -333,12 +333,12 @@ export default class Pix3D extends Pix2D {
         }
 
         if (yA <= yB && yA <= yC) {
-            if (yA < Pix2D.bottom) {
-                if (yB > Pix2D.bottom) {
-                    yB = Pix2D.bottom;
+            if (yA < Pix2D.clipMaxX) {
+                if (yB > Pix2D.clipMaxX) {
+                    yB = Pix2D.clipMaxX;
                 }
-                if (yC > Pix2D.bottom) {
-                    yC = Pix2D.bottom;
+                if (yC > Pix2D.clipMaxX) {
+                    yC = Pix2D.clipMaxX;
                 }
                 if (yB < yC) {
                     xC = xA <<= 0x10;
@@ -376,7 +376,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     colorC += colorStepAC;
                                     colorB += colorStepBC;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xC >> 16, xA >> 16, colorC >> 7, colorA >> 7, Pix2D.pixels, yA, 0);
@@ -384,7 +384,7 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             colorC += colorStepAC;
                             colorA += colorStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                         }
                     } else {
                         yC -= yB;
@@ -405,7 +405,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     colorC += colorStepAC;
                                     colorB += colorStepBC;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xA >> 16, xC >> 16, colorA >> 7, colorC >> 7, Pix2D.pixels, yA, 0);
@@ -413,7 +413,7 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             colorC += colorStepAC;
                             colorA += colorStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                         }
                     }
                 } else {
@@ -452,7 +452,7 @@ export default class Pix3D extends Pix2D {
                                     xA += xStepAB;
                                     colorC += colorStepBC;
                                     colorA += colorStepAB;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xB >> 16, xA >> 16, colorB >> 7, colorA >> 7, Pix2D.pixels, yA, 0);
@@ -460,7 +460,7 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             colorB += colorStepAC;
                             colorA += colorStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                         }
                     } else {
                         yB -= yC;
@@ -481,7 +481,7 @@ export default class Pix3D extends Pix2D {
                                     xA += xStepAB;
                                     colorC += colorStepBC;
                                     colorA += colorStepAB;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xA >> 16, xB >> 16, colorA >> 7, colorB >> 7, Pix2D.pixels, yA, 0);
@@ -489,18 +489,18 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             colorB += colorStepAC;
                             colorA += colorStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                         }
                     }
                 }
             }
         } else if (yB <= yC) {
-            if (yB < Pix2D.bottom) {
-                if (yC > Pix2D.bottom) {
-                    yC = Pix2D.bottom;
+            if (yB < Pix2D.clipMaxX) {
+                if (yC > Pix2D.clipMaxX) {
+                    yC = Pix2D.clipMaxX;
                 }
-                if (yA > Pix2D.bottom) {
-                    yA = Pix2D.bottom;
+                if (yA > Pix2D.clipMaxX) {
+                    yA = Pix2D.clipMaxX;
                 }
                 if (yC < yA) {
                     xA = xB <<= 0x10;
@@ -538,7 +538,7 @@ export default class Pix3D extends Pix2D {
                                     xC += xStepAC;
                                     colorA += colorStepAB;
                                     colorC += colorStepAC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xA >> 16, xB >> 16, colorA >> 7, colorB >> 7, Pix2D.pixels, yB, 0);
@@ -546,7 +546,7 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             colorA += colorStepAB;
                             colorB += colorStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                         }
                     } else {
                         yA -= yC;
@@ -567,7 +567,7 @@ export default class Pix3D extends Pix2D {
                                     xC += xStepAC;
                                     colorA += colorStepAB;
                                     colorC += colorStepAC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xB >> 16, xA >> 16, colorB >> 7, colorA >> 7, Pix2D.pixels, yB, 0);
@@ -575,7 +575,7 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             colorA += colorStepAB;
                             colorB += colorStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                         }
                     }
                 } else {
@@ -614,7 +614,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     colorA += colorStepAC;
                                     colorB += colorStepBC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xC >> 16, xB >> 16, colorC >> 7, colorB >> 7, Pix2D.pixels, yB, 0);
@@ -622,7 +622,7 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             colorC += colorStepAB;
                             colorB += colorStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                         }
                     } else {
                         // eslint-disable-next-line no-constant-condition
@@ -640,7 +640,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     colorA += colorStepAC;
                                     colorB += colorStepBC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                 }
                             }
                             this.gouraudRaster(xB >> 16, xC >> 16, colorB >> 7, colorC >> 7, Pix2D.pixels, yB, 0);
@@ -648,17 +648,17 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             colorC += colorStepAB;
                             colorB += colorStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                         }
                     }
                 }
             }
-        } else if (yC < Pix2D.bottom) {
-            if (yA > Pix2D.bottom) {
-                yA = Pix2D.bottom;
+        } else if (yC < Pix2D.clipMaxX) {
+            if (yA > Pix2D.clipMaxX) {
+                yA = Pix2D.clipMaxX;
             }
-            if (yB > Pix2D.bottom) {
-                yB = Pix2D.bottom;
+            if (yB > Pix2D.clipMaxX) {
+                yB = Pix2D.clipMaxX;
             }
             if (yA < yB) {
                 xB = xC <<= 0x10;
@@ -696,7 +696,7 @@ export default class Pix3D extends Pix2D {
                                 xA += xStepAB;
                                 colorB += colorStepBC;
                                 colorA += colorStepAB;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                             }
                         }
                         this.gouraudRaster(xB >> 16, xC >> 16, colorB >> 7, colorC >> 7, Pix2D.pixels, yC, 0);
@@ -704,7 +704,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         colorB += colorStepBC;
                         colorC += colorStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                     }
                 } else {
                     // eslint-disable-next-line no-constant-condition
@@ -722,7 +722,7 @@ export default class Pix3D extends Pix2D {
                                 xA += xStepAB;
                                 colorB += colorStepBC;
                                 colorA += colorStepAB;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                             }
                         }
                         this.gouraudRaster(xC >> 16, xB >> 16, colorC >> 7, colorB >> 7, Pix2D.pixels, yC, 0);
@@ -730,7 +730,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         colorB += colorStepBC;
                         colorC += colorStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                     }
                 }
             } else {
@@ -769,7 +769,7 @@ export default class Pix3D extends Pix2D {
                                 xC += xStepAC;
                                 colorB += colorStepAB;
                                 colorC += colorStepAC;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                             }
                         }
                         this.gouraudRaster(xA >> 16, xC >> 16, colorA >> 7, colorC >> 7, Pix2D.pixels, yC, 0);
@@ -777,7 +777,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         colorA += colorStepBC;
                         colorC += colorStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                     }
                 } else {
                     // eslint-disable-next-line no-constant-condition
@@ -795,7 +795,7 @@ export default class Pix3D extends Pix2D {
                                 xC += xStepAC;
                                 colorB += colorStepAB;
                                 colorC += colorStepAC;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                             }
                         }
                         this.gouraudRaster(xC >> 16, xA >> 16, colorC >> 7, colorA >> 7, Pix2D.pixels, yC, 0);
@@ -803,7 +803,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         colorA += colorStepBC;
                         colorC += colorStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                     }
                 }
             }
@@ -822,8 +822,8 @@ export default class Pix3D extends Pix2D {
                 } else {
                     colorStep = 0;
                 }
-                if (x1 > Pix2D.boundX) {
-                    x1 = Pix2D.boundX;
+                if (x1 > Pix2D.sizeX) {
+                    x1 = Pix2D.sizeX;
                 }
                 if (x0 < 0) {
                     color0 -= x0 * colorStep;
@@ -900,8 +900,8 @@ export default class Pix3D extends Pix2D {
         } else if (x0 < x1) {
             const colorStep: number = ((color1 - color0) / (x1 - x0)) | 0;
             if (Pix3D.clipX) {
-                if (x1 > Pix2D.boundX) {
-                    x1 = Pix2D.boundX;
+                if (x1 > Pix2D.sizeX) {
+                    x1 = Pix2D.sizeX;
                 }
                 if (x0 < 0) {
                     color0 -= x0 * colorStep;
@@ -947,12 +947,12 @@ export default class Pix3D extends Pix2D {
             xStepAC = (((x0 - x2) << 16) / (y0 - y2)) | 0;
         }
         if (y0 <= y1 && y0 <= y2) {
-            if (y0 < Pix2D.bottom) {
-                if (y1 > Pix2D.bottom) {
-                    y1 = Pix2D.bottom;
+            if (y0 < Pix2D.clipMaxX) {
+                if (y1 > Pix2D.clipMaxX) {
+                    y1 = Pix2D.clipMaxX;
                 }
-                if (y2 > Pix2D.bottom) {
-                    y2 = Pix2D.bottom;
+                if (y2 > Pix2D.clipMaxX) {
+                    y2 = Pix2D.clipMaxX;
                 }
                 if (y1 < y2) {
                     x2 = x0 <<= 0x10;
@@ -983,13 +983,13 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y0, color);
                                     x2 += xStepAC;
                                     x1 += xStepBC;
-                                    y0 += Pix2D.width2d;
+                                    y0 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y0, color);
                             x2 += xStepAC;
                             x0 += xStepAB;
-                            y0 += Pix2D.width2d;
+                            y0 += Pix2D.width;
                         }
                     } else {
                         y2 -= y1;
@@ -1008,13 +1008,13 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y0, color);
                                     x2 += xStepAC;
                                     x1 += xStepBC;
-                                    y0 += Pix2D.width2d;
+                                    y0 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y0, color);
                             x2 += xStepAC;
                             x0 += xStepAB;
-                            y0 += Pix2D.width2d;
+                            y0 += Pix2D.width;
                         }
                     }
                 } else {
@@ -1046,13 +1046,13 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y0, color);
                                     x2 += xStepBC;
                                     x0 += xStepAB;
-                                    y0 += Pix2D.width2d;
+                                    y0 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y0, color);
                             x1 += xStepAC;
                             x0 += xStepAB;
-                            y0 += Pix2D.width2d;
+                            y0 += Pix2D.width;
                         }
                     } else {
                         y1 -= y2;
@@ -1071,24 +1071,24 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y0, color);
                                     x2 += xStepBC;
                                     x0 += xStepAB;
-                                    y0 += Pix2D.width2d;
+                                    y0 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y0, color);
                             x1 += xStepAC;
                             x0 += xStepAB;
-                            y0 += Pix2D.width2d;
+                            y0 += Pix2D.width;
                         }
                     }
                 }
             }
         } else if (y1 <= y2) {
-            if (y1 < Pix2D.bottom) {
-                if (y2 > Pix2D.bottom) {
-                    y2 = Pix2D.bottom;
+            if (y1 < Pix2D.clipMaxX) {
+                if (y2 > Pix2D.clipMaxX) {
+                    y2 = Pix2D.clipMaxX;
                 }
-                if (y0 > Pix2D.bottom) {
-                    y0 = Pix2D.bottom;
+                if (y0 > Pix2D.clipMaxX) {
+                    y0 = Pix2D.clipMaxX;
                 }
                 if (y2 < y0) {
                     x0 = x1 <<= 0x10;
@@ -1119,13 +1119,13 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y1, color);
                                     x0 += xStepAB;
                                     x2 += xStepAC;
-                                    y1 += Pix2D.width2d;
+                                    y1 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y1, color);
                             x0 += xStepAB;
                             x1 += xStepBC;
-                            y1 += Pix2D.width2d;
+                            y1 += Pix2D.width;
                         }
                     } else {
                         y0 -= y2;
@@ -1144,13 +1144,13 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y1, color);
                                     x0 += xStepAB;
                                     x2 += xStepAC;
-                                    y1 += Pix2D.width2d;
+                                    y1 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y1, color);
                             x0 += xStepAB;
                             x1 += xStepBC;
-                            y1 += Pix2D.width2d;
+                            y1 += Pix2D.width;
                         }
                     }
                 } else {
@@ -1182,13 +1182,13 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y1, color);
                                     x0 += xStepAC;
                                     x1 += xStepBC;
-                                    y1 += Pix2D.width2d;
+                                    y1 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y1, color);
                             x2 += xStepAB;
                             x1 += xStepBC;
-                            y1 += Pix2D.width2d;
+                            y1 += Pix2D.width;
                         }
                     } else {
                         y2 -= y0;
@@ -1207,23 +1207,23 @@ export default class Pix3D extends Pix2D {
                                     this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y1, color);
                                     x0 += xStepAC;
                                     x1 += xStepBC;
-                                    y1 += Pix2D.width2d;
+                                    y1 += Pix2D.width;
                                 }
                             }
                             this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y1, color);
                             x2 += xStepAB;
                             x1 += xStepBC;
-                            y1 += Pix2D.width2d;
+                            y1 += Pix2D.width;
                         }
                     }
                 }
             }
-        } else if (y2 < Pix2D.bottom) {
-            if (y0 > Pix2D.bottom) {
-                y0 = Pix2D.bottom;
+        } else if (y2 < Pix2D.clipMaxX) {
+            if (y0 > Pix2D.clipMaxX) {
+                y0 = Pix2D.clipMaxX;
             }
-            if (y1 > Pix2D.bottom) {
-                y1 = Pix2D.bottom;
+            if (y1 > Pix2D.clipMaxX) {
+                y1 = Pix2D.clipMaxX;
             }
             if (y0 < y1) {
                 x1 = x2 <<= 0x10;
@@ -1254,13 +1254,13 @@ export default class Pix3D extends Pix2D {
                                 this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y2, color);
                                 x1 += xStepBC;
                                 x0 += xStepAB;
-                                y2 += Pix2D.width2d;
+                                y2 += Pix2D.width;
                             }
                         }
                         this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y2, color);
                         x1 += xStepBC;
                         x2 += xStepAC;
-                        y2 += Pix2D.width2d;
+                        y2 += Pix2D.width;
                     }
                 } else {
                     y1 -= y0;
@@ -1279,13 +1279,13 @@ export default class Pix3D extends Pix2D {
                                 this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y2, color);
                                 x1 += xStepBC;
                                 x0 += xStepAB;
-                                y2 += Pix2D.width2d;
+                                y2 += Pix2D.width;
                             }
                         }
                         this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y2, color);
                         x1 += xStepBC;
                         x2 += xStepAC;
-                        y2 += Pix2D.width2d;
+                        y2 += Pix2D.width;
                     }
                 }
             } else {
@@ -1317,13 +1317,13 @@ export default class Pix3D extends Pix2D {
                                 this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y2, color);
                                 x1 += xStepAB;
                                 x2 += xStepAC;
-                                y2 += Pix2D.width2d;
+                                y2 += Pix2D.width;
                             }
                         }
                         this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y2, color);
                         x0 += xStepBC;
                         x2 += xStepAC;
-                        y2 += Pix2D.width2d;
+                        y2 += Pix2D.width;
                     }
                 } else {
                     y0 -= y1;
@@ -1342,13 +1342,13 @@ export default class Pix3D extends Pix2D {
                                 this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y2, color);
                                 x1 += xStepAB;
                                 x2 += xStepAC;
-                                y2 += Pix2D.width2d;
+                                y2 += Pix2D.width;
                             }
                         }
                         this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y2, color);
                         x0 += xStepBC;
                         x2 += xStepAC;
-                        y2 += Pix2D.width2d;
+                        y2 += Pix2D.width;
                     }
                 }
             }
@@ -1357,8 +1357,8 @@ export default class Pix3D extends Pix2D {
 
     private static flatRaster(x0: number, x1: number, dst: Int32Array, offset: number, rgb: number): void {
         if (this.clipX) {
-            if (x1 > Pix2D.boundX) {
-                x1 = Pix2D.boundX;
+            if (x1 > Pix2D.sizeX) {
+                x1 = Pix2D.sizeX;
             }
             if (x0 < 0) {
                 x0 = 0;
@@ -1486,13 +1486,13 @@ export default class Pix3D extends Pix2D {
         }
 
         if (yA <= yB && yA <= yC) {
-            if (yA < Pix2D.bottom) {
-                if (yB > Pix2D.bottom) {
-                    yB = Pix2D.bottom;
+            if (yA < Pix2D.clipMaxX) {
+                if (yB > Pix2D.clipMaxX) {
+                    yB = Pix2D.clipMaxX;
                 }
 
-                if (yC > Pix2D.bottom) {
-                    yC = Pix2D.bottom;
+                if (yC > Pix2D.clipMaxX) {
+                    yC = Pix2D.clipMaxX;
                 }
 
                 if (yB < yC) {
@@ -1538,7 +1538,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     shadeC += shadeStepAC;
                                     shadeB += shadeStepBC;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1552,7 +1552,7 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             shadeC += shadeStepAC;
                             shadeA += shadeStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1579,7 +1579,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     shadeC += shadeStepAC;
                                     shadeB += shadeStepBC;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1593,7 +1593,7 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             shadeC += shadeStepAC;
                             shadeA += shadeStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1645,7 +1645,7 @@ export default class Pix3D extends Pix2D {
                                     xA += xStepAB;
                                     shadeC += shadeStepBC;
                                     shadeA += shadeStepAB;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1659,7 +1659,7 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             shadeB += shadeStepAC;
                             shadeA += shadeStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1686,7 +1686,7 @@ export default class Pix3D extends Pix2D {
                                     xA += xStepAB;
                                     shadeC += shadeStepBC;
                                     shadeA += shadeStepAB;
-                                    yA += Pix2D.width2d;
+                                    yA += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1700,7 +1700,7 @@ export default class Pix3D extends Pix2D {
                             xA += xStepAB;
                             shadeB += shadeStepAC;
                             shadeA += shadeStepAB;
-                            yA += Pix2D.width2d;
+                            yA += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1712,12 +1712,12 @@ export default class Pix3D extends Pix2D {
                 }
             }
         } else if (yB <= yC) {
-            if (yB < Pix2D.bottom) {
-                if (yC > Pix2D.bottom) {
-                    yC = Pix2D.bottom;
+            if (yB < Pix2D.clipMaxX) {
+                if (yC > Pix2D.clipMaxX) {
+                    yC = Pix2D.clipMaxX;
                 }
-                if (yA > Pix2D.bottom) {
-                    yA = Pix2D.bottom;
+                if (yA > Pix2D.clipMaxX) {
+                    yA = Pix2D.clipMaxX;
                 }
                 if (yC < yA) {
                     xA = xB <<= 0x10;
@@ -1762,7 +1762,7 @@ export default class Pix3D extends Pix2D {
                                     xC += xStepAC;
                                     shadeA += shadeStepAB;
                                     shadeC += shadeStepAC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1776,7 +1776,7 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             shadeA += shadeStepAB;
                             shadeB += shadeStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1803,7 +1803,7 @@ export default class Pix3D extends Pix2D {
                                     xC += xStepAC;
                                     shadeA += shadeStepAB;
                                     shadeC += shadeStepAC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1817,7 +1817,7 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             shadeA += shadeStepAB;
                             shadeB += shadeStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1869,7 +1869,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     shadeA += shadeStepAC;
                                     shadeB += shadeStepBC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1883,7 +1883,7 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             shadeC += shadeStepAB;
                             shadeB += shadeStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1907,7 +1907,7 @@ export default class Pix3D extends Pix2D {
                                     xB += xStepBC;
                                     shadeA += shadeStepAC;
                                     shadeB += shadeStepBC;
-                                    yB += Pix2D.width2d;
+                                    yB += Pix2D.width;
                                     u += uStepVertical;
                                     v += vStepVertical;
                                     w += wStepVertical;
@@ -1921,7 +1921,7 @@ export default class Pix3D extends Pix2D {
                             xB += xStepBC;
                             shadeC += shadeStepAB;
                             shadeB += shadeStepBC;
-                            yB += Pix2D.width2d;
+                            yB += Pix2D.width;
                             u += uStepVertical;
                             v += vStepVertical;
                             w += wStepVertical;
@@ -1932,12 +1932,12 @@ export default class Pix3D extends Pix2D {
                     }
                 }
             }
-        } else if (yC < Pix2D.bottom) {
-            if (yA > Pix2D.bottom) {
-                yA = Pix2D.bottom;
+        } else if (yC < Pix2D.clipMaxX) {
+            if (yA > Pix2D.clipMaxX) {
+                yA = Pix2D.clipMaxX;
             }
-            if (yB > Pix2D.bottom) {
-                yB = Pix2D.bottom;
+            if (yB > Pix2D.clipMaxX) {
+                yB = Pix2D.clipMaxX;
             }
             if (yA < yB) {
                 xB = xC <<= 0x10;
@@ -1982,7 +1982,7 @@ export default class Pix3D extends Pix2D {
                                 xA += xStepAB;
                                 shadeB += shadeStepBC;
                                 shadeA += shadeStepAB;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                                 u += uStepVertical;
                                 v += vStepVertical;
                                 w += wStepVertical;
@@ -1996,7 +1996,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         shadeB += shadeStepBC;
                         shadeC += shadeStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                         u += uStepVertical;
                         v += vStepVertical;
                         w += wStepVertical;
@@ -2020,7 +2020,7 @@ export default class Pix3D extends Pix2D {
                                 xA += xStepAB;
                                 shadeB += shadeStepBC;
                                 shadeA += shadeStepAB;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                                 u += uStepVertical;
                                 v += vStepVertical;
                                 w += wStepVertical;
@@ -2034,7 +2034,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         shadeB += shadeStepBC;
                         shadeC += shadeStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                         u += uStepVertical;
                         v += vStepVertical;
                         w += wStepVertical;
@@ -2086,7 +2086,7 @@ export default class Pix3D extends Pix2D {
                                 xC += xStepAC;
                                 shadeB += shadeStepAB;
                                 shadeC += shadeStepAC;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                                 u += uStepVertical;
                                 v += vStepVertical;
                                 w += wStepVertical;
@@ -2100,7 +2100,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         shadeA += shadeStepBC;
                         shadeC += shadeStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                         u += uStepVertical;
                         v += vStepVertical;
                         w += wStepVertical;
@@ -2124,7 +2124,7 @@ export default class Pix3D extends Pix2D {
                                 xC += xStepAC;
                                 shadeB += shadeStepAB;
                                 shadeC += shadeStepAC;
-                                yC += Pix2D.width2d;
+                                yC += Pix2D.width;
                                 u += uStepVertical;
                                 v += vStepVertical;
                                 w += wStepVertical;
@@ -2138,7 +2138,7 @@ export default class Pix3D extends Pix2D {
                         xC += xStepAC;
                         shadeA += shadeStepBC;
                         shadeC += shadeStepAC;
-                        yC += Pix2D.width2d;
+                        yC += Pix2D.width;
                         u += uStepVertical;
                         v += vStepVertical;
                         w += wStepVertical;
@@ -2177,8 +2177,8 @@ export default class Pix3D extends Pix2D {
         if (this.clipX) {
             shadeStrides = ((shadeB - shadeA) / (xB - xA)) | 0;
 
-            if (xB > Pix2D.boundX) {
-                xB = Pix2D.boundX;
+            if (xB > Pix2D.sizeX) {
+                xB = Pix2D.sizeX;
             }
 
             if (xA < 0) {

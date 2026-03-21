@@ -1,6 +1,6 @@
 import Linkable2 from '#/datastruct/Linkable2.js';
 
-import { Colors } from '#/graphics/Colors.js';
+import { Colour } from '#/graphics/Colour.js';
 import Pix2D from '#/graphics/Pix2D.js';
 
 import JagFile from '#/io/JagFile.js';
@@ -19,9 +19,9 @@ export default class PixFont extends Linkable2 {
     readonly charOffsetY: Int32Array = new Int32Array(94);
     readonly charAdvance: Int32Array = new Int32Array(95);
     readonly drawWidth: Int32Array = new Int32Array(256);
-    private readonly random: JavaRandom = new JavaRandom(Date.now());
 
-    height2d: number = 0;
+    private readonly rand: JavaRandom = new JavaRandom(Date.now());
+    height: number = 0;
 
     static {
         const isCapacitor: boolean = navigator.userAgent.includes('Capacitor');
@@ -44,7 +44,7 @@ export default class PixFont extends Linkable2 {
         }
     }
 
-    static fromArchive(archive: JagFile, name: string): PixFont {
+    static depack(archive: JagFile, name: string): PixFont {
         const dat: Packet = new Packet(archive.read(name + '.dat'));
         const idx: Packet = new Packet(archive.read('index.dat'));
 
@@ -82,8 +82,8 @@ export default class PixFont extends Linkable2 {
                 }
             }
 
-            if (h > font.height2d) {
-                font.height2d = h;
+            if (h > font.height) {
+                font.height = h;
             }
 
             font.charOffsetX[i] = 1;
@@ -121,7 +121,7 @@ export default class PixFont extends Linkable2 {
         return font;
     }
 
-    drawString(x: number, y: number, str: string | null, color: number): void {
+    centreString(x: number, y: number, str: string | null, color: number): void {
         if (!str) {
             return;
         }
@@ -129,45 +129,17 @@ export default class PixFont extends Linkable2 {
         x |= 0;
         y |= 0;
 
-        const length: number = str.length;
-        y -= this.height2d;
-        for (let i: number = 0; i < length; i++) {
-            const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
-
-            if (c !== 94) {
-                this.drawChar(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color);
-            }
-
-            x += this.charAdvance[c];
-        }
+        this.drawString(x - ((this.stringWid(str) / 2) | 0), y, str, color);
     }
 
-    drawStringTaggable(x: number, y: number, str: string, color: number, shadowed: boolean): void {
+    centreStringTag(x: number, y: number, str: string, color: number, shadowed: boolean): void {
         x |= 0;
         y |= 0;
 
-        const length: number = str.length;
-        y -= this.height2d;
-        for (let i: number = 0; i < length; i++) {
-            if (str.charAt(i) === '@' && i + 4 < length && str.charAt(i + 4) === '@') {
-                color = this.evaluateTag(str.substring(i + 1, i + 4));
-                i += 4;
-            } else {
-                const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
-
-                if (c !== 94) {
-                    if (shadowed) {
-                        this.drawChar(this.charMask[c], x + this.charOffsetX[c] + 1, y + this.charOffsetY[c] + 1, this.charMaskWidth[c], this.charMaskHeight[c], Colors.BLACK);
-                    }
-                    this.drawChar(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color);
-                }
-
-                x += this.charAdvance[c];
-            }
-        }
+        this.drawStringTag(x - ((this.stringWid(str) / 2) | 0), y, str, color, shadowed);
     }
 
-    stringWidth(str: string | null): number {
+    stringWid(str: string | null): number {
         if (!str) {
             return 0;
         }
@@ -185,14 +157,7 @@ export default class PixFont extends Linkable2 {
         return w;
     }
 
-    drawStringTaggableCenter(x: number, y: number, str: string, color: number, shadowed: boolean): void {
-        x |= 0;
-        y |= 0;
-
-        this.drawStringTaggable(x - ((this.stringWidth(str) / 2) | 0), y, str, color, shadowed);
-    }
-
-    drawStringCenter(x: number, y: number, str: string | null, color: number): void {
+    drawString(x: number, y: number, str: string | null, color: number): void {
         if (!str) {
             return;
         }
@@ -200,36 +165,133 @@ export default class PixFont extends Linkable2 {
         x |= 0;
         y |= 0;
 
-        this.drawString(x - ((this.stringWidth(str) / 2) | 0), y, str, color);
+        const length: number = str.length;
+        y -= this.height;
+        for (let i: number = 0; i < length; i++) {
+            const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
+
+            if (c !== 94) {
+                this.plotLetter(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color);
+            }
+
+            x += this.charAdvance[c];
+        }
     }
 
-    drawStringTooltip(x: number, y: number, str: string, color: number, shadowed: boolean, seed: number): void {
+    centreStringWave(x: number, y: number, str: string | null, color: number, phase: number): void {
+        if (!str) {
+            return;
+        }
+
         x |= 0;
         y |= 0;
 
-        this.random.setSeed(seed);
+        x -= (this.stringWid(str) / 2) | 0;
+        const offY: number = y - this.height;
 
-        const rand: number = (this.random.nextInt() & 0x1f) + 192;
-        const offY: number = y - this.height2d;
+        for (let i: number = 0; i < str.length; i++) {
+            const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
+
+            if (c != 94) {
+                this.plotLetter(this.charMask[c], x + this.charOffsetX[c], offY + this.charOffsetY[c] + ((Math.sin(i / 2.0 + phase / 5.0) * 5.0) | 0), this.charMaskWidth[c], this.charMaskHeight[c], color);
+            }
+
+            x += this.charAdvance[c];
+        }
+    }
+
+    drawStringTag(x: number, y: number, str: string, color: number, shadowed: boolean): void {
+        x |= 0;
+        y |= 0;
+
+        const length: number = str.length;
+        y -= this.height;
+        for (let i: number = 0; i < length; i++) {
+            if (str.charAt(i) === '@' && i + 4 < length && str.charAt(i + 4) === '@') {
+                color = this.updateState(str.substring(i + 1, i + 4));
+                i += 4;
+            } else {
+                const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
+
+                if (c !== 94) {
+                    if (shadowed) {
+                        this.plotLetter(this.charMask[c], x + this.charOffsetX[c] + 1, y + this.charOffsetY[c] + 1, this.charMaskWidth[c], this.charMaskHeight[c], Colour.BLACK);
+                    }
+                    this.plotLetter(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color);
+                }
+
+                x += this.charAdvance[c];
+            }
+        }
+    }
+
+    drawStringAntiMacro(x: number, y: number, str: string, color: number, shadowed: boolean, seed: number): void {
+        x |= 0;
+        y |= 0;
+
+        this.rand.setSeed(seed);
+
+        const rand: number = (this.rand.nextInt() & 0x1f) + 192;
+        const offY: number = y - this.height;
         for (let i: number = 0; i < str.length; i++) {
             if (str.charAt(i) === '@' && i + 4 < str.length && str.charAt(i + 4) === '@') {
-                color = this.evaluateTag(str.substring(i + 1, i + 4));
+                color = this.updateState(str.substring(i + 1, i + 4));
                 i += 4;
             } else {
                 const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
                 if (c !== 94) {
                     if (shadowed) {
-                        this.drawCharAlpha(x + this.charOffsetX[c] + 1, offY + this.charOffsetY[c] + 1, this.charMaskWidth[c], this.charMaskHeight[c], Colors.BLACK, 192, this.charMask[c]);
+                        this.plotLetterTrans(x + this.charOffsetX[c] + 1, offY + this.charOffsetY[c] + 1, this.charMaskWidth[c], this.charMaskHeight[c], Colour.BLACK, 192, this.charMask[c]);
                     }
 
-                    this.drawCharAlpha(x + this.charOffsetX[c], offY + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color, rand, this.charMask[c]);
+                    this.plotLetterTrans(x + this.charOffsetX[c], offY + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color, rand, this.charMask[c]);
                 }
 
                 x += this.charAdvance[c];
-                if ((this.random.nextInt() & 0x3) === 0) {
+                if ((this.rand.nextInt() & 0x3) === 0) {
                     x++;
                 }
             }
+        }
+    }
+
+    updateState(tag: string): number {
+        if (tag === 'red') {
+            return Colour.RED;
+        } else if (tag === 'gre') {
+            return Colour.GREEN;
+        } else if (tag === 'blu') {
+            return Colour.BLUE;
+        } else if (tag === 'yel') {
+            return Colour.YELLOW;
+        } else if (tag === 'cya') {
+            return Colour.CYAN;
+        } else if (tag === 'mag') {
+            return Colour.MAGENTA;
+        } else if (tag === 'whi') {
+            return Colour.WHITE;
+        } else if (tag === 'bla') {
+            return Colour.BLACK;
+        } else if (tag === 'lre') {
+            return Colour.LIGHTRED;
+        } else if (tag === 'dre') {
+            return Colour.DARKRED;
+        } else if (tag === 'dbl') {
+            return Colour.DARKBLUE;
+        } else if (tag === 'or1') {
+            return Colour.ORANGE1;
+        } else if (tag === 'or2') {
+            return Colour.ORANGE2;
+        } else if (tag === 'or3') {
+            return Colour.ORANGE3;
+        } else if (tag === 'gr1') {
+            return Colour.GREEN1;
+        } else if (tag === 'gr2') {
+            return Colour.GREEN2;
+        } else if (tag === 'gr3') {
+            return Colour.GREEN3;
+        } else {
+            return Colour.BLACK;
         }
     }
 
@@ -238,61 +300,39 @@ export default class PixFont extends Linkable2 {
         y |= 0;
 
         if (shadowed) {
-            this.drawString(x - this.stringWidth(str) + 1, y + 1, str, Colors.BLACK);
+            this.drawString(x - this.stringWid(str) + 1, y + 1, str, Colour.BLACK);
         }
-        this.drawString(x - this.stringWidth(str), y, str, color);
+        this.drawString(x - this.stringWid(str), y, str, color);
     }
 
-    drawCenteredWave(x: number, y: number, str: string | null, color: number, phase: number): void {
-        if (!str) {
-            return;
-        }
-
-        x |= 0;
-        y |= 0;
-
-        x -= (this.stringWidth(str) / 2) | 0;
-        const offY: number = y - this.height2d;
-
-        for (let i: number = 0; i < str.length; i++) {
-            const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
-
-            if (c != 94) {
-                this.drawChar(this.charMask[c], x + this.charOffsetX[c], offY + this.charOffsetY[c] + ((Math.sin(i / 2.0 + phase / 5.0) * 5.0) | 0), this.charMaskWidth[c], this.charMaskHeight[c], color);
-            }
-
-            x += this.charAdvance[c];
-        }
-    }
-
-    drawChar(data: Int8Array, x: number, y: number, w: number, h: number, color: number): void {
+    plotLetter(data: Int8Array, x: number, y: number, w: number, h: number, color: number): void {
         x |= 0;
         y |= 0;
         w |= 0;
         h |= 0;
 
-        let dstOff: number = x + y * Pix2D.width2d;
-        let dstStep: number = Pix2D.width2d - w;
+        let dstOff: number = x + y * Pix2D.width;
+        let dstStep: number = Pix2D.width - w;
 
         let srcStep: number = 0;
         let srcOff: number = 0;
 
-        if (y < Pix2D.top) {
-            const cutoff: number = Pix2D.top - y;
+        if (y < Pix2D.clipMinX) {
+            const cutoff: number = Pix2D.clipMinX - y;
             h -= cutoff;
-            y = Pix2D.top;
+            y = Pix2D.clipMinX;
             srcOff += cutoff * w;
-            dstOff += cutoff * Pix2D.width2d;
+            dstOff += cutoff * Pix2D.width;
         }
 
-        if (y + h >= Pix2D.bottom) {
-            h -= y + h + 1 - Pix2D.bottom;
+        if (y + h >= Pix2D.clipMaxX) {
+            h -= y + h + 1 - Pix2D.clipMaxX;
         }
 
-        if (x < Pix2D.left) {
-            const cutoff: number = Pix2D.left - x;
+        if (x < Pix2D.clipMinY) {
+            const cutoff: number = Pix2D.clipMinY - x;
             w -= cutoff;
-            x = Pix2D.left;
+            x = Pix2D.clipMinY;
             srcOff += cutoff;
             dstOff += cutoff;
             srcStep += cutoff;
@@ -307,57 +347,11 @@ export default class PixFont extends Linkable2 {
         }
 
         if (w > 0 && h > 0) {
-            this.drawMask(w, h, data, srcOff, srcStep, Pix2D.pixels, dstOff, dstStep, color);
+            this.plot(w, h, data, srcOff, srcStep, Pix2D.pixels, dstOff, dstStep, color);
         }
     }
 
-    drawCharAlpha(x: number, y: number, w: number, h: number, color: number, alpha: number, mask: Int8Array): void {
-        x |= 0;
-        y |= 0;
-        w |= 0;
-        h |= 0;
-
-        let dstOff: number = x + y * Pix2D.width2d;
-        let dstStep: number = Pix2D.width2d - w;
-
-        let srcStep: number = 0;
-        let srcOff: number = 0;
-
-        if (y < Pix2D.top) {
-            const cutoff: number = Pix2D.top - y;
-            h -= cutoff;
-            y = Pix2D.top;
-            srcOff += cutoff * w;
-            dstOff += cutoff * Pix2D.width2d;
-        }
-
-        if (y + h >= Pix2D.bottom) {
-            h -= y + h + 1 - Pix2D.bottom;
-        }
-
-        if (x < Pix2D.left) {
-            const cutoff: number = Pix2D.left - x;
-            w -= cutoff;
-            x = Pix2D.left;
-            srcOff += cutoff;
-            dstOff += cutoff;
-            srcStep += cutoff;
-            dstStep += cutoff;
-        }
-
-        if (x + w >= Pix2D.right) {
-            const cutoff: number = x + w + 1 - Pix2D.right;
-            w -= cutoff;
-            srcStep += cutoff;
-            dstStep += cutoff;
-        }
-
-        if (w > 0 && h > 0) {
-            this.drawMaskAlpha(w, h, Pix2D.pixels, dstOff, dstStep, mask, srcOff, srcStep, color, alpha);
-        }
-    }
-
-    private drawMask(w: number, h: number, src: Int8Array, srcOff: number, srcStep: number, dst: Int32Array, dstOff: number, dstStep: number, rgb: number): void {
+    private plot(w: number, h: number, src: Int8Array, srcOff: number, srcStep: number, dst: Int32Array, dstOff: number, dstStep: number, rgb: number): void {
         w |= 0;
         h |= 0;
 
@@ -404,7 +398,53 @@ export default class PixFont extends Linkable2 {
         }
     }
 
-    private drawMaskAlpha(w: number, h: number, dst: Int32Array, dstOff: number, dstStep: number, mask: Int8Array, maskOff: number, maskStep: number, color: number, alpha: number): void {
+    plotLetterTrans(x: number, y: number, w: number, h: number, color: number, alpha: number, mask: Int8Array): void {
+        x |= 0;
+        y |= 0;
+        w |= 0;
+        h |= 0;
+
+        let dstOff: number = x + y * Pix2D.width;
+        let dstStep: number = Pix2D.width - w;
+
+        let srcStep: number = 0;
+        let srcOff: number = 0;
+
+        if (y < Pix2D.clipMinX) {
+            const cutoff: number = Pix2D.clipMinX - y;
+            h -= cutoff;
+            y = Pix2D.clipMinX;
+            srcOff += cutoff * w;
+            dstOff += cutoff * Pix2D.width;
+        }
+
+        if (y + h >= Pix2D.clipMaxX) {
+            h -= y + h + 1 - Pix2D.clipMaxX;
+        }
+
+        if (x < Pix2D.clipMinY) {
+            const cutoff: number = Pix2D.clipMinY - x;
+            w -= cutoff;
+            x = Pix2D.clipMinY;
+            srcOff += cutoff;
+            dstOff += cutoff;
+            srcStep += cutoff;
+            dstStep += cutoff;
+        }
+
+        if (x + w >= Pix2D.right) {
+            const cutoff: number = x + w + 1 - Pix2D.right;
+            w -= cutoff;
+            srcStep += cutoff;
+            dstStep += cutoff;
+        }
+
+        if (w > 0 && h > 0) {
+            this.plotTrans(w, h, Pix2D.pixels, dstOff, dstStep, mask, srcOff, srcStep, color, alpha);
+        }
+    }
+
+    private plotTrans(w: number, h: number, dst: Int32Array, dstOff: number, dstStep: number, mask: Int8Array, maskOff: number, maskStep: number, color: number, alpha: number): void {
         w |= 0;
         h |= 0;
 
@@ -424,85 +464,5 @@ export default class PixFont extends Linkable2 {
             dstOff += dstStep;
             maskOff += maskStep;
         }
-    }
-
-    evaluateTag(tag: string): number {
-        if (tag === 'red') {
-            return Colors.RED;
-        } else if (tag === 'gre') {
-            return Colors.GREEN;
-        } else if (tag === 'blu') {
-            return Colors.BLUE;
-        } else if (tag === 'yel') {
-            return Colors.YELLOW;
-        } else if (tag === 'cya') {
-            return Colors.CYAN;
-        } else if (tag === 'mag') {
-            return Colors.MAGENTA;
-        } else if (tag === 'whi') {
-            return Colors.WHITE;
-        } else if (tag === 'bla') {
-            return Colors.BLACK;
-        } else if (tag === 'lre') {
-            return Colors.LIGHTRED;
-        } else if (tag === 'dre') {
-            return Colors.DARKRED;
-        } else if (tag === 'dbl') {
-            return Colors.DARKBLUE;
-        } else if (tag === 'or1') {
-            return Colors.ORANGE1;
-        } else if (tag === 'or2') {
-            return Colors.ORANGE2;
-        } else if (tag === 'or3') {
-            return Colors.ORANGE3;
-        } else if (tag === 'gr1') {
-            return Colors.GREEN1;
-        } else if (tag === 'gr2') {
-            return Colors.GREEN2;
-        } else if (tag === 'gr3') {
-            return Colors.GREEN3;
-        } else {
-            return Colors.BLACK;
-        }
-    }
-
-    split(str: string, maxWidth: number): string[] {
-        if (str.length === 0) {
-            // special case for empty string
-            return [str];
-        }
-
-        const lines: string[] = [];
-        while (str.length > 0) {
-            // check if the string even needs to be broken up
-            const width: number = this.stringWidth(str);
-            if (width <= maxWidth && str.indexOf('|') === -1) {
-                lines.push(str);
-                break;
-            }
-
-            // we need to split on the next word boundary
-            let splitIndex: number = str.length;
-
-            // check the width at every space to see where we can cut the line
-            for (let i: number = 0; i < str.length; i++) {
-                if (str[i] === ' ') {
-                    const w: number = this.stringWidth(str.substring(0, i));
-                    if (w > maxWidth) {
-                        break;
-                    }
-
-                    splitIndex = i;
-                } else if (str[i] === '|') {
-                    splitIndex = i;
-                    break;
-                }
-            }
-
-            lines.push(str.substring(0, splitIndex));
-            str = str.substring(splitIndex + 1);
-        }
-
-        return lines;
     }
 }

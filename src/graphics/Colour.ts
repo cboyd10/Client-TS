@@ -1,4 +1,4 @@
-export const enum Colors {
+export const enum Colour {
     RED = 0xff0000,
     GREEN = 0xff00,
     BLUE = 0xff,

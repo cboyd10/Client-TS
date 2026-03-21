@@ -46,7 +46,7 @@ import { downloadUrl, sleep, arraycopy } from '#/util/JsUtil.js';
 import AnimBase from '#/dash3d/AnimBase.js';
 import AnimFrame from '#/dash3d/AnimFrame.js';
 import { canvas2d } from '#/graphics/Canvas.js';
-import { Colors } from '#/graphics/Colors.js';
+import { Colour } from '#/graphics/Colour.js';
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/graphics/Pix3D.js';
 import Model from '#/dash3d/Model.js';
@@ -454,7 +454,7 @@ export class Client extends GameShell {
     private designColours: Int32Array = new Int32Array(5);
 
     // friends/chats
-    static readonly CHAT_COLORS = Int32Array.of(Colors.YELLOW, Colors.RED, Colors.GREEN, Colors.CYAN, Colors.MAGENTA, Colors.WHITE);
+    static readonly CHAT_COLORS = Int32Array.of(Colour.YELLOW, Colour.RED, Colour.GREEN, Colour.CYAN, Colour.MAGENTA, Colour.WHITE);
     private friendCount: number = 0;
     private chatCount: number = 0;
     private chatX: Int32Array = new Int32Array(Constants.MAX_CHATS);
@@ -611,10 +611,10 @@ export class Client extends GameShell {
 
             this.jagTitle = await this.getJagFile('title', 'title screen', this.jagChecksum[1], 10);
 
-            this.fontPlain11 = PixFont.fromArchive(this.jagTitle, 'p11');
-            this.fontPlain12 = PixFont.fromArchive(this.jagTitle, 'p12');
-            this.fontBold12 = PixFont.fromArchive(this.jagTitle, 'b12');
-            this.fontQuill8 = PixFont.fromArchive(this.jagTitle, 'q8');
+            this.fontPlain11 = PixFont.depack(this.jagTitle, 'p11');
+            this.fontPlain12 = PixFont.depack(this.jagTitle, 'p12');
+            this.fontBold12 = PixFont.depack(this.jagTitle, 'b12');
+            this.fontQuill8 = PixFont.depack(this.jagTitle, 'q8');
 
             await this.loadTitleBackground();
             this.loadTitleImages();
@@ -637,19 +637,19 @@ export class Client extends GameShell {
 
             await this.drawProgress(75, 'Unpacking media');
 
-            this.imageInvback = Pix8.fromArchive(jagMedia, 'invback', 0);
-            this.imageChatback = Pix8.fromArchive(jagMedia, 'chatback', 0);
-            this.imageMapback = Pix8.fromArchive(jagMedia, 'mapback', 0);
+            this.imageInvback = Pix8.depack(jagMedia, 'invback', 0);
+            this.imageChatback = Pix8.depack(jagMedia, 'chatback', 0);
+            this.imageMapback = Pix8.depack(jagMedia, 'mapback', 0);
 
-            this.imageBackbase1 = Pix8.fromArchive(jagMedia, 'backbase1', 0);
-            this.imageBackbase2 = Pix8.fromArchive(jagMedia, 'backbase2', 0);
-            this.imageBackhmid1 = Pix8.fromArchive(jagMedia, 'backhmid1', 0);
+            this.imageBackbase1 = Pix8.depack(jagMedia, 'backbase1', 0);
+            this.imageBackbase2 = Pix8.depack(jagMedia, 'backbase2', 0);
+            this.imageBackhmid1 = Pix8.depack(jagMedia, 'backhmid1', 0);
 
             for (let i: number = 0; i < 13; i++) {
-                this.imageSideicons[i] = Pix8.fromArchive(jagMedia, 'sideicons', i);
+                this.imageSideicons[i] = Pix8.depack(jagMedia, 'sideicons', i);
             }
 
-            this.imageCompass = Pix32.fromArchive(jagMedia, 'compass', 0);
+            this.imageCompass = Pix32.depack(jagMedia, 'compass', 0);
 
             try {
                 for (let i: number = 0; i < 50; i++) {
@@ -658,7 +658,7 @@ export class Client extends GameShell {
                         continue;
                     }
 
-                    this.imageMapscene[i] = Pix8.fromArchive(jagMedia, 'mapscene', i);
+                    this.imageMapscene[i] = Pix8.depack(jagMedia, 'mapscene', i);
                 }
             } catch (e) {
                 /* empty */
@@ -666,7 +666,7 @@ export class Client extends GameShell {
 
             try {
                 for (let i: number = 0; i < 50; i++) {
-                    this.imageMapfunction[i] = Pix32.fromArchive(jagMedia, 'mapfunction', i);
+                    this.imageMapfunction[i] = Pix32.depack(jagMedia, 'mapfunction', i);
                 }
             } catch (e) {
                 /* empty */
@@ -674,7 +674,7 @@ export class Client extends GameShell {
 
             try {
                 for (let i: number = 0; i < 20; i++) {
-                    this.imageHitmarks[i] = Pix32.fromArchive(jagMedia, 'hitmarks', i);
+                    this.imageHitmarks[i] = Pix32.depack(jagMedia, 'hitmarks', i);
                 }
             } catch (e) {
                 /* empty */
@@ -682,92 +682,92 @@ export class Client extends GameShell {
 
             try {
                 for (let i: number = 0; i < 20; i++) {
-                    this.imageHeadicon[i] = Pix32.fromArchive(jagMedia, 'headicons', i);
+                    this.imageHeadicon[i] = Pix32.depack(jagMedia, 'headicons', i);
                 }
             } catch (e) {
                 /* empty */
             }
 
-            this.imageMapflag = Pix32.fromArchive(jagMedia, 'mapflag', 0);
+            this.imageMapflag = Pix32.depack(jagMedia, 'mapflag', 0);
 
             for (let i: number = 0; i < 8; i++) {
-                this.imageCrosses[i] = Pix32.fromArchive(jagMedia, 'cross', i);
+                this.imageCrosses[i] = Pix32.depack(jagMedia, 'cross', i);
             }
 
-            this.imageMapdot0 = Pix32.fromArchive(jagMedia, 'mapdots', 0);
-            this.imageMapdot1 = Pix32.fromArchive(jagMedia, 'mapdots', 1);
-            this.imageMapdot2 = Pix32.fromArchive(jagMedia, 'mapdots', 2);
-            this.imageMapdot3 = Pix32.fromArchive(jagMedia, 'mapdots', 3);
+            this.imageMapdot0 = Pix32.depack(jagMedia, 'mapdots', 0);
+            this.imageMapdot1 = Pix32.depack(jagMedia, 'mapdots', 1);
+            this.imageMapdot2 = Pix32.depack(jagMedia, 'mapdots', 2);
+            this.imageMapdot3 = Pix32.depack(jagMedia, 'mapdots', 3);
 
-            this.imageScrollbar0 = Pix8.fromArchive(jagMedia, 'scrollbar', 0);
-            this.imageScrollbar1 = Pix8.fromArchive(jagMedia, 'scrollbar', 1);
+            this.imageScrollbar0 = Pix8.depack(jagMedia, 'scrollbar', 0);
+            this.imageScrollbar1 = Pix8.depack(jagMedia, 'scrollbar', 1);
 
-            this.imageRedstone1 = Pix8.fromArchive(jagMedia, 'redstone1', 0);
-            this.imageRedstone2 = Pix8.fromArchive(jagMedia, 'redstone2', 0);
-            this.imageRedstone3 = Pix8.fromArchive(jagMedia, 'redstone3', 0);
+            this.imageRedstone1 = Pix8.depack(jagMedia, 'redstone1', 0);
+            this.imageRedstone2 = Pix8.depack(jagMedia, 'redstone2', 0);
+            this.imageRedstone3 = Pix8.depack(jagMedia, 'redstone3', 0);
 
-            this.imageRedstone1h = Pix8.fromArchive(jagMedia, 'redstone1', 0);
-            this.imageRedstone1h?.flipHorizontally();
+            this.imageRedstone1h = Pix8.depack(jagMedia, 'redstone1', 0);
+            this.imageRedstone1h?.hflip();
 
-            this.imageRedstone2h = Pix8.fromArchive(jagMedia, 'redstone2', 0);
-            this.imageRedstone2h?.flipHorizontally();
+            this.imageRedstone2h = Pix8.depack(jagMedia, 'redstone2', 0);
+            this.imageRedstone2h?.hflip();
 
-            this.imageRedstone1v = Pix8.fromArchive(jagMedia, 'redstone1', 0);
-            this.imageRedstone1v?.flipVertically();
+            this.imageRedstone1v = Pix8.depack(jagMedia, 'redstone1', 0);
+            this.imageRedstone1v?.vflip();
 
-            this.imageRedstone2v = Pix8.fromArchive(jagMedia, 'redstone2', 0);
-            this.imageRedstone2v?.flipVertically();
+            this.imageRedstone2v = Pix8.depack(jagMedia, 'redstone2', 0);
+            this.imageRedstone2v?.vflip();
 
-            this.imageRedstone3v = Pix8.fromArchive(jagMedia, 'redstone3', 0);
-            this.imageRedstone3v?.flipVertically();
+            this.imageRedstone3v = Pix8.depack(jagMedia, 'redstone3', 0);
+            this.imageRedstone3v?.vflip();
 
-            this.imageRedstone1hv = Pix8.fromArchive(jagMedia, 'redstone1', 0);
-            this.imageRedstone1hv?.flipHorizontally();
-            this.imageRedstone1hv?.flipVertically();
+            this.imageRedstone1hv = Pix8.depack(jagMedia, 'redstone1', 0);
+            this.imageRedstone1hv?.hflip();
+            this.imageRedstone1hv?.vflip();
 
-            this.imageRedstone2hv = Pix8.fromArchive(jagMedia, 'redstone2', 0);
-            this.imageRedstone2hv?.flipHorizontally();
-            this.imageRedstone2hv?.flipVertically();
+            this.imageRedstone2hv = Pix8.depack(jagMedia, 'redstone2', 0);
+            this.imageRedstone2hv?.hflip();
+            this.imageRedstone2hv?.vflip();
 
-            const backleft1: Pix32 = Pix32.fromArchive(jagMedia, 'backleft1', 0);
-            this.areaBackleft1 = new PixMap(backleft1.cropRight, backleft1.cropBottom);
-            backleft1.blitOpaque(0, 0);
+            const backleft1: Pix32 = Pix32.depack(jagMedia, 'backleft1', 0);
+            this.areaBackleft1 = new PixMap(backleft1.wi, backleft1.hi);
+            backleft1.quickPlotSprite(0, 0);
 
-            const backleft2: Pix32 = Pix32.fromArchive(jagMedia, 'backleft2', 0);
-            this.areaBackleft2 = new PixMap(backleft2.cropRight, backleft2.cropBottom);
-            backleft2.blitOpaque(0, 0);
+            const backleft2: Pix32 = Pix32.depack(jagMedia, 'backleft2', 0);
+            this.areaBackleft2 = new PixMap(backleft2.wi, backleft2.hi);
+            backleft2.quickPlotSprite(0, 0);
 
-            const backright1: Pix32 = Pix32.fromArchive(jagMedia, 'backright1', 0);
-            this.areaBackright1 = new PixMap(backright1.cropRight, backright1.cropBottom);
-            backright1.blitOpaque(0, 0);
+            const backright1: Pix32 = Pix32.depack(jagMedia, 'backright1', 0);
+            this.areaBackright1 = new PixMap(backright1.wi, backright1.hi);
+            backright1.quickPlotSprite(0, 0);
 
-            const backright2: Pix32 = Pix32.fromArchive(jagMedia, 'backright2', 0);
-            this.areaBackright2 = new PixMap(backright2.cropRight, backright2.cropBottom);
-            backright2.blitOpaque(0, 0);
+            const backright2: Pix32 = Pix32.depack(jagMedia, 'backright2', 0);
+            this.areaBackright2 = new PixMap(backright2.wi, backright2.hi);
+            backright2.quickPlotSprite(0, 0);
 
-            const backtop1: Pix32 = Pix32.fromArchive(jagMedia, 'backtop1', 0);
-            this.areaBacktop1 = new PixMap(backtop1.cropRight, backtop1.cropBottom);
-            backtop1.blitOpaque(0, 0);
+            const backtop1: Pix32 = Pix32.depack(jagMedia, 'backtop1', 0);
+            this.areaBacktop1 = new PixMap(backtop1.wi, backtop1.hi);
+            backtop1.quickPlotSprite(0, 0);
 
-            const backtop2: Pix32 = Pix32.fromArchive(jagMedia, 'backtop2', 0);
-            this.areaBacktop2 = new PixMap(backtop2.cropRight, backtop2.cropBottom);
-            backtop2.blitOpaque(0, 0);
+            const backtop2: Pix32 = Pix32.depack(jagMedia, 'backtop2', 0);
+            this.areaBacktop2 = new PixMap(backtop2.wi, backtop2.hi);
+            backtop2.quickPlotSprite(0, 0);
 
-            const backvmid1: Pix32 = Pix32.fromArchive(jagMedia, 'backvmid1', 0);
-            this.areaBackvmid1 = new PixMap(backvmid1.cropRight, backvmid1.cropBottom);
-            backvmid1.blitOpaque(0, 0);
+            const backvmid1: Pix32 = Pix32.depack(jagMedia, 'backvmid1', 0);
+            this.areaBackvmid1 = new PixMap(backvmid1.wi, backvmid1.hi);
+            backvmid1.quickPlotSprite(0, 0);
 
-            const backvmid2: Pix32 = Pix32.fromArchive(jagMedia, 'backvmid2', 0);
-            this.areaBackvmid2 = new PixMap(backvmid2.cropRight, backvmid2.cropBottom);
-            backvmid2.blitOpaque(0, 0);
+            const backvmid2: Pix32 = Pix32.depack(jagMedia, 'backvmid2', 0);
+            this.areaBackvmid2 = new PixMap(backvmid2.wi, backvmid2.hi);
+            backvmid2.quickPlotSprite(0, 0);
 
-            const backvmid3: Pix32 = Pix32.fromArchive(jagMedia, 'backvmid3', 0);
-            this.areaBackvmid3 = new PixMap(backvmid3.cropRight, backvmid3.cropBottom);
-            backvmid3.blitOpaque(0, 0);
+            const backvmid3: Pix32 = Pix32.depack(jagMedia, 'backvmid3', 0);
+            this.areaBackvmid3 = new PixMap(backvmid3.wi, backvmid3.hi);
+            backvmid3.quickPlotSprite(0, 0);
 
-            const backhmid2: Pix32 = Pix32.fromArchive(jagMedia, 'backhmid2', 0);
-            this.areaBackhmid2 = new PixMap(backhmid2.cropRight, backhmid2.cropBottom);
-            backhmid2.blitOpaque(0, 0);
+            const backhmid2: Pix32 = Pix32.depack(jagMedia, 'backhmid2', 0);
+            this.areaBackhmid2 = new PixMap(backhmid2.wi, backhmid2.hi);
+            backhmid2.quickPlotSprite(0, 0);
 
             const randR: number = ((Math.random() * 21.0) | 0) - 10;
             const randG: number = ((Math.random() * 21.0) | 0) - 10;
@@ -776,11 +776,11 @@ export class Client extends GameShell {
 
             for (let i: number = 0; i < 50; i++) {
                 if (this.imageMapfunction[i]) {
-                    this.imageMapfunction[i]?.translate2d(randR + rand, randG + rand, randB + rand);
+                    this.imageMapfunction[i]?.rgbAdjust(randR + rand, randG + rand, randB + rand);
                 }
 
                 if (this.imageMapscene[i]) {
-                    this.imageMapscene[i]?.translate2d(randR + rand, randG + rand, randB + rand);
+                    this.imageMapscene[i]?.rgbAdjust(randR + rand, randG + rand, randB + rand);
                 }
             }
 
@@ -823,7 +823,7 @@ export class Client extends GameShell {
                 let right: number = 0;
 
                 for (let x: number = 0; x < 35; x++) {
-                    if (this.imageMapback.pixels[x + y * this.imageMapback.width2d] === 0) {
+                    if (this.imageMapback.data[x + y * this.imageMapback.wi] === 0) {
                         if (left === 999) {
                             left = x;
                         }
@@ -842,7 +842,7 @@ export class Client extends GameShell {
                 let right: number = 0;
 
                 for (let x: number = 10; x < 168; x++) {
-                    if (this.imageMapback.pixels[x + y * this.imageMapback.width2d] === 0 && (x > 34 || y > 34)) {
+                    if (this.imageMapback.data[x + y * this.imageMapback.wi] === 0 && (x > 34 || y > 34)) {
                         if (left === 999) {
                             left = x;
                         }
@@ -933,20 +933,20 @@ export class Client extends GameShell {
             return;
         }
 
-        this.imageTitle4?.bind();
+        this.imageTitle4?.setPixels();
 
         const x: number = 360;
         const y: number = 200;
 
         const offsetY: number = 20;
-        this.fontBold12?.drawStringCenter((x / 2) | 0, ((y / 2) | 0) - offsetY - 26, 'RuneScape is loading - please wait...', Colors.WHITE);
+        this.fontBold12?.centreString((x / 2) | 0, ((y / 2) | 0) - offsetY - 26, 'RuneScape is loading - please wait...', Colour.WHITE);
 
         const midY: number = ((y / 2) | 0) - 18 - offsetY;
-        Pix2D.drawRect(((x / 2) | 0) - 152, midY, 304, 34, Colors.PROGRESS_RED);
-        Pix2D.drawRect(((x / 2) | 0) - 151, midY + 1, 302, 32, Colors.BLACK);
-        Pix2D.fillRect2d(((x / 2) | 0) - 150, midY + 2, percent * 3, 30, Colors.PROGRESS_RED);
-        Pix2D.fillRect2d(((x / 2) | 0) - 150 + percent * 3, midY + 2, 300 - percent * 3, 30, Colors.BLACK);
-        this.fontBold12?.drawStringCenter((x / 2) | 0, ((y / 2) | 0) + 5 - offsetY, message, Colors.WHITE);
+        Pix2D.drawRect(((x / 2) | 0) - 152, midY, 304, 34, Colour.PROGRESS_RED);
+        Pix2D.drawRect(((x / 2) | 0) - 151, midY + 1, 302, 32, Colour.BLACK);
+        Pix2D.fillRect(((x / 2) | 0) - 150, midY + 2, percent * 3, 30, Colour.PROGRESS_RED);
+        Pix2D.fillRect(((x / 2) | 0) - 150 + percent * 3, midY + 2, 300 - percent * 3, 30, Colour.BLACK);
+        this.fontBold12?.centreString((x / 2) | 0, ((y / 2) | 0) + 5 - offsetY, message, Colour.WHITE);
 
         this.imageTitle4?.draw(214, 186);
 
@@ -1456,13 +1456,13 @@ export class Client extends GameShell {
         this.areaChatback = new PixMap(479, 96);
  
         this.areaMapback = new PixMap(168, 160);
-        Pix2D.clear();
-        this.imageMapback?.draw(0, 0);
+        Pix2D.cls();
+        this.imageMapback?.plotSprite(0, 0);
  
         this.areaSidebar = new PixMap(190, 261);
  
         this.areaViewport = new PixMap(512, 334);
-        Pix2D.clear();
+        Pix2D.cls();
  
         this.areaBackbase1 = new PixMap(501, 61);
         this.areaBackbase2 = new PixMap(288, 40);
@@ -1757,11 +1757,11 @@ export class Client extends GameShell {
             return;
         }
 
-        this.areaViewport?.bind();
-        this.fontPlain12?.drawStringCenter(257, 144, 'Connection lost', Colors.BLACK);
-        this.fontPlain12?.drawStringCenter(256, 143, 'Connection lost', Colors.WHITE);
-        this.fontPlain12?.drawStringCenter(257, 159, 'Please wait - attempting to reestablish', Colors.BLACK);
-        this.fontPlain12?.drawStringCenter(256, 158, 'Please wait - attempting to reestablish', Colors.WHITE);
+        this.areaViewport?.setPixels();
+        this.fontPlain12?.centreString(257, 144, 'Connection lost', Colour.BLACK);
+        this.fontPlain12?.centreString(256, 143, 'Connection lost', Colour.WHITE);
+        this.fontPlain12?.centreString(257, 159, 'Please wait - attempting to reestablish', Colour.BLACK);
+        this.fontPlain12?.centreString(256, 158, 'Please wait - attempting to reestablish', Colour.WHITE);
         this.areaViewport?.draw(8, 11);
 
         this.flagSceneTileX = 0;
@@ -1777,9 +1777,9 @@ export class Client extends GameShell {
 
     private updateSceneState(): void {
         if (Client.lowMemory && this.sceneState === 2 && World.levelBuilt !== this.currentLevel) {
-            this.areaViewport?.bind();
-            this.fontPlain12?.drawStringCenter(257, 151, 'Loading - please wait.', Colors.BLACK);
-            this.fontPlain12?.drawStringCenter(256, 150, 'Loading - please wait.', Colors.WHITE);
+            this.areaViewport?.setPixels();
+            this.fontPlain12?.centreString(257, 151, 'Loading - please wait.', Colour.BLACK);
+            this.fontPlain12?.centreString(256, 150, 'Loading - please wait.', Colour.WHITE);
             this.areaViewport?.draw(8, 11);
             this.sceneState = 1;
         }
@@ -1892,7 +1892,7 @@ export class Client extends GameShell {
             this.out.p1Enc(ClientProt.NO_TIMEOUT);
 
             world.build(this.scene, this.levelCollisionMap);
-            this.areaViewport?.bind();
+            this.areaViewport?.setPixels();
 
             this.out.p1Enc(ClientProt.NO_TIMEOUT);
 
@@ -1937,7 +1937,7 @@ export class Client extends GameShell {
             return;
         }
 
-        const pixels: Int32Array = this.imageMinimap.pixels;
+        const pixels: Int32Array = this.imageMinimap.data;
         const length: number = pixels.length;
         for (let i: number = 0; i < length; i++) {
             pixels[i] = 0;
@@ -1962,7 +1962,7 @@ export class Client extends GameShell {
         const wallRgb: number = ((((Math.random() * 20.0) | 0) + 238 - 10) << 16) + ((((Math.random() * 20.0) | 0) + 238 - 10) << 8) + ((Math.random() * 20.0) | 0) + 238 - 10;
         const doorRgb: number = (((Math.random() * 20.0) | 0) + 238 - 10) << 16;
 
-        this.imageMinimap.bind();
+        this.imageMinimap.setPixels();
 
         for (let z: number = 1; z < CollisionConstants.SIZE - 1; z++) {
             for (let x: number = 1; x < CollisionConstants.SIZE - 1; x++) {
@@ -1976,7 +1976,7 @@ export class Client extends GameShell {
             }
         }
 
-        this.areaViewport?.bind();
+        this.areaViewport?.setPixels();
 
         this.activeMapFunctionCount = 0;
 
@@ -3677,31 +3677,31 @@ export class Client extends GameShell {
         this.areaBackhmid1 = null;
 
         this.imageTitle0 = new PixMap(128, 265);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle1 = new PixMap(128, 265);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle2 = new PixMap(533, 186);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle3 = new PixMap(360, 146);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle4 = new PixMap(360, 200);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle5 = new PixMap(214, 267);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle6 = new PixMap(215, 267);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle7 = new PixMap(86, 79);
-        Pix2D.clear();
+        Pix2D.cls();
 
         this.imageTitle8 = new PixMap(87, 79);
-        Pix2D.clear();
+        Pix2D.cls();
 
         if (this.jagTitle) {
             await this.loadTitleBackground();
@@ -3718,66 +3718,66 @@ export class Client extends GameShell {
 
         const background: Pix32 = await Pix32.fromJpeg(this.jagTitle, 'title');
 
-        this.imageTitle0?.bind();
-        background.blitOpaque(0, 0);
+        this.imageTitle0?.setPixels();
+        background.quickPlotSprite(0, 0);
 
-        this.imageTitle1?.bind();
-        background.blitOpaque(-661, 0);
+        this.imageTitle1?.setPixels();
+        background.quickPlotSprite(-661, 0);
 
-        this.imageTitle2?.bind();
-        background.blitOpaque(-128, 0);
+        this.imageTitle2?.setPixels();
+        background.quickPlotSprite(-128, 0);
 
-        this.imageTitle3?.bind();
-        background.blitOpaque(-214, -386);
+        this.imageTitle3?.setPixels();
+        background.quickPlotSprite(-214, -386);
 
-        this.imageTitle4?.bind();
-        background.blitOpaque(-214, -186);
+        this.imageTitle4?.setPixels();
+        background.quickPlotSprite(-214, -186);
 
-        this.imageTitle5?.bind();
-        background.blitOpaque(0, -265);
+        this.imageTitle5?.setPixels();
+        background.quickPlotSprite(0, -265);
 
-        this.imageTitle6?.bind();
-        background.blitOpaque(-128, -186);
+        this.imageTitle6?.setPixels();
+        background.quickPlotSprite(-128, -186);
 
-        this.imageTitle7?.bind();
-        background.blitOpaque(-128, -186);
+        this.imageTitle7?.setPixels();
+        background.quickPlotSprite(-128, -186);
 
-        this.imageTitle8?.bind();
-        background.blitOpaque(-574, -186);
+        this.imageTitle8?.setPixels();
+        background.quickPlotSprite(-574, -186);
 
         // draw right side (mirror image)
-        background.flipHorizontally();
+        background.hflip();
 
-        this.imageTitle0?.bind();
-        background.blitOpaque(394, 0);
+        this.imageTitle0?.setPixels();
+        background.quickPlotSprite(394, 0);
 
-        this.imageTitle1?.bind();
-        background.blitOpaque(-267, 0);
+        this.imageTitle1?.setPixels();
+        background.quickPlotSprite(-267, 0);
 
-        this.imageTitle2?.bind();
-        background.blitOpaque(266, 0);
+        this.imageTitle2?.setPixels();
+        background.quickPlotSprite(266, 0);
 
-        this.imageTitle3?.bind();
-        background.blitOpaque(180, -386);
+        this.imageTitle3?.setPixels();
+        background.quickPlotSprite(180, -386);
 
-        this.imageTitle4?.bind();
-        background.blitOpaque(180, -186);
+        this.imageTitle4?.setPixels();
+        background.quickPlotSprite(180, -186);
 
-        this.imageTitle5?.bind();
-        background.blitOpaque(394, -265);
+        this.imageTitle5?.setPixels();
+        background.quickPlotSprite(394, -265);
 
-        this.imageTitle6?.bind();
-        background.blitOpaque(-180, -265);
+        this.imageTitle6?.setPixels();
+        background.quickPlotSprite(-180, -265);
 
-        this.imageTitle7?.bind();
-        background.blitOpaque(212, -186);
+        this.imageTitle7?.setPixels();
+        background.quickPlotSprite(212, -186);
 
-        this.imageTitle8?.bind();
-        background.blitOpaque(-180, -186);
+        this.imageTitle8?.setPixels();
+        background.quickPlotSprite(-180, -186);
 
-        const logo: Pix32 = Pix32.fromArchive(this.jagTitle, 'logo');
-        this.imageTitle2?.bind();
-        logo.draw(((this.width / 2) | 0) - ((logo.cropRight / 2) | 0) - 128, 18);
+        const logo: Pix32 = Pix32.depack(this.jagTitle, 'logo');
+        this.imageTitle2?.setPixels();
+        logo.plotSprite(((this.width / 2) | 0) - ((logo.wi / 2) | 0) - 128, 18);
     }
 
     private loadTitleImages(): void {
@@ -3785,29 +3785,29 @@ export class Client extends GameShell {
             return;
         }
 
-        this.imageTitlebox = Pix8.fromArchive(this.jagTitle, 'titlebox');
-        this.imageTitlebutton = Pix8.fromArchive(this.jagTitle, 'titlebutton');
+        this.imageTitlebox = Pix8.depack(this.jagTitle, 'titlebox');
+        this.imageTitlebutton = Pix8.depack(this.jagTitle, 'titlebutton');
         for (let i: number = 0; i < 12; i++) {
-            this.imageRunes[i] = Pix8.fromArchive(this.jagTitle, 'runes', i);
+            this.imageRunes[i] = Pix8.depack(this.jagTitle, 'runes', i);
         }
         this.imageFlamesLeft = new Pix32(128, 265);
         this.imageFlamesRight = new Pix32(128, 265);
 
-        if (this.imageTitle0) arraycopy(this.imageTitle0.pixels, 0, this.imageFlamesLeft.pixels, 0, 33920);
-        if (this.imageTitle1) arraycopy(this.imageTitle1.pixels, 0, this.imageFlamesRight.pixels, 0, 33920);
+        if (this.imageTitle0) arraycopy(this.imageTitle0.data, 0, this.imageFlamesLeft.data, 0, 33920);
+        if (this.imageTitle1) arraycopy(this.imageTitle1.data, 0, this.imageFlamesRight.data, 0, 33920);
 
         this.flameGradient0 = new Int32Array(256);
         for (let index: number = 0; index < 64; index++) {
             this.flameGradient0[index] = index * 262144;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient0[index + 64] = index * 1024 + Colors.RED;
+            this.flameGradient0[index + 64] = index * 1024 + Colour.RED;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient0[index + 128] = index * 4 + Colors.YELLOW;
+            this.flameGradient0[index + 128] = index * 4 + Colour.YELLOW;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient0[index + 192] = Colors.WHITE;
+            this.flameGradient0[index + 192] = Colour.WHITE;
         }
 
         this.flameGradient1 = new Int32Array(256);
@@ -3815,13 +3815,13 @@ export class Client extends GameShell {
             this.flameGradient1[index] = index * 1024;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient1[index + 64] = index * 4 + Colors.GREEN;
+            this.flameGradient1[index + 64] = index * 4 + Colour.GREEN;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient1[index + 128] = index * 262144 + Colors.CYAN;
+            this.flameGradient1[index + 128] = index * 262144 + Colour.CYAN;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient1[index + 192] = Colors.WHITE;
+            this.flameGradient1[index + 192] = Colour.WHITE;
         }
 
         this.flameGradient2 = new Int32Array(256);
@@ -3829,13 +3829,13 @@ export class Client extends GameShell {
             this.flameGradient2[index] = index * 4;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient2[index + 64] = index * 262144 + Colors.BLUE;
+            this.flameGradient2[index + 64] = index * 262144 + Colour.BLUE;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient2[index + 128] = index * 1024 + Colors.MAGENTA;
+            this.flameGradient2[index + 128] = index * 1024 + Colour.MAGENTA;
         }
         for (let index: number = 0; index < 64; index++) {
-            this.flameGradient2[index + 192] = Colors.WHITE;
+            this.flameGradient2[index + 192] = Colour.WHITE;
         }
 
         this.flameGradient = new Int32Array(256);
@@ -3855,8 +3855,8 @@ export class Client extends GameShell {
 
     private async drawTitle(): Promise<void> {
         await this.loadTitle();
-        this.imageTitle4?.bind();
-        this.imageTitlebox?.draw(0, 0);
+        this.imageTitle4?.setPixels();
+        this.imageTitlebox?.plotSprite(0, 0);
 
         const w: number = 360;
         const h: number = 200;
@@ -3864,64 +3864,64 @@ export class Client extends GameShell {
         if (this.titleScreenState === 0) {
             let x: number = (w / 2) | 0;
             let y: number = ((h / 2) | 0) - 20;
-            this.fontBold12?.drawStringTaggableCenter(x, y, 'Welcome to RuneScape', Colors.YELLOW, true);
+            this.fontBold12?.centreStringTag(x, y, 'Welcome to RuneScape', Colour.YELLOW, true);
 
             x = ((w / 2) | 0) - 80;
             y = ((h / 2) | 0) + 20;
-            this.imageTitlebutton?.draw(x - 73, y - 20);
-            this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'New user', Colors.WHITE, true);
+            this.imageTitlebutton?.plotSprite(x - 73, y - 20);
+            this.fontBold12?.centreStringTag(x, y + 5, 'New user', Colour.WHITE, true);
 
             x = ((w / 2) | 0) + 80;
-            this.imageTitlebutton?.draw(x - 73, y - 20);
-            this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'Existing User', Colors.WHITE, true);
+            this.imageTitlebutton?.plotSprite(x - 73, y - 20);
+            this.fontBold12?.centreStringTag(x, y + 5, 'Existing User', Colour.WHITE, true);
         } else if (this.titleScreenState === 2) {
             let x: number = ((w / 2) | 0) - 80;
             let y: number = ((h / 2) | 0) - 40;
             if (this.loginMessage0.length > 0) {
-                this.fontBold12?.drawStringTaggableCenter(w / 2, y - 15, this.loginMessage0, Colors.YELLOW, true);
-                this.fontBold12?.drawStringTaggableCenter(w / 2, y, this.loginMessage1, Colors.YELLOW, true);
+                this.fontBold12?.centreStringTag(w / 2, y - 15, this.loginMessage0, Colour.YELLOW, true);
+                this.fontBold12?.centreStringTag(w / 2, y, this.loginMessage1, Colour.YELLOW, true);
                 y += 30;
             } else {
-                this.fontBold12?.drawStringTaggableCenter(w / 2, y - 7, this.loginMessage1, Colors.YELLOW, true);
+                this.fontBold12?.centreStringTag(w / 2, y - 7, this.loginMessage1, Colour.YELLOW, true);
                 y += 30;
             }
 
-            this.fontBold12?.drawStringTaggable(w / 2 - 90, y, `Username: ${this.username}${this.titleLoginField === 0 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
+            this.fontBold12?.drawStringTag(w / 2 - 90, y, `Username: ${this.username}${this.titleLoginField === 0 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colour.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggable(w / 2 - 88, y, `Password: ${JString.getRepeatedCharacter(this.password)}${this.titleLoginField === 1 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colors.WHITE, true);
+            this.fontBold12?.drawStringTag(w / 2 - 88, y, `Password: ${JString.getRepeatedCharacter(this.password)}${this.titleLoginField === 1 && this.loopCycle % 40 < 20 ? '@yel@|' : ''}`, Colour.WHITE, true);
             y += 15;
 
             x = ((w / 2) | 0) - 80;
             y = ((h / 2) | 0) + 50;
-            this.imageTitlebutton?.draw(x - 73, y - 20);
-            this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'Login', Colors.WHITE, true);
+            this.imageTitlebutton?.plotSprite(x - 73, y - 20);
+            this.fontBold12?.centreStringTag(x, y + 5, 'Login', Colour.WHITE, true);
 
             x = ((w / 2) | 0) + 80;
-            this.imageTitlebutton?.draw(x - 73, y - 20);
-            this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'Cancel', Colors.WHITE, true);
+            this.imageTitlebutton?.plotSprite(x - 73, y - 20);
+            this.fontBold12?.centreStringTag(x, y + 5, 'Cancel', Colour.WHITE, true);
         } else if (this.titleScreenState === 3) {
             let x: number = (w / 2) | 0;
             let y: number = ((h / 2) | 0) - 60;
-            this.fontBold12?.drawStringTaggableCenter(x, y, 'Create a free account', Colors.YELLOW, true);
+            this.fontBold12?.centreStringTag(x, y, 'Create a free account', Colour.YELLOW, true);
 
             y = ((h / 2) | 0) - 35;
-            this.fontBold12?.drawStringTaggableCenter(x, y, 'To create a new account you need to', Colors.WHITE, true);
+            this.fontBold12?.centreStringTag(x, y, 'To create a new account you need to', Colour.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggableCenter(x, y, 'go back to the main RuneScape webpage', Colors.WHITE, true);
+            this.fontBold12?.centreStringTag(x, y, 'go back to the main RuneScape webpage', Colour.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggableCenter(x, y, "and choose the red 'create account'", Colors.WHITE, true);
+            this.fontBold12?.centreStringTag(x, y, "and choose the red 'create account'", Colour.WHITE, true);
             y += 15;
 
-            this.fontBold12?.drawStringTaggableCenter(x, y, 'button at the top right of that page.', Colors.WHITE, true);
+            this.fontBold12?.centreStringTag(x, y, 'button at the top right of that page.', Colour.WHITE, true);
             y += 15;
 
             x = (w / 2) | 0;
             y = ((h / 2) | 0) + 50;
-            this.imageTitlebutton?.draw(x - 73, y - 20);
-            this.fontBold12?.drawStringTaggableCenter(x, y + 5, 'Cancel', Colors.WHITE, true);
+            this.imageTitlebutton?.plotSprite(x - 73, y - 20);
+            this.fontBold12?.centreStringTag(x, y + 5, 'Cancel', Colour.WHITE, true);
         }
 
         this.imageTitle4?.draw(214, 186);
@@ -4063,158 +4063,158 @@ export class Client extends GameShell {
             }
 
             this.redrawSideicons = false;
-            this.areaBackhmid1?.bind();
-            this.imageBackhmid1?.draw(0, 0);
+            this.areaBackhmid1?.setPixels();
+            this.imageBackhmid1?.plotSprite(0, 0);
 
             if (this.sidebarInterfaceId === -1) {
                 if (this.tabInterfaceId[this.selectedTab] !== -1) {
                     if (this.selectedTab === 0) {
-                        this.imageRedstone1?.draw(29, 30);
+                        this.imageRedstone1?.plotSprite(29, 30);
                     } else if (this.selectedTab === 1) {
-                        this.imageRedstone2?.draw(59, 29);
+                        this.imageRedstone2?.plotSprite(59, 29);
                     } else if (this.selectedTab === 2) {
-                        this.imageRedstone2?.draw(87, 29);
+                        this.imageRedstone2?.plotSprite(87, 29);
                     } else if (this.selectedTab === 3) {
-                        this.imageRedstone3?.draw(115, 29);
+                        this.imageRedstone3?.plotSprite(115, 29);
                     } else if (this.selectedTab === 4) {
-                        this.imageRedstone2h?.draw(156, 29);
+                        this.imageRedstone2h?.plotSprite(156, 29);
                     } else if (this.selectedTab === 5) {
-                        this.imageRedstone2h?.draw(184, 29);
+                        this.imageRedstone2h?.plotSprite(184, 29);
                     } else if (this.selectedTab === 6) {
-                        this.imageRedstone1h?.draw(212, 30);
+                        this.imageRedstone1h?.plotSprite(212, 30);
                     }
                 }
 
                 if (this.tabInterfaceId[0] !== -1 && (this.flashingTab !== 0 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[0]?.draw(35, 34);
+                    this.imageSideicons[0]?.plotSprite(35, 34);
                 }
 
                 if (this.tabInterfaceId[1] !== -1 && (this.flashingTab !== 1 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[1]?.draw(59, 32);
+                    this.imageSideicons[1]?.plotSprite(59, 32);
                 }
 
                 if (this.tabInterfaceId[2] !== -1 && (this.flashingTab !== 2 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[2]?.draw(86, 32);
+                    this.imageSideicons[2]?.plotSprite(86, 32);
                 }
 
                 if (this.tabInterfaceId[3] !== -1 && (this.flashingTab !== 3 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[3]?.draw(121, 33);
+                    this.imageSideicons[3]?.plotSprite(121, 33);
                 }
 
                 if (this.tabInterfaceId[4] !== -1 && (this.flashingTab !== 4 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[4]?.draw(157, 34);
+                    this.imageSideicons[4]?.plotSprite(157, 34);
                 }
 
                 if (this.tabInterfaceId[5] !== -1 && (this.flashingTab !== 5 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[5]?.draw(185, 32);
+                    this.imageSideicons[5]?.plotSprite(185, 32);
                 }
 
                 if (this.tabInterfaceId[6] !== -1 && (this.flashingTab !== 6 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[6]?.draw(212, 34);
+                    this.imageSideicons[6]?.plotSprite(212, 34);
                 }
             }
 
             this.areaBackhmid1?.draw(520, 165);
 
-            this.areaBackbase2?.bind();
-            this.imageBackbase2?.draw(0, 0);
+            this.areaBackbase2?.setPixels();
+            this.imageBackbase2?.plotSprite(0, 0);
 
             if (this.sidebarInterfaceId === -1) {
                 if (this.tabInterfaceId[this.selectedTab] !== -1) {
                     if (this.selectedTab === 7) {
-                        this.imageRedstone1v?.draw(49, 0);
+                        this.imageRedstone1v?.plotSprite(49, 0);
                     } else if (this.selectedTab === 8) {
-                        this.imageRedstone2v?.draw(81, 0);
+                        this.imageRedstone2v?.plotSprite(81, 0);
                     } else if (this.selectedTab === 9) {
-                        this.imageRedstone2v?.draw(108, 0);
+                        this.imageRedstone2v?.plotSprite(108, 0);
                     } else if (this.selectedTab === 10) {
-                        this.imageRedstone3v?.draw(136, 1);
+                        this.imageRedstone3v?.plotSprite(136, 1);
                     } else if (this.selectedTab === 11) {
-                        this.imageRedstone2hv?.draw(178, 0);
+                        this.imageRedstone2hv?.plotSprite(178, 0);
                     } else if (this.selectedTab === 12) {
-                        this.imageRedstone2hv?.draw(205, 0);
+                        this.imageRedstone2hv?.plotSprite(205, 0);
                     } else if (this.selectedTab === 13) {
-                        this.imageRedstone1hv?.draw(233, 0);
+                        this.imageRedstone1hv?.plotSprite(233, 0);
                     }
                 }
 
                 if (this.tabInterfaceId[8] !== -1 && (this.flashingTab !== 8 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[7]?.draw(80, 2);
+                    this.imageSideicons[7]?.plotSprite(80, 2);
                 }
 
                 if (this.tabInterfaceId[9] !== -1 && (this.flashingTab !== 9 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[8]?.draw(107, 3);
+                    this.imageSideicons[8]?.plotSprite(107, 3);
                 }
 
                 if (this.tabInterfaceId[10] !== -1 && (this.flashingTab !== 10 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[9]?.draw(142, 4);
+                    this.imageSideicons[9]?.plotSprite(142, 4);
                 }
 
                 if (this.tabInterfaceId[11] !== -1 && (this.flashingTab !== 11 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[10]?.draw(179, 2);
+                    this.imageSideicons[10]?.plotSprite(179, 2);
                 }
 
                 if (this.tabInterfaceId[12] !== -1 && (this.flashingTab !== 12 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[11]?.draw(206, 2);
+                    this.imageSideicons[11]?.plotSprite(206, 2);
                 }
 
                 if (this.tabInterfaceId[13] !== -1 && (this.flashingTab !== 13 || this.loopCycle % 20 < 10)) {
-                    this.imageSideicons[12]?.draw(230, 2);
+                    this.imageSideicons[12]?.plotSprite(230, 2);
                 }
             }
 
             this.areaBackbase2?.draw(501, 492);
 
-            this.areaViewport?.bind();
+            this.areaViewport?.setPixels();
         }
 
         if (this.redrawPrivacySettings) {
             this.redrawPrivacySettings = false;
 
-            this.areaBackbase1?.bind();
-            this.imageBackbase1?.draw(0, 0);
+            this.areaBackbase1?.setPixels();
+            this.imageBackbase1?.plotSprite(0, 0);
 
-            this.fontPlain12?.drawStringTaggableCenter(57, 33, 'Public chat', Colors.WHITE, true);
+            this.fontPlain12?.centreStringTag(57, 33, 'Public chat', Colour.WHITE, true);
             if (this.chatPublicMode === 0) {
-                this.fontPlain12?.drawStringTaggableCenter(57, 46, 'On', Colors.GREEN, true);
+                this.fontPlain12?.centreStringTag(57, 46, 'On', Colour.GREEN, true);
             }
             if (this.chatPublicMode === 1) {
-                this.fontPlain12?.drawStringTaggableCenter(57, 46, 'Friends', Colors.YELLOW, true);
+                this.fontPlain12?.centreStringTag(57, 46, 'Friends', Colour.YELLOW, true);
             }
             if (this.chatPublicMode === 2) {
-                this.fontPlain12?.drawStringTaggableCenter(57, 46, 'Off', Colors.RED, true);
+                this.fontPlain12?.centreStringTag(57, 46, 'Off', Colour.RED, true);
             }
             if (this.chatPublicMode === 3) {
-                this.fontPlain12?.drawStringTaggableCenter(57, 46, 'Hide', Colors.CYAN, true);
+                this.fontPlain12?.centreStringTag(57, 46, 'Hide', Colour.CYAN, true);
             }
 
-            this.fontPlain12?.drawStringTaggableCenter(186, 33, 'Private chat', Colors.WHITE, true);
+            this.fontPlain12?.centreStringTag(186, 33, 'Private chat', Colour.WHITE, true);
             if (this.chatPrivateMode === 0) {
-                this.fontPlain12?.drawStringTaggableCenter(186, 46, 'On', Colors.GREEN, true);
+                this.fontPlain12?.centreStringTag(186, 46, 'On', Colour.GREEN, true);
             }
             if (this.chatPrivateMode === 1) {
-                this.fontPlain12?.drawStringTaggableCenter(186, 46, 'Friends', Colors.YELLOW, true);
+                this.fontPlain12?.centreStringTag(186, 46, 'Friends', Colour.YELLOW, true);
             }
             if (this.chatPrivateMode === 2) {
-                this.fontPlain12?.drawStringTaggableCenter(186, 46, 'Off', Colors.RED, true);
+                this.fontPlain12?.centreStringTag(186, 46, 'Off', Colour.RED, true);
             }
 
-            this.fontPlain12?.drawStringTaggableCenter(326, 33, 'Trade/duel', Colors.WHITE, true);
+            this.fontPlain12?.centreStringTag(326, 33, 'Trade/duel', Colour.WHITE, true);
             if (this.chatTradeMode === 0) {
-                this.fontPlain12?.drawStringTaggableCenter(326, 46, 'On', Colors.GREEN, true);
+                this.fontPlain12?.centreStringTag(326, 46, 'On', Colour.GREEN, true);
             }
             if (this.chatTradeMode === 1) {
-                this.fontPlain12?.drawStringTaggableCenter(326, 46, 'Friends', Colors.YELLOW, true);
+                this.fontPlain12?.centreStringTag(326, 46, 'Friends', Colour.YELLOW, true);
             }
             if (this.chatTradeMode === 2) {
-                this.fontPlain12?.drawStringTaggableCenter(326, 46, 'Off', Colors.RED, true);
+                this.fontPlain12?.centreStringTag(326, 46, 'Off', Colour.RED, true);
             }
 
-            this.fontPlain12?.drawStringTaggableCenter(462, 38, 'Report abuse', Colors.WHITE, true);
+            this.fontPlain12?.centreStringTag(462, 38, 'Report abuse', Colour.WHITE, true);
 
             this.areaBackbase1?.draw(0, 471);
 
-            this.areaViewport?.bind();
+            this.areaViewport?.setPixels();
         }
 
         this.sceneDelta = 0;
@@ -4313,7 +4313,7 @@ export class Client extends GameShell {
         Model.mouseX = this.mouseX - 8;
         Model.mouseY = this.mouseY - 11;
 
-        Pix2D.clear();
+        Pix2D.cls();
         this.scene?.draw(this.cameraX, this.cameraY, this.cameraZ, level, this.cameraYaw, this.cameraPitch, this.loopCycle);
         this.scene?.clearLocChanges();
         this.draw2DEntityElements();
@@ -4720,7 +4720,7 @@ export class Client extends GameShell {
                     this.projectFromEntity(entity, entity.height + 15);
 
                     if (this.projectX > -1) {
-                        this.imageHeadicon[2]?.draw(this.projectX - 12, this.projectY - 28);
+                        this.imageHeadicon[2]?.plotSprite(this.projectX - 12, this.projectY - 28);
                     }
                 }
             } else {
@@ -4733,7 +4733,7 @@ export class Client extends GameShell {
                     if (this.projectX > -1) {
                         for (let icon: number = 0; icon < 8; icon++) {
                             if ((player.headicons & (0x1 << icon)) !== 0) {
-                                this.imageHeadicon[icon]?.draw(this.projectX - 12, this.projectY - y);
+                                this.imageHeadicon[icon]?.plotSprite(this.projectX - 12, this.projectY - y);
                                 y -= 25;
                             }
                         }
@@ -4744,7 +4744,7 @@ export class Client extends GameShell {
                     this.projectFromEntity(entity, entity.height + 15);
 
                     if (this.projectX > -1) {
-                        this.imageHeadicon[7]?.draw(this.projectX - 12, this.projectY - y);
+                        this.imageHeadicon[7]?.plotSprite(this.projectX - 12, this.projectY - y);
                     }
                 }
             }
@@ -4753,8 +4753,8 @@ export class Client extends GameShell {
                 this.projectFromEntity(entity, entity.height);
 
                 if (this.projectX > -1 && this.chatCount < Constants.MAX_CHATS && this.fontBold12) {
-                    this.chatWidth[this.chatCount] = (this.fontBold12.stringWidth(entity.chatMessage) / 2) | 0;
-                    this.chatHeight[this.chatCount] = this.fontBold12.height2d;
+                    this.chatWidth[this.chatCount] = (this.fontBold12.stringWid(entity.chatMessage) / 2) | 0;
+                    this.chatHeight[this.chatCount] = this.fontBold12.height;
                     this.chatX[this.chatCount] = this.projectX;
                     this.chatY[this.chatCount] = this.projectY;
 
@@ -4782,8 +4782,8 @@ export class Client extends GameShell {
                     if (w > 30) {
                         w = 30;
                     }
-                    Pix2D.fillRect2d(this.projectX - 15, this.projectY - 3, w, 5, Colors.GREEN);
-                    Pix2D.fillRect2d(this.projectX - 15 + w, this.projectY - 3, 30 - w, 5, Colors.RED);
+                    Pix2D.fillRect(this.projectX - 15, this.projectY - 3, w, 5, Colour.GREEN);
+                    Pix2D.fillRect(this.projectX - 15 + w, this.projectY - 3, 30 - w, 5, Colour.RED);
                 }
             }
 
@@ -4794,9 +4794,9 @@ export class Client extends GameShell {
                     continue;
                 }
 
-                this.imageHitmarks[entity.damageType]?.draw(this.projectX - 12, this.projectY - 12);
-                this.fontPlain11?.drawStringCenter(this.projectX, this.projectY + 4, entity.damage.toString(), Colors.BLACK);
-                this.fontPlain11?.drawStringCenter(this.projectX - 1, this.projectY + 3, entity.damage.toString(), Colors.WHITE);
+                this.imageHitmarks[entity.damageType]?.plotSprite(this.projectX - 12, this.projectY - 12);
+                this.fontPlain11?.centreString(this.projectX, this.projectY + 4, entity.damage.toString(), Colour.BLACK);
+                this.fontPlain11?.centreString(this.projectX - 1, this.projectY + 3, entity.damage.toString(), Colour.WHITE);
             }
         }
 
@@ -4822,63 +4822,63 @@ export class Client extends GameShell {
 
             const message: string | null = this.chats[i];
             if (this.chatEffects === 0) {
-                let color: number = Colors.YELLOW;
+                let color: number = Colour.YELLOW;
 
                 if (this.chatColors[i] < 6) {
                     color = Client.CHAT_COLORS[this.chatColors[i]];
                 } else if (this.chatColors[i] === 6) {
-                    color = this.sceneCycle % 20 < 10 ? Colors.RED : Colors.YELLOW;
+                    color = this.sceneCycle % 20 < 10 ? Colour.RED : Colour.YELLOW;
                 } else if (this.chatColors[i] === 7) {
-                    color = this.sceneCycle % 20 < 10 ? Colors.BLUE : Colors.CYAN;
+                    color = this.sceneCycle % 20 < 10 ? Colour.BLUE : Colour.CYAN;
                 } else if (this.chatColors[i] === 8) {
                     color = this.sceneCycle % 20 < 10 ? 0xb000 : 0x80ff80;
                 } else if (this.chatColors[i] === 9) {
                     const delta: number = 150 - this.chatTimers[i];
                     if (delta < 50) {
-                        color = delta * 1280 + Colors.RED;
+                        color = delta * 1280 + Colour.RED;
                     } else if (delta < 100) {
-                        color = Colors.YELLOW - (delta - 50) * 327680;
+                        color = Colour.YELLOW - (delta - 50) * 327680;
                     } else if (delta < 150) {
-                        color = (delta - 100) * 5 + Colors.GREEN;
+                        color = (delta - 100) * 5 + Colour.GREEN;
                     }
                 } else if (this.chatColors[i] === 10) {
                     const delta: number = 150 - this.chatTimers[i];
                     if (delta < 50) {
-                        color = delta * 5 + Colors.RED;
+                        color = delta * 5 + Colour.RED;
                     } else if (delta < 100) {
-                        color = Colors.MAGENTA - (delta - 50) * 327680;
+                        color = Colour.MAGENTA - (delta - 50) * 327680;
                     } else if (delta < 150) {
-                        color = (delta - 100) * 327680 + Colors.BLUE - (delta - 100) * 5;
+                        color = (delta - 100) * 327680 + Colour.BLUE - (delta - 100) * 5;
                     }
                 }
                 if (this.chatColors[i] === 11) {
                     const delta: number = 150 - this.chatTimers[i];
                     if (delta < 50) {
-                        color = Colors.WHITE - delta * 327685;
+                        color = Colour.WHITE - delta * 327685;
                     } else if (delta < 100) {
-                        color = (delta - 50) * 327685 + Colors.GREEN;
+                        color = (delta - 50) * 327685 + Colour.GREEN;
                     } else if (delta < 150) {
-                        color = Colors.WHITE - (delta - 100) * 327680;
+                        color = Colour.WHITE - (delta - 100) * 327680;
                     }
                 }
 
                 if (this.chatEffect[i] === 0) {
-                    this.fontBold12?.drawStringCenter(this.projectX, this.projectY + 1, message, Colors.BLACK);
-                    this.fontBold12?.drawStringCenter(this.projectX, this.projectY, message, color);
+                    this.fontBold12?.centreString(this.projectX, this.projectY + 1, message, Colour.BLACK);
+                    this.fontBold12?.centreString(this.projectX, this.projectY, message, color);
                 } else if (this.chatEffect[i] === 1) {
-                    this.fontBold12?.drawCenteredWave(this.projectX, this.projectY + 1, message, Colors.BLACK, this.sceneCycle);
-                    this.fontBold12?.drawCenteredWave(this.projectX, this.projectY, message, color, this.sceneCycle);
+                    this.fontBold12?.centreStringWave(this.projectX, this.projectY + 1, message, Colour.BLACK, this.sceneCycle);
+                    this.fontBold12?.centreStringWave(this.projectX, this.projectY, message, color, this.sceneCycle);
                 } else if (this.chatEffect[i] === 2) {
-                    const w: number = this.fontBold12?.stringWidth(message) ?? 0;
+                    const w: number = this.fontBold12?.stringWid(message) ?? 0;
                     const offsetX: number = ((150 - this.chatTimers[i]) * (w + 100)) / 150;
-                    Pix2D.setBounds(this.projectX - 50, 0, this.projectX + 50, 334);
-                    this.fontBold12?.drawString(this.projectX + 50 - offsetX, this.projectY + 1, message, Colors.BLACK);
+                    Pix2D.setClipping(this.projectX - 50, 0, this.projectX + 50, 334);
+                    this.fontBold12?.drawString(this.projectX + 50 - offsetX, this.projectY + 1, message, Colour.BLACK);
                     this.fontBold12?.drawString(this.projectX + 50 - offsetX, this.projectY, message, color);
-                    Pix2D.resetBounds();
+                    Pix2D.resetClipping();
                 }
             } else {
-                this.fontBold12?.drawStringCenter(this.projectX, this.projectY + 1, message, Colors.BLACK);
-                this.fontBold12?.drawStringCenter(this.projectX, this.projectY, message, Colors.YELLOW);
+                this.fontBold12?.centreString(this.projectX, this.projectY + 1, message, Colour.BLACK);
+                this.fontBold12?.centreString(this.projectX, this.projectY, message, Colour.YELLOW);
             }
         }
     }
@@ -4891,7 +4891,7 @@ export class Client extends GameShell {
         this.projectFromGround(((this.hintTileX - this.sceneBaseTileX) << 7) + this.hintOffsetX, this.hintHeight * 2, ((this.hintTileZ - this.sceneBaseTileZ) << 7) + this.hintOffsetZ);
 
         if (this.projectX > -1 && this.loopCycle % 20 < 10) {
-            this.imageHeadicon[2].draw(this.projectX - 12, this.projectY - 28);
+            this.imageHeadicon[2].plotSprite(this.projectX - 12, this.projectY - 28);
         }
     }
 
@@ -4970,16 +4970,16 @@ export class Client extends GameShell {
                     return;
                 }
 
-                const bottom: number = texture.width2d * texture.height2d - 1;
-                const adjustment: number = texture.width2d * this.sceneDelta * 2;
+                const bottom: number = texture.wi * texture.hi - 1;
+                const adjustment: number = texture.wi * this.sceneDelta * 2;
 
-                const src: Int8Array = texture.pixels;
+                const src: Int8Array = texture.data;
                 const dst: Int8Array = this.textureBuffer;
                 for (let i: number = 0; i <= bottom; i++) {
                     dst[i] = src[(i - adjustment) & bottom];
                 }
 
-                texture.pixels = dst;
+                texture.data = dst;
                 this.textureBuffer = src;
                 Pix3D.pushTexture(17);
             }
@@ -4989,16 +4989,16 @@ export class Client extends GameShell {
                 if (!texture) {
                     return;
                 }
-                const bottom: number = texture.width2d * texture.height2d - 1;
-                const adjustment: number = texture.width2d * this.sceneDelta * 2;
+                const bottom: number = texture.wi * texture.hi - 1;
+                const adjustment: number = texture.wi * this.sceneDelta * 2;
 
-                const src: Int8Array = texture.pixels;
+                const src: Int8Array = texture.data;
                 const dst: Int8Array = this.textureBuffer;
                 for (let i: number = 0; i <= bottom; i++) {
                     dst[i] = src[(i - adjustment) & bottom];
                 }
 
-                texture.pixels = dst;
+                texture.data = dst;
                 this.textureBuffer = src;
                 Pix3D.pushTexture(24);
             }
@@ -5009,9 +5009,9 @@ export class Client extends GameShell {
         this.drawPrivateMessages();
 
         if (this.crossMode === 1) {
-            this.imageCrosses[(this.crossCycle / 100) | 0]?.draw(this.crossX - 8 - 8, this.crossY - 8 - 11);
+            this.imageCrosses[(this.crossCycle / 100) | 0]?.plotSprite(this.crossX - 8 - 8, this.crossY - 8 - 11);
         } else if (this.crossMode === 2) {
-            this.imageCrosses[((this.crossCycle / 100) | 0) + 4]?.draw(this.crossX - 8 - 8, this.crossY - 8 - 11);
+            this.imageCrosses[((this.crossCycle / 100) | 0) + 4]?.plotSprite(this.crossX - 8 - 8, this.crossY - 8 - 11);
         }
 
         if (this.viewportInterfaceId !== -1) {
@@ -5030,29 +5030,29 @@ export class Client extends GameShell {
 
         if (this.inMultizone === 1) {
             if (this.wildernessLevel > 0 || this.worldLocationState === 1) {
-                this.imageHeadicon[1]?.draw(472, 258);
+                this.imageHeadicon[1]?.plotSprite(472, 258);
             } else {
-                this.imageHeadicon[1]?.draw(472, 296);
+                this.imageHeadicon[1]?.plotSprite(472, 296);
             }
         }
 
         if (this.wildernessLevel > 0) {
-            this.imageHeadicon[0]?.draw(472, 296);
-            this.fontPlain12?.drawStringCenter(484, 329, 'Level: ' + this.wildernessLevel, Colors.YELLOW);
+            this.imageHeadicon[0]?.plotSprite(472, 296);
+            this.fontPlain12?.centreString(484, 329, 'Level: ' + this.wildernessLevel, Colour.YELLOW);
         }
 
         if (this.worldLocationState === 1) {
-            this.imageHeadicon[6]?.draw(472, 296);
-            this.fontPlain12?.drawStringCenter(484, 329, 'Arena', Colors.YELLOW);
+            this.imageHeadicon[6]?.plotSprite(472, 296);
+            this.fontPlain12?.centreString(484, 329, 'Arena', Colour.YELLOW);
         }
 
         if (this.displayFps) {
             let x: number = 507;
             let y: number = 20;
 
-            let color: number = Colors.YELLOW;
+            let color: number = Colour.YELLOW;
             if (this.fps < 15) {
-                color = Colors.RED;
+                color = Colour.RED;
             }
 
             this.fontPlain12?.drawStringRight(x, y, 'Fps:' + this.fps, color);
@@ -5065,7 +5065,7 @@ export class Client extends GameShell {
             }
 
             if (memoryUsage !== -1) {
-                this.fontPlain12?.drawStringRight(x, y, 'Mem:' + memoryUsage + 'k', Colors.YELLOW);
+                this.fontPlain12?.drawStringRight(x, y, 'Mem:' + memoryUsage + 'k', Colour.YELLOW);
             }
         }
 
@@ -5075,9 +5075,9 @@ export class Client extends GameShell {
             seconds %= 60;
 
             if (seconds < 10) {
-                this.fontPlain12?.drawString(4, 329, 'System update in: ' + minutes + ':0' + seconds, Colors.YELLOW);
+                this.fontPlain12?.drawString(4, 329, 'System update in: ' + minutes + ':0' + seconds, Colour.YELLOW);
             } else {
-                this.fontPlain12?.drawString(4, 329, 'System update in: ' + minutes + ':' + seconds, Colors.YELLOW);
+                this.fontPlain12?.drawString(4, 329, 'System update in: ' + minutes + ':' + seconds, Colour.YELLOW);
             }
         }
     }
@@ -5103,8 +5103,8 @@ export class Client extends GameShell {
             if ((type == 3 || type == 7) && (type == 7 || this.chatPrivateMode == 0 || (this.chatPrivateMode == 1 && this.isFriend(this.messageSender[i])))) {
                 const y = 329 - lineOffset * 13;
 
-                font?.drawString(4, y, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.BLACK);
-                font?.drawString(4, y - 1, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.CYAN);
+                font?.drawString(4, y, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colour.BLACK);
+                font?.drawString(4, y - 1, 'From ' + this.messageSender[i] + ': ' + this.messageText[i], Colour.CYAN);
 
                 lineOffset++;
                 if (lineOffset >= 5) {
@@ -5113,8 +5113,8 @@ export class Client extends GameShell {
             } else if (type === 5 && this.chatPrivateMode < 2) {
                 const y = 329 - lineOffset * 13;
 
-                font?.drawString(4, y, this.messageText[i], Colors.BLACK);
-                font?.drawString(4, y - 1, this.messageText[i], Colors.CYAN);
+                font?.drawString(4, y, this.messageText[i], Colour.BLACK);
+                font?.drawString(4, y - 1, this.messageText[i], Colour.CYAN);
 
                 lineOffset++;
                 if (lineOffset >= 5) {
@@ -5123,8 +5123,8 @@ export class Client extends GameShell {
             } else if (type === 6 && this.chatPrivateMode < 2) {
                 const y = 329 - lineOffset * 13;
 
-                font?.drawString(4, y, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.BLACK);
-                font?.drawString(4, y - 1, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colors.CYAN);
+                font?.drawString(4, y, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colour.BLACK);
+                font?.drawString(4, y - 1, 'To ' + this.messageSender[i] + ': ' + this.messageText[i], Colour.CYAN);
 
                 lineOffset++;
                 if (lineOffset >= 5) {
@@ -5204,7 +5204,7 @@ export class Client extends GameShell {
             tooltip = tooltip + '@whi@ / ' + (this.menuSize - 2) + ' more options';
         }
 
-        this.fontBold12?.drawStringTooltip(4, 15, tooltip, Colors.WHITE, true, (this.loopCycle / 1000) | 0);
+        this.fontBold12?.drawStringAntiMacro(4, 15, tooltip, Colour.WHITE, true, (this.loopCycle / 1000) | 0);
     }
 
     private drawMenu(): void {
@@ -5212,11 +5212,11 @@ export class Client extends GameShell {
         const y: number = this.menuY;
         const w: number = this.menuWidth;
         const h: number = this.menuHeight;
-        const background: number = Colors.OPTIONS_MENU;
+        const background: number = Colour.OPTIONS_MENU;
 
-        Pix2D.fillRect2d(x, y, w, h, background);
-        Pix2D.fillRect2d(x + 1, y + 1, w - 2, 16, Colors.BLACK);
-        Pix2D.drawRect(x + 1, y + 18, w - 2, h - 19, Colors.BLACK);
+        Pix2D.fillRect(x, y, w, h, background);
+        Pix2D.fillRect(x + 1, y + 1, w - 2, 16, Colour.BLACK);
+        Pix2D.drawRect(x + 1, y + 18, w - 2, h - 19, Colour.BLACK);
 
         this.fontBold12?.drawString(x + 3, y + 14, 'Choose Option', background);
 
@@ -5236,12 +5236,12 @@ export class Client extends GameShell {
         for (let i: number = 0; i < this.menuSize; i++) {
             const optionY: number = y + (this.menuSize - 1 - i) * 15 + 31;
 
-            let rgb: number = Colors.WHITE;
+            let rgb: number = Colour.WHITE;
             if (mouseX > x && mouseX < x + w && mouseY > optionY - 13 && mouseY < optionY + 3) {
-                rgb = Colors.YELLOW;
+                rgb = Colour.YELLOW;
             }
 
-            this.fontBold12?.drawStringTaggable(x + 3, optionY, this.menuOption[i], rgb, true);
+            this.fontBold12?.drawStringTag(x + 3, optionY, this.menuOption[i], rgb, true);
         }
     }
 
@@ -5260,7 +5260,7 @@ export class Client extends GameShell {
                 rgb = doorRgb;
             }
 
-            const dst: Int32Array = this.imageMinimap.pixels;
+            const dst: Int32Array = this.imageMinimap.data;
             const offset: number = tileX * 4 + (103 - tileZ) * 512 * 4 + 24624;
             const locId: number = (typecode >> 14) & 0x7fff;
 
@@ -5328,9 +5328,9 @@ export class Client extends GameShell {
             } else {
                 const scene: Pix8 | null = this.imageMapscene[loc.mapscene];
                 if (scene) {
-                    const offsetX: number = ((loc.width * 4 - scene.width2d) / 2) | 0;
-                    const offsetY: number = ((loc.length * 4 - scene.height2d) / 2) | 0;
-                    scene.draw(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
+                    const offsetX: number = ((loc.width * 4 - scene.wi) / 2) | 0;
+                    const offsetY: number = ((loc.length * 4 - scene.hi) / 2) | 0;
+                    scene.plotSprite(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
                 }
             }
         }
@@ -5350,7 +5350,7 @@ export class Client extends GameShell {
                         rgb = 0xee0000;
                     }
 
-                    const dst: Int32Array = this.imageMinimap.pixels;
+                    const dst: Int32Array = this.imageMinimap.data;
                     const offset: number = tileX * 4 + (CollisionConstants.SIZE - 1 - tileZ) * 512 * 4 + 24624;
 
                     if (angle === LocAngle.WEST || angle === LocAngle.EAST) {
@@ -5368,9 +5368,9 @@ export class Client extends GameShell {
             } else {
                 const scene: Pix8 | null = this.imageMapscene[loc.mapscene];
                 if (scene) {
-                    const offsetX: number = ((loc.width * 4 - scene.width2d) / 2) | 0;
-                    const offsetY: number = ((loc.length * 4 - scene.height2d) / 2) | 0;
-                    scene.draw(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
+                    const offsetX: number = ((loc.width * 4 - scene.wi) / 2) | 0;
+                    const offsetY: number = ((loc.length * 4 - scene.hi) / 2) | 0;
+                    scene.plotSprite(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
                 }
             }
         }
@@ -5383,9 +5383,9 @@ export class Client extends GameShell {
             if (loc.mapscene !== -1) {
                 const scene: Pix8 | null = this.imageMapscene[loc.mapscene];
                 if (scene) {
-                    const offsetX: number = ((loc.width * 4 - scene.width2d) / 2) | 0;
-                    const offsetY: number = ((loc.length * 4 - scene.height2d) / 2) | 0;
-                    scene.draw(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
+                    const offsetX: number = ((loc.width * 4 - scene.wi) / 2) | 0;
+                    const offsetY: number = ((loc.length * 4 - scene.hi) / 2) | 0;
+                    scene.plotSprite(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
                 }
             }
         }
@@ -6700,9 +6700,9 @@ export class Client extends GameShell {
                 this.sceneBaseTileZ = (this.sceneCenterZoneZ - 6) * 8;
                 this.sceneState = 1;
 
-                this.areaViewport?.bind();
-                this.fontPlain12?.drawStringCenter(257, 151, 'Loading - please wait.', Colors.BLACK);
-                this.fontPlain12?.drawStringCenter(256, 150, 'Loading - please wait.', Colors.WHITE);
+                this.areaViewport?.setPixels();
+                this.fontPlain12?.centreString(257, 151, 'Loading - please wait.', Colour.BLACK);
+                this.fontPlain12?.centreString(256, 150, 'Loading - please wait.', Colour.WHITE);
                 this.areaViewport?.draw(8, 11);
 
                 // signlink.looprate(5);
@@ -6770,10 +6770,10 @@ export class Client extends GameShell {
 
                 // signlink.looprate(50);
 
-                this.areaViewport?.bind();
+                this.areaViewport?.setPixels();
                 if (this.sceneState === 0) {
-                    this.fontPlain12?.drawStringCenter(257, 166, 'Map area updated since last visit, so load will take longer this time only', Colors.BLACK);
-                    this.fontPlain12?.drawStringCenter(256, 165, 'Map area updated since last visit, so load will take longer this time only', Colors.WHITE);
+                    this.fontPlain12?.centreString(257, 166, 'Map area updated since last visit, so load will take longer this time only', Colour.BLACK);
+                    this.fontPlain12?.centreString(256, 165, 'Map area updated since last visit, so load will take longer this time only', Colour.WHITE);
                 }
                 this.areaViewport?.draw(8, 11);
 
@@ -8044,10 +8044,10 @@ export class Client extends GameShell {
     private showContextMenu(): void {
         let width: number = 0;
         if (this.fontBold12) {
-            width = this.fontBold12.stringWidth('Choose Option');
+            width = this.fontBold12.stringWid('Choose Option');
             let maxWidth: number;
             for (let i: number = 0; i < this.menuSize; i++) {
-                maxWidth = this.fontBold12.stringWidth(this.menuOption[i]);
+                maxWidth = this.fontBold12.stringWid(this.menuOption[i]);
                 if (maxWidth > width) {
                     width = maxWidth;
                 }
@@ -9073,12 +9073,12 @@ export class Client extends GameShell {
             return;
         }
 
-        const left: number = Pix2D.left;
-        const top: number = Pix2D.top;
+        const left: number = Pix2D.clipMinY;
+        const top: number = Pix2D.clipMinX;
         const right: number = Pix2D.right;
-        const bottom: number = Pix2D.bottom;
+        const bottom: number = Pix2D.clipMaxX;
 
-        Pix2D.setBounds(x, y, x + com.width, y + com.height);
+        Pix2D.setClipping(x, y, x + com.width, y + com.height);
         const children: number = com.children.length;
 
         for (let i: number = 0; i < children; i++) {
@@ -9152,22 +9152,22 @@ export class Client extends GameShell {
                                         dy = 0;
                                     }
 
-                                    icon.drawAlpha(128, slotX + dx, slotY + dy);
+                                    icon.transPlotSprite(128, slotX + dx, slotY + dy);
                                 } else if (this.selectedArea !== 0 && this.selectedItem === slot && this.selectedInterface === child.id) {
-                                    icon.drawAlpha(128, slotX, slotY);
+                                    icon.transPlotSprite(128, slotX, slotY);
                                 } else {
-                                    icon.draw(slotX, slotY);
+                                    icon.plotSprite(slotX, slotY);
                                 }
 
-                                if (icon.width === 33 || child.invSlotObjCount[slot] !== 1) {
+                                if (icon.owi === 33 || child.invSlotObjCount[slot] !== 1) {
                                     const count: number = child.invSlotObjCount[slot];
-                                    this.fontPlain11?.drawString(slotX + dx + 1, slotY + 10 + dy, this.formatObjCount(count), Colors.BLACK);
-                                    this.fontPlain11?.drawString(slotX + dx, slotY + 9 + dy, this.formatObjCount(count), Colors.YELLOW);
+                                    this.fontPlain11?.drawString(slotX + dx + 1, slotY + 10 + dy, this.formatObjCount(count), Colour.BLACK);
+                                    this.fontPlain11?.drawString(slotX + dx, slotY + 9 + dy, this.formatObjCount(count), Colour.YELLOW);
                                 }
                             }
                         } else if (child.invSlotGraphic && slot < 20) {
                             const image: Pix32 | null = child.invSlotGraphic[slot];
-                            image?.draw(slotX, slotY);
+                            image?.plotSprite(slotX, slotY);
                         }
 
                         slot++;
@@ -9175,7 +9175,7 @@ export class Client extends GameShell {
                 }
             } else if (child.type === ComponentType.TYPE_RECT) {
                 if (child.fill) {
-                    Pix2D.fillRect2d(childX, childY, child.width, child.height, child.colour);
+                    Pix2D.fillRect(childX, childY, child.width, child.height, child.colour);
                 } else {
                     Pix2D.drawRect(childX, childY, child.width, child.height, child.colour);
                 }
@@ -9205,7 +9205,7 @@ export class Client extends GameShell {
                     continue;
                 }
 
-                for (let lineY: number = childY + font.height2d; text.length > 0; lineY += font.height2d) {
+                for (let lineY: number = childY + font.height; text.length > 0; lineY += font.height) {
                     if (text.indexOf('%') !== -1) {
                         do {
                             const index: number = text.indexOf('%1');
@@ -9269,9 +9269,9 @@ export class Client extends GameShell {
                     }
 
                     if (child.center) {
-                        font.drawStringTaggableCenter(childX + ((child.width / 2) | 0), lineY, split, colour, child.shadowed);
+                        font.centreStringTag(childX + ((child.width / 2) | 0), lineY, split, colour, child.shadowed);
                     } else {
-                        font.drawStringTaggable(childX, lineY, split, colour, child.shadowed);
+                        font.drawStringTag(childX, lineY, split, colour, child.shadowed);
                     }
                 }
             } else if (child.type === ComponentType.TYPE_GRAPHIC) {
@@ -9282,7 +9282,7 @@ export class Client extends GameShell {
                     image = child.graphic;
                 }
 
-                image?.draw(childX, childY);
+                image?.plotSprite(childX, childY);
             } else if (child.type === ComponentType.TYPE_MODEL) {
                 const tmpX: number = Pix3D.centerX;
                 const tmpY: number = Pix3D.centerY;
@@ -9342,9 +9342,9 @@ export class Client extends GameShell {
                             const textY: number = childY + row * (child.marginY + 12);
 
                             if (child.center) {
-                                font.drawStringTaggableCenter(textX + ((child.width / 2) | 0), textY, text, child.colour, child.shadowed);
+                                font.centreStringTag(textX + ((child.width / 2) | 0), textY, text, child.colour, child.shadowed);
                             } else {
-                                font.drawStringTaggable(textX, textY, text, child.colour, child.shadowed);
+                                font.drawStringTag(textX, textY, text, child.colour, child.shadowed);
                             }
                         }
 
@@ -9354,13 +9354,13 @@ export class Client extends GameShell {
             }
         }
 
-        Pix2D.setBounds(left, top, right, bottom);
+        Pix2D.setClipping(left, top, right, bottom);
     }
 
     private drawScrollbar(x: number, y: number, scrollY: number, scrollHeight: number, height: number): void {
-        this.imageScrollbar0?.draw(x, y);
-        this.imageScrollbar1?.draw(x, y + height - 16);
-        Pix2D.fillRect2d(x, y + 16, 16, height - 32, Colors.SCROLLBAR_TRACK);
+        this.imageScrollbar0?.plotSprite(x, y);
+        this.imageScrollbar1?.plotSprite(x, y + height - 16);
+        Pix2D.fillRect(x, y + 16, 16, height - 32, Colour.SCROLLBAR_TRACK);
 
         let gripSize: number = (((height - 32) * height) / scrollHeight) | 0;
         if (gripSize < 8) {
@@ -9368,19 +9368,19 @@ export class Client extends GameShell {
         }
 
         const gripY: number = (((height - gripSize - 32) * scrollY) / (scrollHeight - height)) | 0;
-        Pix2D.fillRect2d(x, y + gripY + 16, 16, gripSize, Colors.SCROLLBAR_GRIP_FOREGROUND);
+        Pix2D.fillRect(x, y + gripY + 16, 16, gripSize, Colour.SCROLLBAR_GRIP_FOREGROUND);
 
-        Pix2D.drawVerticalLine(x, y + gripY + 16, Colors.SCROLLBAR_GRIP_HIGHLIGHT, gripSize);
-        Pix2D.drawVerticalLine(x + 1, y + gripY + 16, Colors.SCROLLBAR_GRIP_HIGHLIGHT, gripSize);
+        Pix2D.vline(x, y + gripY + 16, Colour.SCROLLBAR_GRIP_HIGHLIGHT, gripSize);
+        Pix2D.vline(x + 1, y + gripY + 16, Colour.SCROLLBAR_GRIP_HIGHLIGHT, gripSize);
 
-        Pix2D.drawHorizontalLine(x, y + gripY + 16, Colors.SCROLLBAR_GRIP_HIGHLIGHT, 16);
-        Pix2D.drawHorizontalLine(x, y + gripY + 17, Colors.SCROLLBAR_GRIP_HIGHLIGHT, 16);
+        Pix2D.hline(x, y + gripY + 16, Colour.SCROLLBAR_GRIP_HIGHLIGHT, 16);
+        Pix2D.hline(x, y + gripY + 17, Colour.SCROLLBAR_GRIP_HIGHLIGHT, 16);
 
-        Pix2D.drawVerticalLine(x + 15, y + gripY + 16, Colors.SCROLLBAR_GRIP_LOWLIGHT, gripSize);
-        Pix2D.drawVerticalLine(x + 14, y + gripY + 17, Colors.SCROLLBAR_GRIP_LOWLIGHT, gripSize - 1);
+        Pix2D.vline(x + 15, y + gripY + 16, Colour.SCROLLBAR_GRIP_LOWLIGHT, gripSize);
+        Pix2D.vline(x + 14, y + gripY + 17, Colour.SCROLLBAR_GRIP_LOWLIGHT, gripSize - 1);
 
-        Pix2D.drawHorizontalLine(x, y + gripY + gripSize + 15, Colors.SCROLLBAR_GRIP_LOWLIGHT, 16);
-        Pix2D.drawHorizontalLine(x + 1, y + gripY + gripSize + 14, Colors.SCROLLBAR_GRIP_LOWLIGHT, 15);
+        Pix2D.hline(x, y + gripY + gripSize + 15, Colour.SCROLLBAR_GRIP_LOWLIGHT, 16);
+        Pix2D.hline(x + 1, y + gripY + gripSize + 14, Colour.SCROLLBAR_GRIP_LOWLIGHT, 15);
     }
 
     private formatObjCount(amount: number): string {
@@ -10096,10 +10096,10 @@ export class Client extends GameShell {
             if (!this.staffmodlevel) {
                 com.text = '';
             } else if (this.reportAbuseMuteOption) {
-                com.colour = Colors.RED;
+                com.colour = Colour.RED;
                 com.text = 'Moderator option: Mute player for 48 hours: <ON>';
             } else {
-                com.colour = Colors.WHITE;
+                com.colour = Colour.WHITE;
                 com.text = 'Moderator option: Mute player for 48 hours: <OFF>';
             }
         } else if (clientCode === ClientCode.CC_LAST_LOGIN_INFO || clientCode === ClientCode.CC_LAST_LOGIN_INFO2) {
@@ -10122,13 +10122,13 @@ export class Client extends GameShell {
         } else if (clientCode === ClientCode.CC_UNREAD_MESSAGES) {
             if (this.unreadMessages === 0) {
                 com.text = '0 unread messages';
-                com.colour = Colors.YELLOW;
+                com.colour = Colour.YELLOW;
             } else if (this.unreadMessages === 1) {
                 com.text = '1 unread message';
-                com.colour = Colors.GREEN;
+                com.colour = Colour.GREEN;
             } else if (this.unreadMessages > 1) {
                 com.text = this.unreadMessages + ' unread messages';
-                com.colour = Colors.GREEN;
+                com.colour = Colour.GREEN;
             }
         } else if (clientCode === ClientCode.CC_RECOVERY1) {
             if (this.daysSinceRecoveriesChanged === 201) {
@@ -10301,12 +10301,12 @@ export class Client extends GameShell {
     }
 
     private drawSidebar(): void {
-        this.areaSidebar?.bind();
+        this.areaSidebar?.setPixels();
         if (this.areaSidebarOffsets) {
             Pix3D.lineOffset = this.areaSidebarOffsets;
         }
 
-        this.imageInvback?.draw(0, 0);
+        this.imageInvback?.plotSprite(0, 0);
 
         if (this.sidebarInterfaceId !== -1) {
             this.drawInterface(Component.types[this.sidebarInterfaceId], 0, 0, 0);
@@ -10320,29 +10320,29 @@ export class Client extends GameShell {
 
         this.areaSidebar?.draw(562, 231);
 
-        this.areaViewport?.bind();
+        this.areaViewport?.setPixels();
         if (this.areaViewportOffsets) {
             Pix3D.lineOffset = this.areaViewportOffsets;
         }
     }
 
     private drawChat(): void {
-        this.areaChatback?.bind();
+        this.areaChatback?.setPixels();
         if (this.areaChatbackOffsets) {
             Pix3D.lineOffset = this.areaChatbackOffsets;
         }
 
-        this.imageChatback?.draw(0, 0);
+        this.imageChatback?.plotSprite(0, 0);
 
         if (this.showSocialInput) {
-            this.fontBold12?.drawStringCenter(239, 40, this.socialMessage, Colors.BLACK);
-            this.fontBold12?.drawStringCenter(239, 60, this.socialInput + '*', Colors.DARKBLUE);
+            this.fontBold12?.centreString(239, 40, this.socialMessage, Colour.BLACK);
+            this.fontBold12?.centreString(239, 60, this.socialInput + '*', Colour.DARKBLUE);
         } else if (this.chatbackInputOpen) {
-            this.fontBold12?.drawStringCenter(239, 40, 'Enter amount:', Colors.BLACK);
-            this.fontBold12?.drawStringCenter(239, 60, this.chatbackInput + '*', Colors.DARKBLUE);
+            this.fontBold12?.centreString(239, 40, 'Enter amount:', Colour.BLACK);
+            this.fontBold12?.centreString(239, 60, this.chatbackInput + '*', Colour.DARKBLUE);
         } else if (this.modalMessage) {
-            this.fontBold12?.drawStringCenter(239, 40, this.modalMessage, Colors.BLACK);
-            this.fontBold12?.drawStringCenter(239, 60, 'Click to continue', Colors.DARKBLUE);
+            this.fontBold12?.centreString(239, 40, this.modalMessage, Colour.BLACK);
+            this.fontBold12?.centreString(239, 60, 'Click to continue', Colour.DARKBLUE);
         } else if (this.chatInterfaceId !== -1) {
             this.drawInterface(Component.types[this.chatInterfaceId], 0, 0, 0);
         } else if (this.stickyChatInterfaceId !== -1) {
@@ -10351,7 +10351,7 @@ export class Client extends GameShell {
             let font: PixFont | null = this.fontPlain12;
             let line: number = 0;
 
-            Pix2D.setBounds(0, 0, 463, 77);
+            Pix2D.setClipping(0, 0, 463, 77);
 
             for (let i: number = 0; i < 100; i++) {
                 const message: string | null = this.messageText[i];
@@ -10364,52 +10364,52 @@ export class Client extends GameShell {
 
                 if (type === 0) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, message, Colors.BLACK);
+                        font?.drawString(4, y, message, Colour.BLACK);
                     }
                     line++;
                 } else if (type === 1) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, this.messageSender[i] + ':', Colors.WHITE);
-                        font?.drawString(font.stringWidth(this.messageSender[i]) + 12, y, message, Colors.BLUE);
+                        font?.drawString(4, y, this.messageSender[i] + ':', Colour.WHITE);
+                        font?.drawString(font.stringWid(this.messageSender[i]) + 12, y, message, Colour.BLUE);
                     }
                     line++;
                 } else if (type === 2 && (this.chatPublicMode === 0 || (this.chatPublicMode === 1 && this.isFriend(this.messageSender[i])))) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, this.messageSender[i] + ':', Colors.BLACK);
-                        font?.drawString(font.stringWidth(this.messageSender[i]) + 12, y, message, Colors.BLUE);
+                        font?.drawString(4, y, this.messageSender[i] + ':', Colour.BLACK);
+                        font?.drawString(font.stringWid(this.messageSender[i]) + 12, y, message, Colour.BLUE);
                     }
                     line++;
                 } else if ((type === 3 || type === 7) && this.splitPrivateChat === 0 && (type === 7 || this.chatPrivateMode === 0 || (this.chatPrivateMode === 1 && this.isFriend(this.messageSender[i])))) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, 'From ' + this.messageSender[i] + ':', Colors.BLACK);
-                        font?.drawString(font.stringWidth('From ' + this.messageSender[i]) + 12, y, message, Colors.DARKRED);
+                        font?.drawString(4, y, 'From ' + this.messageSender[i] + ':', Colour.BLACK);
+                        font?.drawString(font.stringWid('From ' + this.messageSender[i]) + 12, y, message, Colour.DARKRED);
                     }
                     line++;
                 } else if (type === 4 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.messageSender[i])))) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, this.messageSender[i] + ' ' + this.messageText[i], Colors.TRADE_MESSAGE);
+                        font?.drawString(4, y, this.messageSender[i] + ' ' + this.messageText[i], Colour.TRADE_MESSAGE);
                     }
                     line++;
                 } else if (type === 5 && this.splitPrivateChat === 0 && this.chatPrivateMode < 2) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, message, Colors.DARKRED);
+                        font?.drawString(4, y, message, Colour.DARKRED);
                     }
                     line++;
                 } else if (type === 6 && this.splitPrivateChat === 0 && this.chatPrivateMode < 2) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, 'To ' + this.messageSender[i] + ':', Colors.BLACK);
-                        font?.drawString(font.stringWidth('To ' + this.messageSender[i]) + 12, y, message, Colors.DARKRED);
+                        font?.drawString(4, y, 'To ' + this.messageSender[i] + ':', Colour.BLACK);
+                        font?.drawString(font.stringWid('To ' + this.messageSender[i]) + 12, y, message, Colour.DARKRED);
                     }
                     line++;
                 } else if (type === 8 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.messageSender[i])))) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, this.messageSender[i] + ' ' + this.messageText[i], Colors.DUEL_MESSAGE);
+                        font?.drawString(4, y, this.messageSender[i] + ' ' + this.messageText[i], Colour.DUEL_MESSAGE);
                     }
                     line++;
                 }
             }
 
-            Pix2D.resetBounds();
+            Pix2D.resetClipping();
 
             this.chatScrollHeight = line * 14 + 7;
             if (this.chatScrollHeight < 78) {
@@ -10418,10 +10418,10 @@ export class Client extends GameShell {
 
             this.drawScrollbar(463, 0, this.chatScrollHeight - this.chatScrollOffset - 77, this.chatScrollHeight, 77);
 
-            font?.drawString(4, 90, JString.toScreenName(this.username) + ':', Colors.BLACK);
-            font?.drawString(font.stringWidth(this.username + ': ') + 6, 90, this.chatTyped + '*', Colors.BLUE);
+            font?.drawString(4, 90, JString.toScreenName(this.username) + ':', Colour.BLACK);
+            font?.drawString(font.stringWid(this.username + ': ') + 6, 90, this.chatTyped + '*', Colour.BLUE);
 
-            Pix2D.drawHorizontalLine(0, 77, Colors.BLACK, 479);
+            Pix2D.hline(0, 77, Colour.BLACK, 479);
         }
 
         if (this.menuVisible && this.menuArea === 2) {
@@ -10430,7 +10430,7 @@ export class Client extends GameShell {
 
         this.areaChatback?.draw(22, 375);
 
-        this.areaViewport?.bind();
+        this.areaViewport?.setPixels();
         if (this.areaViewportOffsets) {
             Pix3D.lineOffset = this.areaViewportOffsets;
         }
@@ -10441,14 +10441,14 @@ export class Client extends GameShell {
             return;
         }
 
-        this.areaMapback?.bind();
+        this.areaMapback?.setPixels();
 
         const angle: number = (this.orbitCameraYaw + this.macroMinimapAngle) & 0x7ff;
         let anchorX: number = ((this.localPlayer.x / 32) | 0) + 48;
         let anchorY: number = 464 - ((this.localPlayer.z / 32) | 0);
 
-        this.imageMinimap?.drawRotatedMasked(21, 9, 146, 151, this.minimapMaskLineOffsets, this.minimapMaskLineLengths, anchorX, anchorY, angle, this.macroMinimapZoom + 256);
-        this.imageCompass?.drawRotatedMasked(0, 0, 33, 33, this.compassMaskLineOffsets, this.compassMaskLineLengths, 25, 25, this.orbitCameraYaw, 256);
+        this.imageMinimap?.scanlineRotatePlotSprite(21, 9, 146, 151, this.minimapMaskLineOffsets, this.minimapMaskLineLengths, anchorX, anchorY, angle, this.macroMinimapZoom + 256);
+        this.imageCompass?.scanlineRotatePlotSprite(0, 0, 33, 33, this.compassMaskLineOffsets, this.compassMaskLineLengths, 25, 25, this.orbitCameraYaw, 256);
 
         for (let i: number = 0; i < this.activeMapFunctionCount; i++) {
             anchorX = this.activeMapFunctionX[i] * 4 + 2 - ((this.localPlayer.x / 32) | 0);
@@ -10506,9 +10506,9 @@ export class Client extends GameShell {
         }
 
         // the white square local player position in the center of the minimap.
-        Pix2D.fillRect2d(93, 82, 3, 3, Colors.WHITE);
+        Pix2D.fillRect(93, 82, 3, 3, Colour.WHITE);
 
-        this.areaViewport?.bind();
+        this.areaViewport?.setPixels();
     }
 
     private drawOnMinimap(dy: number, image: Pix32 | null, dx: number): void {
@@ -10533,9 +10533,9 @@ export class Client extends GameShell {
         const y: number = (dy * cosAngle - dx * sinAngle) >> 16;
 
         if (distance > 2500 && this.imageMapback) {
-            image.drawMasked(x + 94 - ((image.width / 2) | 0), 83 - y - ((image.height / 2) | 0), this.imageMapback);
+            image.scanlinePlotSprite(x + 94 - ((image.owi / 2) | 0), 83 - y - ((image.ohi / 2) | 0), this.imageMapback);
         } else {
-            image.draw(x + 94 - ((image.width / 2) | 0), 83 - y - ((image.height / 2) | 0));
+            image.plotSprite(x + 94 - ((image.owi / 2) | 0), 83 - y - ((image.ohi / 2) | 0));
         }
     }
 
@@ -10831,11 +10831,11 @@ export class Client extends GameShell {
         if (image) {
             let off: number = 0;
 
-            for (let y: number = 0; y < image.height2d; y++) {
-                for (let x: number = 0; x < image.width2d; x++) {
-                    if (image.pixels[off++] !== 0) {
-                        const x0: number = x + image.cropX + 16;
-                        const y0: number = y + image.cropY + 16;
+            for (let y: number = 0; y < image.hi; y++) {
+                for (let x: number = 0; x < image.wi; x++) {
+                    if (image.data[off++] !== 0) {
+                        const x0: number = x + image.xof + 16;
+                        const y0: number = y + image.yof + 16;
                         const index: number = x0 + (y0 << 7);
                         this.flameBuffer0[index] = 0;
                     }
@@ -10879,7 +10879,7 @@ export class Client extends GameShell {
         }
 
         for (let i: number = 0; i < 33920; i++) {
-            if (this.imageTitle0 && this.imageFlamesLeft) this.imageTitle0.pixels[i] = this.imageFlamesLeft.pixels[i];
+            if (this.imageTitle0 && this.imageFlamesLeft) this.imageTitle0.data[i] = this.imageFlamesLeft.data[i];
         }
 
         let srcOffset: number = 0;
@@ -10905,8 +10905,8 @@ export class Client extends GameShell {
                     value = this.flameGradient[value];
 
                     if (this.imageTitle0) {
-                        const background: number = this.imageTitle0.pixels[dstOffset];
-                        this.imageTitle0.pixels[dstOffset++] = ((((value & 0xff00ff) * alpha + (background & 0xff00ff) * invAlpha) & 0xff00ff00) + (((value & 0xff00) * alpha + (background & 0xff00) * invAlpha) & 0xff0000)) >> 8;
+                        const background: number = this.imageTitle0.data[dstOffset];
+                        this.imageTitle0.data[dstOffset++] = ((((value & 0xff00ff) * alpha + (background & 0xff00ff) * invAlpha) & 0xff00ff00) + (((value & 0xff00) * alpha + (background & 0xff00) * invAlpha) & 0xff0000)) >> 8;
                     }
                 }
             }
@@ -10917,7 +10917,7 @@ export class Client extends GameShell {
 
         for (let i: number = 0; i < 33920; i++) {
             if (this.imageTitle1 && this.imageFlamesRight) {
-                this.imageTitle1.pixels[i] = this.imageFlamesRight.pixels[i];
+                this.imageTitle1.data[i] = this.imageFlamesRight.data[i];
             }
         }
 
@@ -10940,8 +10940,8 @@ export class Client extends GameShell {
                     value = this.flameGradient[value];
 
                     if (this.imageTitle1) {
-                        const background: number = this.imageTitle1.pixels[dstOffset];
-                        this.imageTitle1.pixels[dstOffset++] = ((((value & 0xff00ff) * alpha + (background & 0xff00ff) * invAlpha) & 0xff00ff00) + (((value & 0xff00) * alpha + (background & 0xff00) * invAlpha) & 0xff0000)) >> 8;
+                        const background: number = this.imageTitle1.data[dstOffset];
+                        this.imageTitle1.data[dstOffset++] = ((((value & 0xff00ff) * alpha + (background & 0xff00ff) * invAlpha) & 0xff00ff00) + (((value & 0xff00) * alpha + (background & 0xff00) * invAlpha) & 0xff0000)) >> 8;
                     }
                 }
             }
