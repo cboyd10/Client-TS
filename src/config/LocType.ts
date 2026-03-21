@@ -5,7 +5,7 @@ import { LocAngle } from '#/dash3d/LocAngle.js';
 
 import Model from '#/dash3d/Model.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import { TypedArray1d } from '#/util/Arrays.js';
@@ -54,7 +54,7 @@ export default class LocType {
     forceapproach: number = 0;
     forcedecor: boolean = false;
 
-    static init(config: Jagfile): void {
+    static init(config: JagFile): void {
         this.dat = new Packet(config.read('loc.dat'));
         const idx: Packet = new Packet(config.read('loc.idx'));
 

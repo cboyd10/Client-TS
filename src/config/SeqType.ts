@@ -1,6 +1,6 @@
 import AnimFrame from '#/dash3d/AnimFrame.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 export default class SeqType {
@@ -21,7 +21,7 @@ export default class SeqType {
 
     duration: number = 0;
 
-    static init(config: Jagfile): void {
+    static init(config: JagFile): void {
         const dat: Packet = new Packet(config.read('seq.dat'));
 
         this.numDefinitions = dat.g2();

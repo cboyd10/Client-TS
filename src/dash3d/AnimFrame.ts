@@ -1,6 +1,6 @@
 import AnimBase from '#/dash3d/AnimBase.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 export default class AnimFrame {
@@ -13,7 +13,7 @@ export default class AnimFrame {
     y: Int32Array | null = null;
     z: Int32Array | null = null;
 
-    static unpack(models: Jagfile): void {
+    static unpack(models: JagFile): void {
         const head: Packet = new Packet(models.read('frame_head.dat'));
         const tran1: Packet = new Packet(models.read('frame_tran1.dat'));
         const tran2: Packet = new Packet(models.read('frame_tran2.dat'));
@@ -71,19 +71,19 @@ export default class AnimFrame {
                     if ((flags & 0x1) === 0) {
                         x[current] = defaultValue;
                     } else {
-                        x[current] = tran2.gsmart();
+                        x[current] = tran2.gsmarts();
                     }
 
                     if ((flags & 0x2) === 0) {
                         y[current] = defaultValue;
                     } else {
-                        y[current] = tran2.gsmart();
+                        y[current] = tran2.gsmarts();
                     }
 
                     if ((flags & 0x4) === 0) {
                         z[current] = defaultValue;
                     } else {
-                        z[current] = tran2.gsmart();
+                        z[current] = tran2.gsmarts();
                     }
 
                     lastGroup = j;

@@ -831,7 +831,7 @@ export default class World {
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
-            const deltaId: number = buf.gsmarts();
+            const deltaId: number = buf.gsmart();
             if (deltaId === 0) {
                 return;
             }
@@ -841,7 +841,7 @@ export default class World {
             let locPos: number = 0;
             // eslint-disable-next-line no-constant-condition
             while (true) {
-                const deltaPos: number = buf.gsmarts();
+                const deltaPos: number = buf.gsmart();
                 if (deltaPos === 0) {
                     break;
                 }

@@ -232,18 +232,18 @@ export default class Tone {
         }
 
         for (let harmonic: number = 0; harmonic < 10; harmonic++) {
-            const volume: number = dat.gsmarts();
+            const volume: number = dat.gsmart();
             if (volume === 0) {
                 break;
             }
 
             this.harmonicVolume[harmonic] = volume;
-            this.harmonicSemitone[harmonic] = dat.gsmart();
-            this.harmonicDelay[harmonic] = dat.gsmarts();
+            this.harmonicSemitone[harmonic] = dat.gsmarts();
+            this.harmonicDelay[harmonic] = dat.gsmart();
         }
 
-        this.reverbDelay = dat.gsmarts();
-        this.reverbVolume = dat.gsmarts();
+        this.reverbDelay = dat.gsmart();
+        this.reverbVolume = dat.gsmart();
         this.length = dat.g2();
         this.start = dat.g2();
     }

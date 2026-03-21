@@ -1,4 +1,4 @@
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import Tone from '#/sound/Tone.js';
@@ -14,7 +14,7 @@ export default class Wave {
     private loopBegin: number = 0;
     private loopEnd: number = 0;
 
-    static unpack(sounds: Jagfile): void {
+    static unpack(sounds: JagFile): void {
         const dat: Packet = new Packet(sounds.read('sounds.dat'));
         this.waveBytes = new Uint8Array(44100 * 10); // 44100 KHz * 10s
         this.waveBuffer = new Packet(this.waveBytes);

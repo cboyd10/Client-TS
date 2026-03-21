@@ -2,7 +2,7 @@ import { BZip2 } from '#3rdparty/deps.js';
 
 import Packet from '#/io/Packet.js';
 
-export default class Jagfile {
+export default class JagFile {
     static genHash(name: string): number {
         let hash: number = 0;
         name = name.toUpperCase();
@@ -11,8 +11,9 @@ export default class Jagfile {
         }
         return hash;
     }
-    jagSrc: Uint8Array;
-    compressedWhole: boolean;
+
+    data: Uint8Array;
+    unpacked: boolean;
     fileCount: number;
     fileHash: number[];
     fileUnpackedSize: number[];
@@ -26,12 +27,12 @@ export default class Jagfile {
         const packedSize: number = data.g3();
 
         if (unpackedSize === packedSize) {
-            this.jagSrc = src;
-            this.compressedWhole = false;
+            this.data = src;
+            this.unpacked = false;
         } else {
-            this.jagSrc = BZip2.decompress(src.subarray(6), unpackedSize, true);
-            data = new Packet(new Uint8Array(this.jagSrc));
-            this.compressedWhole = true;
+            this.data = BZip2.decompress(src.subarray(6), unpackedSize, true);
+            data = new Packet(new Uint8Array(this.data));
+            this.unpacked = true;
         }
 
         this.fileCount = data.g2();
@@ -51,7 +52,7 @@ export default class Jagfile {
     }
 
     read(name: string): Uint8Array | null {
-        const hash: number = Jagfile.genHash(name);
+        const hash: number = JagFile.genHash(name);
         const index: number = this.fileHash.indexOf(hash);
         if (index === -1) {
             return null;
@@ -70,8 +71,8 @@ export default class Jagfile {
 
         const offset: number = this.fileOffset[index];
         const length: number = this.filePackedSize[index];
-        const src: Uint8Array = new Uint8Array(this.jagSrc.subarray(offset, offset + length));
-        if (this.compressedWhole) {
+        const src: Uint8Array = new Uint8Array(this.data.subarray(offset, offset + length));
+        if (this.unpacked) {
             this.fileUnpacked[index] = src;
             return src;
         } else {

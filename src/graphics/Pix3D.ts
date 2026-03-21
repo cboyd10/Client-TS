@@ -1,7 +1,7 @@
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix8 from '#/graphics/Pix8.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import { Int32Array2d, TypedArray1d } from '#/util/Arrays.js';
 
 // noinspection JSSuspiciousNameCombination,DuplicatedCode
@@ -76,7 +76,7 @@ export default class Pix3D extends Pix2D {
         this.activeTexels.fill(null);
     }
 
-    static unpackTextures(textures: Jagfile): void {
+    static unpackTextures(textures: JagFile): void {
         this.textureCount = 0;
 
         for (let i: number = 0; i < 50; i++) {

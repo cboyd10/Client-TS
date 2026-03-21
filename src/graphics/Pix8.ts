@@ -2,7 +2,7 @@ import Linkable2 from '#/datastruct/Linkable2.js';
 
 import Pix2D from '#/graphics/Pix2D.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 // identical to Pix24 except the image is indexed by a palette
@@ -25,7 +25,7 @@ export default class Pix8 extends Linkable2 {
         this.rgbPal = palette;
     }
 
-    static fromArchive(archive: Jagfile, name: string, sprite: number = 0): Pix8 {
+    static fromArchive(archive: JagFile, name: string, sprite: number = 0): Pix8 {
         const dat: Packet = new Packet(archive.read(name + '.dat'));
         const index: Packet = new Packet(archive.read('index.dat'));
 

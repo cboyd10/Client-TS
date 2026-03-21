@@ -1,6 +1,6 @@
 import LruCache from '#/datastruct/LruCache.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import { Colors } from '#/graphics/Colors.js';
@@ -56,7 +56,7 @@ export default class ObjType {
     certlink: number = -1;
     certtemplate: number = -1;
 
-    static init(config: Jagfile, members: boolean): void {
+    static init(config: JagFile, members: boolean): void {
         this.memServer = members;
 
         this.dat = new Packet(config.read('obj.dat'));

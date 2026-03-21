@@ -1,4 +1,4 @@
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 export default class FloType {
@@ -19,7 +19,7 @@ export default class FloType {
     underlayHue: number = 0;
     overlayHsl: number = 0;
 
-    static init(config: Jagfile): void {
+    static init(config: JagFile): void {
         const dat: Packet = new Packet(config.read('flo.dat'));
 
         this.numDefinitions = dat.g2();

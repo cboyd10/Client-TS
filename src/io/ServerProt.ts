@@ -4,9 +4,9 @@ export const enum ServerProt {
     IF_OPENMAIN_SIDE = 28,
     IF_CLOSE = 129,
     IF_SETTAB = 167,
+    IF_SETTAB_ACTIVE = 84,
     IF_OPENMAIN = 168,
     IF_OPENSIDE = 195,
-    IF_SETTAB_ACTIVE = 84,
 
     // updating interfaces
     IF_SETCOLOUR = 2,
@@ -74,7 +74,7 @@ export const enum ServerProt {
     // vars
     VARP_SMALL = 150,
     VARP_LARGE = 175,
-    RESET_CLIENT_VARCACHE = 193,
+    VARP_SYNC = 193,
 
     // audio
     SYNTH_SOUND = 12,
@@ -87,7 +87,7 @@ export const enum ServerProt {
     UPDATE_ZONE_PARTIAL_ENCLOSED = 162,
 
     // zone protocol
-    LOC_MERGE = 23,
+    P_LOCMERGE = 23,
     LOC_ANIM = 42,
     OBJ_DEL = 49,
     OBJ_REVEAL = 50,

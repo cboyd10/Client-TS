@@ -1,4 +1,4 @@
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import Model from '#/dash3d/Model.js';
@@ -91,7 +91,7 @@ export default class Component {
     invSlotGraphic: (Pix32 | null)[] | null = null;
     iop: (string | null)[] | null = null;
 
-    static unpack(interfaces: Jagfile, media: Jagfile, fonts: PixFont[]): void {
+    static unpack(interfaces: JagFile, media: JagFile, fonts: PixFont[]): void {
         this.imageCache = new LruCache(50000);
         this.modelCache = new LruCache(50000);
 
@@ -327,7 +327,7 @@ export default class Component {
         this.modelCache = null;
     }
 
-    private static getImage(media: Jagfile, sprite: string, spriteId: number): Pix32 | null {
+    private static getImage(media: JagFile, sprite: string, spriteId: number): Pix32 | null {
         const uid: bigint = (JString.hashCode(sprite) << 8n) | BigInt(spriteId);
         if (this.imageCache) {
             const image: Pix32 | null = this.imageCache.find(uid) as Pix32 | null;

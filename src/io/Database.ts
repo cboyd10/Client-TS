@@ -54,7 +54,7 @@ export default class Database {
             return;
         }
 
-        return await new Promise<void>((resolve, reject): void => {
+        return await new Promise<void>((resolve, _reject): void => {
             const transaction: IDBTransaction = this.db.transaction('cache', 'readwrite');
             const store: IDBObjectStore = transaction.objectStore('cache');
             const request: IDBRequest<IDBValidKey> = store.put(src, name);
@@ -70,7 +70,7 @@ export default class Database {
         });
     }
 
-    private onclose = (event: Event): void => {};
+    private onclose = (_event: Event): void => {};
 
-    private onerror = (event: Event): void => {};
+    private onerror = (_event: Event): void => {};
 }

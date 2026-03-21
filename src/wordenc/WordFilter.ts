@@ -1,4 +1,4 @@
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 export default class WordFilter {
@@ -32,7 +32,7 @@ export default class WordFilter {
     private static readonly domains: Uint16Array[] = [];
     private static readonly fragments: number[] = [];
 
-    static unpack(wordenc: Jagfile): void {
+    static unpack(wordenc: JagFile): void {
         const fragments: Packet = new Packet(wordenc.read('fragmentsenc.txt'));
         const bad: Packet = new Packet(wordenc.read('badenc.txt'));
         const domain: Packet = new Packet(wordenc.read('domainenc.txt'));

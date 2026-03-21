@@ -4,7 +4,7 @@ import Pix2D from '#/graphics/Pix2D.js';
 import Pix8 from '#/graphics/Pix8.js';
 import PixFont from '#/graphics/PixFont.js';
 import Database from '#/io/Database.js';
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 import { TypedArray1d, TypedArray2d } from '#/util/Arrays.js';
 import { downloadUrl, sleep } from '#/util/JsUtil.js';
@@ -191,7 +191,7 @@ export class MapView extends GameShell {
 
         this.db = new Database(await Database.openDatabase());
 
-        const worldmap: Jagfile = await this.loadWorldmap();
+        const worldmap: JagFile = await this.loadWorldmap();
 
         await this.drawProgress(100, 'Please wait... Rendering Map');
 
@@ -598,11 +598,11 @@ export class MapView extends GameShell {
     }
 
     // ----
-    async loadWorldmap(): Promise<Jagfile> {
+    async loadWorldmap(): Promise<JagFile> {
         // todo: SHA check and redownload
         let data: Uint8Array | undefined = await this.db?.cacheload('worldmap.dat');
         if (data) {
-            return new Jagfile(data);
+            return new JagFile(data);
         }
 
         let retry: number = 5;
@@ -626,7 +626,7 @@ export class MapView extends GameShell {
         }
 
         await this.db?.cachesave('worldmap.dat', data);
-        return new Jagfile(data);
+        return new JagFile(data);
     }
 
     drawString(x: number, y: number, width: number, height: number, colorBorderTL: number, fillColor: number, colorBorderBR: number, str: string): void {

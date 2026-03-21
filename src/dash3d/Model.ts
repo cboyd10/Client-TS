@@ -3,7 +3,7 @@ import AnimFrame from '#/dash3d/AnimFrame.js';
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/graphics/Pix3D.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import Linkable2 from '#/datastruct/Linkable2.js';
@@ -113,7 +113,7 @@ export default class Model extends Linkable2 {
 
     static pickedBitsets: Int32Array = new Int32Array(1000);
 
-    static unpack(models: Jagfile): void {
+    static unpack(models: JagFile): void {
         try {
             Model.head = new Packet(models.read('ob_head.dat'));
             Model.face1 = new Packet(models.read('ob_face1.dat'));
@@ -174,15 +174,15 @@ export default class Model extends Linkable2 {
                     const flags: number = Model.point1.g1();
 
                     if ((flags & 0x1) !== 0) {
-                        Model.point2.gsmart();
+                        Model.point2.gsmarts();
                     }
 
                     if ((flags & 0x2) !== 0) {
-                        Model.point3.gsmart();
+                        Model.point3.gsmarts();
                     }
 
                     if ((flags & 0x4) !== 0) {
-                        Model.point4.gsmart();
+                        Model.point4.gsmarts();
                     }
                 }
 
@@ -190,11 +190,11 @@ export default class Model extends Linkable2 {
                     const type: number = Model.vertex2.g1();
 
                     if (type === 1) {
-                        Model.vertex1.gsmart();
-                        Model.vertex1.gsmart();
+                        Model.vertex1.gsmarts();
+                        Model.vertex1.gsmarts();
                     }
 
-                    Model.vertex1.gsmart();
+                    Model.vertex1.gsmarts();
                 }
 
                 meta.faceColoursOffset = triangleColorDataOffset;
@@ -953,17 +953,17 @@ export default class Model extends Linkable2 {
 
             a = 0;
             if ((flags & 0x1) !== 0) {
-                a = Model.point2.gsmart();
+                a = Model.point2.gsmarts();
             }
 
             b = 0;
             if ((flags & 0x2) !== 0) {
-                b = Model.point3.gsmart();
+                b = Model.point3.gsmarts();
             }
 
             c = 0;
             if ((flags & 0x4) !== 0) {
-                c = Model.point4.gsmart();
+                c = Model.point4.gsmarts();
             }
 
             vertexX[v] = dx + a;
@@ -1016,25 +1016,25 @@ export default class Model extends Linkable2 {
             const orientation: number = Model.vertex2.g1();
 
             if (orientation === 1) {
-                a = Model.vertex1.gsmart() + last;
+                a = Model.vertex1.gsmarts() + last;
                 last = a;
-                b = Model.vertex1.gsmart() + last;
+                b = Model.vertex1.gsmarts() + last;
                 last = b;
-                c = Model.vertex1.gsmart() + last;
+                c = Model.vertex1.gsmarts() + last;
                 last = c;
             } else if (orientation === 2) {
                 b = c;
-                c = Model.vertex1.gsmart() + last;
+                c = Model.vertex1.gsmarts() + last;
                 last = c;
             } else if (orientation === 3) {
                 a = c;
-                c = Model.vertex1.gsmart() + last;
+                c = Model.vertex1.gsmarts() + last;
                 last = c;
             } else if (orientation === 4) {
                 const tmp: number = a;
                 a = b;
                 b = tmp;
-                c = Model.vertex1.gsmart() + last;
+                c = Model.vertex1.gsmarts() + last;
                 last = c;
             }
 

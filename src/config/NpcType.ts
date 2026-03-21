@@ -2,7 +2,7 @@ import LruCache from '#/datastruct/LruCache.js';
 
 import Model from '#/dash3d/Model.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import { TypedArray1d } from '#/util/Arrays.js';
@@ -36,7 +36,7 @@ export default class NpcType {
     resizeh: number = 128;
     resizev: number = 128;
 
-    static init(config: Jagfile): void {
+    static init(config: JagFile): void {
         this.dat = new Packet(config.read('npc.dat'));
         const idx: Packet = new Packet(config.read('npc.idx'));
 

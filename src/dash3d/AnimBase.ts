@@ -1,4 +1,4 @@
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import { TypedArray1d } from '#/util/Arrays.js';
@@ -9,7 +9,7 @@ export default class AnimBase {
     types: Uint8Array | null = null;
     labels: (Uint8Array | null)[] | null = null;
 
-    static unpack(models: Jagfile): void {
+    static unpack(models: JagFile): void {
         const head: Packet = new Packet(models.read('base_head.dat'));
         const type: Packet = new Packet(models.read('base_type.dat'));
         const label: Packet = new Packet(models.read('base_label.dat'));

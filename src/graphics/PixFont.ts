@@ -3,7 +3,7 @@ import Linkable2 from '#/datastruct/Linkable2.js';
 import { Colors } from '#/graphics/Colors.js';
 import Pix2D from '#/graphics/Pix2D.js';
 
-import Jagfile from '#/io/Jagfile.js';
+import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import JavaRandom from '#/util/JavaRandom.js';
@@ -44,7 +44,7 @@ export default class PixFont extends Linkable2 {
         }
     }
 
-    static fromArchive(archive: Jagfile, name: string): PixFont {
+    static fromArchive(archive: JagFile, name: string): PixFont {
         const dat: Packet = new Packet(archive.read(name + '.dat'));
         const idx: Packet = new Packet(archive.read('index.dat'));
 
