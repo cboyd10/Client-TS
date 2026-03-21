@@ -10,7 +10,7 @@ import LocType from '#/config/LocType.js';
 import ObjType from '#/config/ObjType.js';
 import NpcType from '#/config/NpcType.js';
 import IdkType from '#/config/IdkType.js';
-import SpotAnimType from '#/config/SpotAnimType.js';
+import SpotType from '#/config/SpotType.js';
 import VarpType from '#/config/VarpType.js';
 import Component from '#/config/Component.js';
 import { ComponentType, ButtonType } from '#/config/Component.js';
@@ -796,14 +796,14 @@ export class Client extends GameShell {
 
             await this.drawProgress(86, 'Unpacking config');
 
-            SeqType.unpack(jagConfig);
-            LocType.unpack(jagConfig);
-            FloType.unpack(jagConfig);
-            ObjType.unpack(jagConfig, Client.membersWorld);
-            NpcType.unpack(jagConfig);
-            IdkType.unpack(jagConfig);
-            SpotAnimType.unpack(jagConfig);
-            VarpType.unpack(jagConfig);
+            SeqType.init(jagConfig);
+            LocType.init(jagConfig);
+            FloType.init(jagConfig);
+            ObjType.init(jagConfig, Client.membersWorld);
+            NpcType.init(jagConfig);
+            IdkType.init(jagConfig);
+            SpotType.init(jagConfig);
+            VarpType.init(jagConfig);
 
             if (!Client.lowMemory) {
                 await this.drawProgress(90, 'Unpacking sounds');
@@ -1424,13 +1424,13 @@ export class Client extends GameShell {
     }
 
     private clearCache(): void {
-        LocType.modelCacheStatic?.clear();
-        LocType.modelCacheDynamic?.clear();
+        LocType.mc1?.clear();
+        LocType.mc2?.clear();
         NpcType.modelCache?.clear();
         ObjType.modelCache?.clear();
-        ObjType.iconCache?.clear();
+        ObjType.spriteCache?.clear();
         ClientPlayer.modelCache?.clear();
-        SpotAnimType.modelCache?.clear();
+        SpotType.modelCache?.clear();
     }
 
     private prepareGame(): void {
@@ -1915,7 +1915,7 @@ export class Client extends GameShell {
             console.error(err);
         }
 
-        LocType.modelCacheStatic?.clear();
+        LocType.mc1?.clear();
         Pix3D.initPool(20);
     }
 
@@ -1986,7 +1986,7 @@ export class Client extends GameShell {
                 }
 
                 const locId = (typecode >> 14) & 0x7fff;
-                const func: number = LocType.get(locId).mapfunction;
+                const func: number = LocType.list(locId).mapfunction;
                 if (func < 0) {
                     continue;
                 }
@@ -2346,7 +2346,7 @@ export class Client extends GameShell {
             lastTypecode = typecode;
 
             if (entityType === 2 && this.scene && this.scene.getInfo(this.currentLevel, x, z, typecode) >= 0) {
-                const loc: LocType = LocType.get(typeId);
+                const loc: LocType = LocType.list(typeId);
 
                 if (this.objSelected === 1) {
                     this.menuOption[this.menuSize] = 'Use ' + this.objSelectedName + ' with @cya@' + loc.name;
@@ -2442,7 +2442,7 @@ export class Client extends GameShell {
                 }
 
                 for (let obj: ClientObj | null = objs.tail() as ClientObj | null; obj; obj = objs.prev() as ClientObj | null) {
-                    const type: ObjType = ObjType.get(obj.index);
+                    const type: ObjType = ObjType.list(obj.index);
                     if (this.objSelected === 1) {
                         this.menuOption[this.menuSize] = 'Use ' + this.objSelectedName + ' with @lre@' + type.name;
                         this.menuAction[this.menuSize] = 217;
@@ -3378,7 +3378,7 @@ export class Client extends GameShell {
     }
 
     private startForceMovement(e: ClientEntity): void {
-        if (e.forceMoveStartCycle === this.loopCycle || e.primarySeqId === -1 || e.primarySeqDelay !== 0 || e.primarySeqCycle + 1 > SeqType.types[e.primarySeqId].delay![e.primarySeqFrame]) {
+        if (e.forceMoveStartCycle === this.loopCycle || e.primarySeqId === -1 || e.primarySeqDelay !== 0 || e.primarySeqCycle + 1 > SeqType.list[e.primarySeqId].delay![e.primarySeqFrame]) {
             const duration: number = e.forceMoveStartCycle - e.forceMoveEndCycle;
             const delta: number = this.loopCycle - e.forceMoveEndCycle;
             const dx0: number = e.forceMoveStartSceneTileX * 128 + e.size * 64;
@@ -3413,7 +3413,7 @@ export class Client extends GameShell {
         }
 
         if (e.primarySeqId !== -1 && e.primarySeqDelay === 0) {
-            const seq: SeqType = SeqType.types[e.primarySeqId];
+            const seq: SeqType = SeqType.list[e.primarySeqId];
             if (!seq.walkmerge) {
                 e.seqDelayMove++;
                 return;
@@ -3596,30 +3596,30 @@ export class Client extends GameShell {
 
         let seq: SeqType | null;
         if (e.secondarySeqId !== -1) {
-            seq = SeqType.types[e.secondarySeqId];
+            seq = SeqType.list[e.secondarySeqId];
             e.secondarySeqCycle++;
 
-            if (seq.delay && e.secondarySeqFrame < seq.frameCount && e.secondarySeqCycle > seq.delay[e.secondarySeqFrame]) {
+            if (seq.delay && e.secondarySeqFrame < seq.numFrames && e.secondarySeqCycle > seq.delay[e.secondarySeqFrame]) {
                 e.secondarySeqCycle = 0;
                 e.secondarySeqFrame++;
             }
 
-            if (e.secondarySeqFrame >= seq.frameCount) {
+            if (e.secondarySeqFrame >= seq.numFrames) {
                 e.secondarySeqCycle = 0;
                 e.secondarySeqFrame = 0;
             }
         }
 
         if (e.primarySeqId !== -1 && e.primarySeqDelay === 0) {
-            seq = SeqType.types[e.primarySeqId];
+            seq = SeqType.list[e.primarySeqId];
             e.primarySeqCycle++;
 
-            while (seq.delay && e.primarySeqFrame < seq.frameCount && e.primarySeqCycle > seq.delay[e.primarySeqFrame]) {
+            while (seq.delay && e.primarySeqFrame < seq.numFrames && e.primarySeqCycle > seq.delay[e.primarySeqFrame]) {
                 e.primarySeqCycle -= seq.delay[e.primarySeqFrame];
                 e.primarySeqFrame++;
             }
 
-            if (e.primarySeqFrame >= seq.frameCount) {
+            if (e.primarySeqFrame >= seq.numFrames) {
                 e.primarySeqFrame -= seq.loops;
                 e.primarySeqLoop++;
 
@@ -3627,12 +3627,12 @@ export class Client extends GameShell {
                     e.primarySeqId = -1;
                 }
 
-                if (e.primarySeqFrame < 0 || e.primarySeqFrame >= seq.frameCount) {
+                if (e.primarySeqFrame < 0 || e.primarySeqFrame >= seq.numFrames) {
                     e.primarySeqId = -1;
                 }
             }
 
-            e.needsForwardDrawPadding = seq.stretches;
+            e.needsForwardDrawPadding = seq.reachforward;
         }
 
         if (e.primarySeqDelay > 0) {
@@ -3644,16 +3644,16 @@ export class Client extends GameShell {
                 e.spotanimFrame = 0;
             }
 
-            seq = SpotAnimType.types[e.spotanimId].seq;
+            seq = SpotType.list[e.spotanimId].seq;
             e.spotanimCycle++;
 
-            while (seq && seq.delay && e.spotanimFrame < seq.frameCount && e.spotanimCycle > seq.delay[e.spotanimFrame]) {
+            while (seq && seq.delay && e.spotanimFrame < seq.numFrames && e.spotanimCycle > seq.delay[e.spotanimFrame]) {
                 e.spotanimCycle -= seq.delay[e.spotanimFrame];
                 e.spotanimFrame++;
             }
 
-            if (seq && e.spotanimFrame >= seq.frameCount) {
-                if (e.spotanimFrame < 0 || e.spotanimFrame >= seq.frameCount) {
+            if (seq && e.spotanimFrame >= seq.numFrames) {
+                if (e.spotanimFrame < 0 || e.spotanimFrame >= seq.numFrames) {
                     e.spotanimId = -1;
                 }
             }
@@ -4474,10 +4474,10 @@ export class Client extends GameShell {
 
                     append = true;
 
-                    if (loc.seqFrame >= loc.seq.frameCount) {
+                    if (loc.seqFrame >= loc.seq.numFrames) {
                         loc.seqFrame -= loc.seq.loops;
 
-                        if (loc.seqFrame < 0 || loc.seqFrame >= loc.seq.frameCount) {
+                        if (loc.seqFrame < 0 || loc.seqFrame >= loc.seq.numFrames) {
                             loc.unlink();
                             append = false;
                             break;
@@ -4508,7 +4508,7 @@ export class Client extends GameShell {
                     const heightmapNE: number = this.levelHeightmap[level][x + 1][z + 1];
                     const heightmapNW: number = this.levelHeightmap[level][x][z + 1];
 
-                    const type: LocType = LocType.get(loc.index);
+                    const type: LocType = LocType.list(loc.index);
                     let seqId: number = -1;
                     if (loc.seqFrame !== -1 && loc.seq.frames) {
                         seqId = loc.seq.frames[loc.seqFrame];
@@ -5262,7 +5262,7 @@ export class Client extends GameShell {
             const offset: number = tileX * 4 + (103 - tileZ) * 512 * 4 + 24624;
             const locId: number = (typecode >> 14) & 0x7fff;
 
-            const loc: LocType = LocType.get(locId);
+            const loc: LocType = LocType.list(locId);
             if (loc.mapscene === -1) {
                 if (shape === LocShape.WALL_STRAIGHT.id || shape === LocShape.WALL_L.id) {
                     if (angle === LocAngle.WEST) {
@@ -5340,7 +5340,7 @@ export class Client extends GameShell {
             const shape: number = info & 0x1f;
             const locId: number = (typecode >> 14) & 0x7fff;
 
-            const loc: LocType = LocType.get(locId);
+            const loc: LocType = LocType.list(locId);
             if (loc.mapscene === -1) {
                 if (shape === LocShape.WALL_DIAGONAL.id) {
                     let rgb: number = 0xeeeeee;
@@ -5377,7 +5377,7 @@ export class Client extends GameShell {
         if (typecode !== 0) {
             const locId = (typecode >> 14) & 0x7fff;
 
-            const loc: LocType = LocType.get(locId);
+            const loc: LocType = LocType.list(locId);
             if (loc.mapscene !== -1) {
                 const scene: Pix8 | null = this.imageMapscene[loc.mapscene];
                 if (scene) {
@@ -5403,7 +5403,7 @@ export class Client extends GameShell {
         const shape: number = info & 0x1f;
         const angle: number = (info >> 6) & 0x3;
         if (shape === LocShape.CENTREPIECE_STRAIGHT.id || shape === LocShape.CENTREPIECE_DIAGONAL.id || shape === LocShape.GROUND_DECOR.id) {
-            const loc: LocType = LocType.get(locId);
+            const loc: LocType = LocType.list(locId);
 
             let width: number;
             let height: number;
@@ -5929,8 +5929,8 @@ export class Client extends GameShell {
                 const objId: number = this.in.g2();
                 const zoom: number = this.in.g2();
 
-                const obj: ObjType = ObjType.get(objId);
-                Component.types[com].model = obj.getInvModel(50);
+                const obj: ObjType = ObjType.list(objId);
+                Component.types[com].model = obj.getModelLit(50);
                 Component.types[com].xan = obj.xan2d;
                 Component.types[com].yan = obj.yan2d;
                 Component.types[com].zoom = ((obj.zoom2d * 100) / zoom) | 0;
@@ -5999,8 +5999,8 @@ export class Client extends GameShell {
                 const com: number = this.in.g2();
                 const npcId: number = this.in.g2();
 
-                const npc: NpcType = NpcType.get(npcId);
-                Component.types[com].model = npc.getHeadModel();
+                const npc: NpcType = NpcType.list(npcId);
+                Component.types[com].model = npc.getHead();
 
                 this.ptype = -1;
                 return true;
@@ -7090,7 +7090,7 @@ export class Client extends GameShell {
                 }
 
                 if (typecode !== 0) {
-                    const loc: ClientLocAnim = new ClientLocAnim((typecode >> 14) & 0x7fff, this.currentLevel, layer, x, z, SeqType.types[seqId], false);
+                    const loc: ClientLocAnim = new ClientLocAnim((typecode >> 14) & 0x7fff, this.currentLevel, layer, x, z, SeqType.list[seqId], false);
                     this.locList.push(loc);
                 }
             }
@@ -7198,7 +7198,7 @@ export class Client extends GameShell {
             }
 
             if (player && this.levelHeightmap) {
-                const loc: LocType = LocType.get(id);
+                const loc: LocType = LocType.list(id);
 
                 const heightSW: number = this.levelHeightmap[this.currentLevel][x][z];
                 const heightSE: number = this.levelHeightmap[this.currentLevel][x + 1][z];
@@ -7352,7 +7352,7 @@ export class Client extends GameShell {
             if (layer === LocLayer.WALL) {
                 this.scene?.removeWall(level, x, z, 1);
 
-                const type: LocType = LocType.get(otherId);
+                const type: LocType = LocType.list(otherId);
                 if (type.blockwalk) {
                     this.levelCollisionMap[level]?.removeWall(x, z, otherShape, otherAngle, type.blockrange);
                 }
@@ -7361,7 +7361,7 @@ export class Client extends GameShell {
             } else if (layer === LocLayer.GROUND) {
                 this.scene.removeLoc(level, x, z);
 
-                const type: LocType = LocType.get(otherId);
+                const type: LocType = LocType.list(otherId);
                 if (x + type.width > CollisionConstants.SIZE - 1 || z + type.width > CollisionConstants.SIZE - 1 || x + type.length > CollisionConstants.SIZE - 1 || z + type.length > CollisionConstants.SIZE - 1) {
                     return;
                 }
@@ -7372,7 +7372,7 @@ export class Client extends GameShell {
             } else if (layer === LocLayer.GROUND_DECOR) {
                 this.scene?.removeGroundDecoration(level, x, z);
 
-                const type: LocType = LocType.get(otherId);
+                const type: LocType = LocType.list(otherId);
                 if (type.blockwalk && type.active) {
                     this.levelCollisionMap[level]?.removeFloor(x, z);
                 }
@@ -7402,7 +7402,7 @@ export class Client extends GameShell {
         let topObj: ClientObj | null = null;
 
         for (let obj: ClientObj | null = objStacks.head() as ClientObj | null; obj; obj = objStacks.next() as ClientObj | null) {
-            const type: ObjType = ObjType.get(obj.index);
+            const type: ObjType = ObjType.list(obj.index);
             let cost: number = type.cost;
 
             if (type.stackable) {
@@ -7439,17 +7439,17 @@ export class Client extends GameShell {
 
         let bottomObj: Model | null = null;
         if (bottomObjId !== -1) {
-            bottomObj = ObjType.get(bottomObjId).getInvModel(bottomObjCount);
+            bottomObj = ObjType.list(bottomObjId).getModelLit(bottomObjCount);
         }
 
         let middleObj: Model | null = null;
         if (middleObjId !== -1) {
-            middleObj = ObjType.get(middleObjId).getInvModel(middleObjCount);
+            middleObj = ObjType.list(middleObjId).getModelLit(middleObjCount);
         }
 
         const typecode: number = (x + (z << 7) + 0x60000000) | 0;
-        const type: ObjType = ObjType.get(topObj.index);
-        this.scene?.addGroundObject(x, z, this.getHeightmapY(this.currentLevel, x * 128 + 64, z * 128 + 64), this.currentLevel, typecode, type.getInvModel(topObj.count), middleObj, bottomObj);
+        const type: ObjType = ObjType.list(topObj.index);
+        this.scene?.addGroundObject(x, z, this.getHeightmapY(this.currentLevel, x * 128 + 64, z * 128 + 64), this.currentLevel, typecode, type.getModelLit(topObj.count), middleObj, bottomObj);
     }
 
     private getPlayerPos(buf: Packet, size: number): void {
@@ -7687,7 +7687,7 @@ export class Client extends GameShell {
             }
 
             const delay: number = buf.g1();
-            if (seqId === -1 || player.primarySeqId === -1 || SeqType.types[seqId].priority > SeqType.types[player.primarySeqId].priority || SeqType.types[player.primarySeqId].priority === 0) {
+            if (seqId === -1 || player.primarySeqId === -1 || SeqType.list[seqId].priority > SeqType.list[player.primarySeqId].priority || SeqType.list[player.primarySeqId].priority === 0) {
                 player.primarySeqId = seqId;
                 player.primarySeqFrame = 0;
                 player.primarySeqCycle = 0;
@@ -7922,7 +7922,7 @@ export class Client extends GameShell {
 
             if (npc) {
                 npc.cycle = this.loopCycle;
-                npc.type = NpcType.get(buf.gBit(11));
+                npc.type = NpcType.list(buf.gBit(11));
                 npc.size = npc.type.size;
                 npc.walkanim = npc.type.walkanim;
                 npc.walkanim_b = npc.type.walkanim_b;
@@ -7977,7 +7977,7 @@ export class Client extends GameShell {
                 }
 
                 const delay: number = buf.g1();
-                if (seqId === -1 || npc.primarySeqId === -1 || SeqType.types[seqId].priority > SeqType.types[npc.primarySeqId].priority || SeqType.types[npc.primarySeqId].priority === 0) {
+                if (seqId === -1 || npc.primarySeqId === -1 || SeqType.list[seqId].priority > SeqType.list[npc.primarySeqId].priority || SeqType.list[npc.primarySeqId].priority === 0) {
                     npc.primarySeqId = seqId;
                     npc.primarySeqFrame = 0;
                     npc.primarySeqCycle = 0;
@@ -8006,7 +8006,7 @@ export class Client extends GameShell {
                 npc.totalHealth = buf.g1();
             }
             if ((mask & NpcUpdate.CHANGE_TYPE) !== 0) {
-                npc.type = NpcType.get(buf.g2());
+                npc.type = NpcType.list(buf.g2());
 
                 npc.walkanim = npc.type.walkanim;
                 npc.walkanim_b = npc.type.walkanim_b;
@@ -8205,7 +8205,7 @@ export class Client extends GameShell {
 
         if (action === 1102) {
             // obj examine
-            const obj: ObjType = ObjType.get(a);
+            const obj: ObjType = ObjType.list(a);
             let examine: string;
 
             if (!obj.desc) {
@@ -8400,7 +8400,7 @@ export class Client extends GameShell {
         if (action === 1175) {
             // loc examine
             const locId: number = (a >> 14) & 0x7fff;
-            const loc: LocType = LocType.get(locId);
+            const loc: LocType = LocType.list(locId);
 
             let examine: string;
             if (!loc.desc) {
@@ -8587,7 +8587,7 @@ export class Client extends GameShell {
 
         if (action === 1773) {
             // inv obj examine
-            const obj: ObjType = ObjType.get(a);
+            const obj: ObjType = ObjType.list(a);
             let examine: string;
 
             if (c >= 100000) {
@@ -8607,7 +8607,7 @@ export class Client extends GameShell {
             this.objSelectedSlot = b;
             this.objSelectedInterface = c;
             this.objInterface = a;
-            this.objSelectedName = ObjType.get(a).name;
+            this.objSelectedName = ObjType.list(a).name;
             this.spellSelected = 0;
             return;
         }
@@ -9132,7 +9132,7 @@ export class Client extends GameShell {
                             const id: number = child.invSlotObjId[slot] - 1;
 
                             if ((slotX >= -32 && slotX <= 512 && slotY >= -32 && slotY <= 334) || (this.objDragArea !== 0 && this.objDragSlot === slot)) {
-                                const icon: Pix32 = ObjType.getIcon(id, child.invSlotObjCount[slot]);
+                                const icon: Pix32 = ObjType.getSprite(id, child.invSlotObjCount[slot]);
                                 if (this.objDragArea !== 0 && this.objDragSlot === slot && this.objDragInterfaceId === child.id) {
                                     dx = this.mouseX - this.objGrabX;
                                     dy = this.mouseY - this.objGrabY;
@@ -9304,7 +9304,7 @@ export class Client extends GameShell {
                 if (seqId === -1) {
                     model = child.getModel(-1, -1, active);
                 } else {
-                    const seq: SeqType = SeqType.types[seqId];
+                    const seq: SeqType = SeqType.list[seqId];
                     if (seq.frames && seq.iframes) {
                         model = child.getModel(seq.frames[child.seqFrame], seq.iframes[child.seqFrame], active);
                     }
@@ -9326,7 +9326,7 @@ export class Client extends GameShell {
                 for (let row: number = 0; row < child.height; row++) {
                     for (let col: number = 0; col < child.width; col++) {
                         if (child.invSlotObjId[slot] > 0) {
-                            const obj: ObjType = ObjType.get(child.invSlotObjId[slot] - 1);
+                            const obj: ObjType = ObjType.list(child.invSlotObjId[slot] - 1);
                             let text: string | null = obj.name;
                             if (obj.stackable || child.invSlotObjCount[slot] !== 1) {
                                 text = text + ' x' + this.formatObjCountTagged(child.invSlotObjCount[slot]);
@@ -9632,7 +9632,7 @@ export class Client extends GameShell {
                             continue;
                         }
 
-                        const obj: ObjType = ObjType.get(child.invSlotObjId[slot] - 1);
+                        const obj: ObjType = ObjType.list(child.invSlotObjId[slot] - 1);
 
                         if (this.objSelected === 1 && child.interactable) {
                             if (child.id !== this.objSelectedInterface || slot !== this.objSelectedSlot) {
@@ -9865,7 +9865,7 @@ export class Client extends GameShell {
                 }
 
                 if (seqId !== -1) {
-                    const type: SeqType = SeqType.types[seqId];
+                    const type: SeqType = SeqType.list[seqId];
                     child.seqCycle += delta;
 
                     if (type.delay) {
@@ -9873,10 +9873,10 @@ export class Client extends GameShell {
                             child.seqCycle -= type.delay[child.seqFrame] + 1;
                             child.seqFrame++;
 
-                            if (child.seqFrame >= type.frameCount) {
+                            if (child.seqFrame >= type.numFrames) {
                                 child.seqFrame -= type.loops;
 
-                                if (child.seqFrame < 0 || child.seqFrame >= type.frameCount) {
+                                if (child.seqFrame < 0 || child.seqFrame >= type.numFrames) {
                                     child.seqFrame = 0;
                                 }
                             }
@@ -9892,7 +9892,7 @@ export class Client extends GameShell {
     }
 
     private async updateVarp(id: number): Promise<void> {
-        const clientcode: number = VarpType.types[id].clientcode;
+        const clientcode: number = VarpType.list[id].clientcode;
         if (clientcode === 0) {
             return;
         }
@@ -9909,7 +9909,7 @@ export class Client extends GameShell {
                 Pix3D.initColourTable(0.6);
             }
 
-            ObjType.iconCache?.clear();
+            ObjType.spriteCache?.clear();
             this.redrawFrame = true;
         } else if (clientcode === 3) {
             const lastMidiActive: boolean = this.midiActive;
@@ -10035,7 +10035,7 @@ export class Client extends GameShell {
                 for (let part: number = 0; part < 7; part++) {
                     const kit: number = this.designKits[part];
                     if (kit >= 0) {
-                        models[modelCount++] = IdkType.types[kit].getModel();
+                        models[modelCount++] = IdkType.list[kit].getModel();
                     }
                 }
 
@@ -10051,7 +10051,7 @@ export class Client extends GameShell {
                 }
 
                 if (this.localPlayer) {
-                    const frames: Int16Array | null = SeqType.types[this.localPlayer.readyanim].frames;
+                    const frames: Int16Array | null = SeqType.list[this.localPlayer.readyanim].frames;
                     if (frames) {
                         model.createLabelReferences();
                         model.applyTransform(frames[0]);
@@ -10209,18 +10209,18 @@ export class Client extends GameShell {
                     if (direction === 0) {
                         kit--;
                         if (kit < 0) {
-                            kit = IdkType.count - 1;
+                            kit = IdkType.numDefinitions - 1;
                         }
                     }
 
                     if (direction === 1) {
                         kit++;
-                        if (kit >= IdkType.count) {
+                        if (kit >= IdkType.numDefinitions) {
                             kit = 0;
                         }
                     }
 
-                    if (!IdkType.types[kit].disable && IdkType.types[kit].type === part + (this.designGender ? 0 : 7)) {
+                    if (!IdkType.list[kit].disable && IdkType.list[kit].part === part + (this.designGender ? 0 : 7)) {
                         this.designKits[part] = kit;
                         this.updateDesignModel = true;
                         break;
@@ -10289,8 +10289,8 @@ export class Client extends GameShell {
         for (let i: number = 0; i < 7; i++) {
             this.designKits[i] = -1;
 
-            for (let j: number = 0; j < IdkType.count; j++) {
-                if (!IdkType.types[j].disable && IdkType.types[j].type === i + (this.designGender ? 0 : 7)) {
+            for (let j: number = 0; j < IdkType.numDefinitions; j++) {
+                if (!IdkType.list[j].disable && IdkType.list[j].part === i + (this.designGender ? 0 : 7)) {
                     this.designKits[i] = j;
                     break;
                 }

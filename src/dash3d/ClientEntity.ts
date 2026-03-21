@@ -61,7 +61,7 @@ export default abstract class ClientEntity extends ModelSource {
     abstract isVisible(): boolean;
 
     move(teleport: boolean, x: number, z: number): void {
-        if (this.primarySeqId !== -1 && SeqType.types[this.primarySeqId].priority <= 1) {
+        if (this.primarySeqId !== -1 && SeqType.list[this.primarySeqId].priority <= 1) {
             this.primarySeqId = -1;
         }
 
@@ -121,7 +121,7 @@ export default abstract class ClientEntity extends ModelSource {
             nextZ--;
         }
 
-        if (this.primarySeqId !== -1 && SeqType.types[this.primarySeqId].priority <= 1) {
+        if (this.primarySeqId !== -1 && SeqType.list[this.primarySeqId].priority <= 1) {
             this.primarySeqId = -1;
         }
 

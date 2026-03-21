@@ -1,10 +1,10 @@
-import SpotAnimType from '#/config/SpotAnimType.js';
+import SpotType from '#/config/SpotType.js';
 
 import Model from '#/dash3d/Model.js';
 import ModelSource from '#/dash3d/ModelSource.js';
 
 export default class ClientProj extends ModelSource {
-    readonly spotanim: SpotAnimType;
+    readonly spotanim: SpotType;
     readonly projLevel: number;
     readonly srcX: number;
     readonly srcZ: number;
@@ -33,7 +33,7 @@ export default class ClientProj extends ModelSource {
 
     constructor(spotanim: number, level: number, srcX: number, srcY: number, srcZ: number, startCycle: number, lastCycle: number, peakPitch: number, arc: number, target: number, offsetY: number) {
         super();
-        this.spotanim = SpotAnimType.types[spotanim];
+        this.spotanim = SpotType.list[spotanim];
         this.projLevel = level;
         this.srcX = srcX;
         this.srcZ = srcZ;
@@ -83,15 +83,15 @@ export default class ClientProj extends ModelSource {
         while (this.seqCycle > this.spotanim.seq.delay[this.seqFrame]) {
             this.seqCycle -= this.spotanim.seq.delay[this.seqFrame] + 1;
             this.seqFrame++;
-            if (this.seqFrame >= this.spotanim.seq.frameCount) {
+            if (this.seqFrame >= this.spotanim.seq.numFrames) {
                 this.seqFrame = 0;
             }
         }
     }
 
     getModel(): Model | null {
-        const tmp: Model = this.spotanim.getModel();
-        const model: Model = Model.modelShareColored(tmp, true, !this.spotanim.animHasAlpha, false);
+        const tmp: Model = this.spotanim.getTempModel2();
+        const model: Model = Model.modelShareColored(tmp, true, !this.spotanim.animateTransparencies, false);
 
         if (this.spotanim.seq && this.spotanim.seq.frames) {
             model.createLabelReferences();

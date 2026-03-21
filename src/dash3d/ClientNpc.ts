@@ -1,6 +1,6 @@
 import NpcType from '#/config/NpcType.js';
 import SeqType from '#/config/SeqType.js';
-import SpotAnimType from '#/config/SpotAnimType.js';
+import SpotType from '#/config/SpotType.js';
 
 import ClientEntity from '#/dash3d/ClientEntity.js';
 
@@ -33,9 +33,9 @@ export default class ClientNpc extends ClientEntity {
             return null;
         }
 
-        const spotanim: SpotAnimType = SpotAnimType.types[this.spotanimId];
+        const spotanim: SpotType = SpotType.list[this.spotanimId];
 
-        const model1: Model = Model.modelShareColored(spotanim.getModel(), true, !spotanim.animHasAlpha, false);
+        const model1: Model = Model.modelShareColored(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
         model1.translate(-this.spotanimHeight, 0, 0);
         model1.createLabelReferences();
         if (spotanim.seq && spotanim.seq.frames) {
@@ -65,29 +65,29 @@ export default class ClientNpc extends ClientEntity {
         }
 
         if (this.primarySeqId >= 0 && this.primarySeqDelay === 0) {
-            const frames: Int16Array | null = SeqType.types[this.primarySeqId].frames;
+            const frames: Int16Array | null = SeqType.list[this.primarySeqId].frames;
             if (frames) {
                 const primaryTransformId: number = frames[this.primarySeqFrame];
                 let secondaryTransformId: number = -1;
                 if (this.secondarySeqId >= 0 && this.secondarySeqId !== this.readyanim) {
-                    const secondFrames: Int16Array | null = SeqType.types[this.secondarySeqId].frames;
+                    const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
                     if (secondFrames) {
                         secondaryTransformId = secondFrames[this.secondarySeqFrame];
                     }
                 }
-                return this.type.getModel(primaryTransformId, secondaryTransformId, SeqType.types[this.primarySeqId].walkmerge);
+                return this.type.getTempModel(primaryTransformId, secondaryTransformId, SeqType.list[this.primarySeqId].walkmerge);
             }
         }
 
         let transformId: number = -1;
         if (this.secondarySeqId >= 0) {
-            const secondFrames: Int16Array | null = SeqType.types[this.secondarySeqId].frames;
+            const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
             if (secondFrames) {
                 transformId = secondFrames[this.secondarySeqFrame];
             }
         }
 
-        const model: Model | null = this.type.getModel(transformId, -1, null);
+        const model: Model | null = this.type.getTempModel(transformId, -1, null);
         if (!model) {
             return null;
         }

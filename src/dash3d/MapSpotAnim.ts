@@ -1,11 +1,11 @@
-import SpotAnimType from '#/config/SpotAnimType.js';
+import SpotType from '#/config/SpotType.js';
 
 import ModelSource from '#/dash3d/ModelSource.js';
 
 import Model from '#/dash3d/Model.js';
 
 export default class MapSpotAnim extends ModelSource {
-    readonly spotType: SpotAnimType;
+    readonly spotType: SpotType;
     readonly spotLevel: number;
     readonly x: number;
     readonly z: number;
@@ -19,7 +19,7 @@ export default class MapSpotAnim extends ModelSource {
 
     constructor(id: number, level: number, x: number, z: number, y: number, cycle: number, delay: number) {
         super();
-        this.spotType = SpotAnimType.types[id];
+        this.spotType = SpotType.list[id];
         this.spotLevel = level;
         this.x = x;
         this.z = z;
@@ -36,7 +36,7 @@ export default class MapSpotAnim extends ModelSource {
             this.seqCycle -= this.spotType.seq.delay[this.seqFrame] + 1;
             this.seqFrame++;
 
-            if (this.seqFrame >= this.spotType.seq.frameCount) {
+            if (this.seqFrame >= this.spotType.seq.numFrames) {
                 this.seqFrame = 0;
                 this.seqComplete = true;
             }
@@ -44,8 +44,8 @@ export default class MapSpotAnim extends ModelSource {
     }
 
     getModel(): Model {
-        const tmp: Model = this.spotType.getModel();
-        const model: Model = Model.modelShareColored(tmp, true, !this.spotType.animHasAlpha, false);
+        const tmp: Model = this.spotType.getTempModel2();
+        const model: Model = Model.modelShareColored(tmp, true, !this.spotType.animateTransparencies, false);
         if (!this.seqComplete && this.spotType.seq && this.spotType.seq.frames) {
             model.createLabelReferences();
             model.applyTransform(this.spotType.seq.frames[this.seqFrame]);

@@ -23,7 +23,7 @@ export default class ClientLocAnim extends Linkable {
         this.seq = seq;
 
         if (randomFrame && seq.loops !== -1 && this.seq.delay) {
-            this.seqFrame = (Math.random() * this.seq.frameCount) | 0;
+            this.seqFrame = (Math.random() * this.seq.numFrames) | 0;
             this.seqCycle = (Math.random() * this.seq.delay[this.seqFrame]) | 0;
         } else {
             this.seqFrame = -1;

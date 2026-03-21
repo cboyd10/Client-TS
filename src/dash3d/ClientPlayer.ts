@@ -1,6 +1,6 @@
 import IdkType from '#/config/IdkType.js';
 import ObjType from '#/config/ObjType.js';
-import SpotAnimType from '#/config/SpotAnimType.js';
+import SpotType from '#/config/SpotType.js';
 import SeqType from '#/config/SeqType.js';
 
 import LruCache from '#/datastruct/LruCache.js';
@@ -313,8 +313,8 @@ export default class ClientPlayer extends ClientEntity {
         }
 
         if (this.spotanimId !== -1 && this.spotanimFrame !== -1) {
-            const spotanim: SpotAnimType = SpotAnimType.types[this.spotanimId];
-            const model2: Model = Model.modelShareColored(spotanim.getModel(), true, !spotanim.animHasAlpha, false);
+            const spotanim: SpotType = SpotType.list[this.spotanimId];
+            const model2: Model = Model.modelShareColored(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
 
             model2.translate(-this.spotanimHeight, 0, 0);
             model2.createLabelReferences();
@@ -381,13 +381,13 @@ export default class ClientPlayer extends ClientEntity {
         let leftHandValue: number = -1;
 
         if (this.primarySeqId >= 0 && this.primarySeqDelay === 0) {
-            const seq: SeqType = SeqType.types[this.primarySeqId];
+            const seq: SeqType = SeqType.list[this.primarySeqId];
 
             if (seq.frames) {
                 primaryTransformId = seq.frames[this.primarySeqFrame];
             }
             if (this.secondarySeqId >= 0 && this.secondarySeqId !== this.readyanim) {
-                const secondFrames: Int16Array | null = SeqType.types[this.secondarySeqId].frames;
+                const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
                 if (secondFrames) {
                     secondaryTransformId = secondFrames[this.secondarySeqFrame];
                 }
@@ -403,7 +403,7 @@ export default class ClientPlayer extends ClientEntity {
                 hashCode += BigInt(leftHandValue - this.appearance[3]) << 16n;
             }
         } else if (this.secondarySeqId >= 0) {
-            const secondFrames: Int16Array | null = SeqType.types[this.secondarySeqId].frames;
+            const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
             if (secondFrames) {
                 primaryTransformId = secondFrames[this.secondarySeqFrame];
             }
@@ -426,15 +426,15 @@ export default class ClientPlayer extends ClientEntity {
                 }
 
                 if (value >= 256 && value < 512) {
-                    const idkModel: Model | null = IdkType.types[value - 256].getModel();
+                    const idkModel: Model | null = IdkType.list[value - 256].getModel();
                     if (idkModel) {
                         models[modelCount++] = idkModel;
                     }
                 }
 
                 if (value >= 512) {
-                    const obj: ObjType = ObjType.get(value - 512);
-                    const wornModel: Model | null = obj.getWornModel(this.gender);
+                    const obj: ObjType = ObjType.list(value - 512);
+                    const wornModel: Model | null = obj.getWearModel(this.gender);
                     if (wornModel) {
                         models[modelCount++] = wornModel;
                     }
@@ -463,7 +463,7 @@ export default class ClientPlayer extends ClientEntity {
 
         const tmp: Model = Model.modelShareAlpha(model, true);
         if (primaryTransformId !== -1 && secondaryTransformId !== -1) {
-            tmp.applyTransforms(primaryTransformId, secondaryTransformId, SeqType.types[this.primarySeqId].walkmerge);
+            tmp.applyTransforms(primaryTransformId, secondaryTransformId, SeqType.list[this.primarySeqId].walkmerge);
         } else if (primaryTransformId !== -1) {
             tmp.applyTransform(primaryTransformId);
         }
@@ -485,11 +485,11 @@ export default class ClientPlayer extends ClientEntity {
             const value: number = this.appearance[part];
 
             if (value >= 256 && value < 512) {
-                models[modelCount++] = IdkType.types[value - 256].getHeadModel();
+                models[modelCount++] = IdkType.list[value - 256].getHead();
             }
 
             if (value >= 512) {
-                const headModel: Model | null = ObjType.get(value - 512).getHeadModel(this.gender);
+                const headModel: Model | null = ObjType.list(value - 512).getHeadModel(this.gender);
                 if (headModel) {
                     models[modelCount++] = headModel;
                 }
