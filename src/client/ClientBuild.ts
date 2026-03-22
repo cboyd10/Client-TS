@@ -21,7 +21,6 @@ import Packet from '#/io/Packet.js';
 
 import { Int32Array2d, Int32Array3d, Uint8Array3d } from '#/util/Arrays.js';
 
-// noinspection JSSuspiciousNameCombination,DuplicatedCode
 export default class ClientBuild {
     static readonly WSHAPE0: Int8Array = Int8Array.of(1, 2, 4, 8);
     static readonly WSHAPE1: Uint8Array = Uint8Array.of(16, 32, 64, 128);
@@ -37,12 +36,13 @@ export default class ClientBuild {
 
     private readonly maxTileX: number;
     private readonly maxTileZ: number;
-    private readonly groundh: Int32Array[][];
-    private readonly mapl: Uint8Array[][];
-    private readonly floort1: Uint8Array[][];
-    private readonly floort2: Uint8Array[][];
-    private readonly floors: Uint8Array[][];
-    private readonly floorr: Uint8Array[][];
+
+    private readonly groundh: Int32Array[][]; // ground height
+    private readonly mapl: Uint8Array[][]; // map land flags
+    private readonly floort1: Uint8Array[][]; // floor type 1
+    private readonly floort2: Uint8Array[][]; // floor type 2
+    private readonly floors: Uint8Array[][]; // floor shape
+    private readonly floorr: Uint8Array[][]; // floor rotation
     private readonly shadow: Uint8Array[][];
     private readonly lightmap: Int32Array[];
     private readonly huetot: Int32Array;
@@ -50,13 +50,14 @@ export default class ClientBuild {
     private readonly ligtot: Int32Array;
     private readonly comtot: Int32Array;
     private readonly tot: Int32Array;
-    private readonly mapo: Int32Array[][];
+    private readonly mapo: Int32Array[][]; // map occlusion
 
-    public constructor(maxTileX: number, maxTileZ: number, levelHeightmap: Int32Array[][], levelTileFlags: Uint8Array[][]) {
+    public constructor(maxTileX: number, maxTileZ: number, groundh: Int32Array[][], mapl: Uint8Array[][]) {
         this.maxTileX = maxTileX;
         this.maxTileZ = maxTileZ;
-        this.groundh = levelHeightmap;
-        this.mapl = levelTileFlags;
+
+        this.groundh = groundh;
+        this.mapl = mapl;
 
         this.floort1 = new Uint8Array3d(BuildArea.LEVELS, maxTileX, maxTileZ);
         this.floort2 = new Uint8Array3d(BuildArea.LEVELS, maxTileX, maxTileZ);
@@ -74,15 +75,13 @@ export default class ClientBuild {
         this.tot = new Int32Array(maxTileZ);
     }
 
-    finishBuild(scene: World | null, collision: (CollisionMap | null)[]): void {
+    finishBuild(world: World | null, collision: (CollisionMap | null)[]): void {
         for (let level: number = 0; level < BuildArea.LEVELS; level++) {
             for (let x: number = 0; x < BuildArea.SIZE; x++) {
                 for (let z: number = 0; z < BuildArea.SIZE; z++) {
-                    // block_map_square
                     if ((this.mapl[level][x][z] & 0x1) === 1) {
                         let trueLevel: number = level;
 
-                        // linkbelow
                         if ((this.mapl[1][x][z] & 0x2) === 2) {
                             trueLevel--;
                         }
@@ -149,64 +148,64 @@ export default class ClientBuild {
                     const x1: number = x0 + 5;
 
                     if (x1 >= 0 && x1 < this.maxTileX) {
-                        const underlayId: number = this.floort1[level][x1][z0] & 0xff;
+                        const t1: number = this.floort1[level][x1][z0] & 0xff;
 
-                        if (underlayId > 0) {
-                            const flu: FloType = FloType.list[underlayId - 1];
-                            this.huetot[z0] += flu.underlayHue;
-                            this.sattot[z0] += flu.saturation;
-                            this.ligtot[z0] += flu.lightness;
-                            this.comtot[z0] += flu.chroma;
+                        if (t1 > 0) {
+                            const flo: FloType = FloType.list[t1 - 1];
+                            this.huetot[z0] += flo.underlayHue;
+                            this.sattot[z0] += flo.saturation;
+                            this.ligtot[z0] += flo.lightness;
+                            this.comtot[z0] += flo.chroma;
                             this.tot[z0]++;
                         }
                     }
 
                     const x2: number = x0 - 5;
                     if (x2 >= 0 && x2 < this.maxTileX) {
-                        const underlayId: number = this.floort1[level][x2][z0] & 0xff;
+                        const t1: number = this.floort1[level][x2][z0] & 0xff;
 
-                        if (underlayId > 0) {
-                            const flu: FloType = FloType.list[underlayId - 1];
-                            this.huetot[z0] -= flu.underlayHue;
-                            this.sattot[z0] -= flu.saturation;
-                            this.ligtot[z0] -= flu.lightness;
-                            this.comtot[z0] -= flu.chroma;
+                        if (t1 > 0) {
+                            const flo: FloType = FloType.list[t1 - 1];
+                            this.huetot[z0] -= flo.underlayHue;
+                            this.sattot[z0] -= flo.saturation;
+                            this.ligtot[z0] -= flo.lightness;
+                            this.comtot[z0] -= flo.chroma;
                             this.tot[z0]--;
                         }
                     }
                 }
 
                 if (x0 >= 1 && x0 < this.maxTileX - 1) {
-                    let hueAccumulator: number = 0;
-                    let saturationAccumulator: number = 0;
-                    let lightnessAccumulator: number = 0;
-                    let luminanceAccumulator: number = 0;
-                    let magnitudeAccumulator: number = 0;
+                    let blendHue: number = 0;
+                    let blendSat: number = 0;
+                    let blendLig: number = 0;
+                    let blendCom: number = 0;
+                    let blendTot: number = 0;
 
                     for (let z0: number = -5; z0 < this.maxTileZ + 5; z0++) {
                         const dz1: number = z0 + 5;
                         if (dz1 >= 0 && dz1 < this.maxTileZ) {
-                            hueAccumulator += this.huetot[dz1];
-                            saturationAccumulator += this.sattot[dz1];
-                            lightnessAccumulator += this.ligtot[dz1];
-                            luminanceAccumulator += this.comtot[dz1];
-                            magnitudeAccumulator += this.tot[dz1];
+                            blendHue += this.huetot[dz1];
+                            blendSat += this.sattot[dz1];
+                            blendLig += this.ligtot[dz1];
+                            blendCom += this.comtot[dz1];
+                            blendTot += this.tot[dz1];
                         }
 
                         const dz2: number = z0 - 5;
                         if (dz2 >= 0 && dz2 < this.maxTileZ) {
-                            hueAccumulator -= this.huetot[dz2];
-                            saturationAccumulator -= this.sattot[dz2];
-                            lightnessAccumulator -= this.ligtot[dz2];
-                            luminanceAccumulator -= this.comtot[dz2];
-                            magnitudeAccumulator -= this.tot[dz2];
+                            blendHue -= this.huetot[dz2];
+                            blendSat -= this.sattot[dz2];
+                            blendLig -= this.ligtot[dz2];
+                            blendCom -= this.comtot[dz2];
+                            blendTot -= this.tot[dz2];
                         }
 
                         if (z0 >= 1 && z0 < this.maxTileZ - 1 && (!ClientBuild.lowMem || ((this.mapl[level][x0][z0] & 0x10) === 0 && this.getVisBelowLevel(level, x0, z0) === ClientBuild.minusedlevel))) {
-                            const underlayId: number = this.floort1[level][x0][z0] & 0xff;
-                            const overlayId: number = this.floort2[level][x0][z0] & 0xff;
+                            const t1: number = this.floort1[level][x0][z0] & 0xff;
+                            const t2: number = this.floort2[level][x0][z0] & 0xff;
 
-                            if (underlayId > 0 || overlayId > 0) {
+                            if (t1 > 0 || t2 > 0) {
                                 const heightSW: number = this.groundh[level][x0][z0];
                                 const heightSE: number = this.groundh[level][x0 + 1][z0];
                                 const heightNE: number = this.groundh[level][x0 + 1][z0 + 1];
@@ -217,31 +216,29 @@ export default class ClientBuild {
                                 const lightNE: number = this.lightmap[x0 + 1][z0 + 1];
                                 const lightNW: number = this.lightmap[x0][z0 + 1];
 
-                                let baseColor: number = -1;
-                                let tintColor: number = -1;
+                                let t1Colour: number = -1;
+                                let t1RandColour: number = -1;
 
-                                if (underlayId > 0) {
-                                    const hue: number = ((hueAccumulator * 256) / luminanceAccumulator) | 0;
-                                    const saturation: number = (saturationAccumulator / magnitudeAccumulator) | 0;
-                                    let lightness: number = (lightnessAccumulator / magnitudeAccumulator) | 0;
-                                    baseColor = this.getTable(hue, saturation, lightness);
+                                if (t1 > 0) {
+                                    const hue: number = ((blendHue * 256) / blendCom) | 0;
+                                    const sat: number = (blendSat / blendTot) | 0;
+                                    let lig: number = (blendLig / blendTot) | 0;
+                                    t1Colour = ClientBuild.getTable(hue, sat, lig);
 
                                     const randomHue: number = (hue + ClientBuild.hueOff) & 0xff;
-
-                                    lightness += ClientBuild.ligOff;
-                                    if (lightness < 0) {
-                                        lightness = 0;
-                                    } else if (lightness > 255) {
-                                        lightness = 255;
+                                    let randomLig = lig + ClientBuild.ligOff;
+                                    if (randomLig < 0) {
+                                        randomLig = 0;
+                                    } else if (randomLig > 255) {
+                                        randomLig = 255;
                                     }
-
-                                    tintColor = this.getTable(randomHue, saturation, lightness);
+                                    t1RandColour = ClientBuild.getTable(randomHue, sat, randomLig);
                                 }
 
                                 if (level > 0) {
-                                    let occludes: boolean = underlayId !== 0 || this.floors[level][x0][z0] === TerrainOverlayShape.PLAIN;
+                                    let occludes: boolean = t1 !== 0 || this.floors[level][x0][z0] === TerrainOverlayShape.PLAIN;
 
-                                    if (overlayId > 0 && !FloType.list[overlayId - 1].occlude) {
+                                    if (t2 > 0 && !FloType.list[t2 - 1].occlude) {
                                         occludes = false;
                                     }
 
@@ -251,13 +248,13 @@ export default class ClientBuild {
                                     }
                                 }
 
-                                let shadeColor: number = 0;
-                                if (baseColor !== -1) {
-                                    shadeColor = Pix3D.colourTable[ClientBuild.getUCol(tintColor, 96)];
+                                let underlay: number = 0;
+                                if (t1Colour !== -1) {
+                                    underlay = Pix3D.colourTable[ClientBuild.getUCol(t1RandColour, 96)];
                                 }
 
-                                if (overlayId === 0) {
-                                    scene?.setGround(
+                                if (t2 === 0) {
+                                    world?.setGround(
                                         level,
                                         x0,
                                         z0,
@@ -268,58 +265,58 @@ export default class ClientBuild {
                                         heightSE,
                                         heightNE,
                                         heightNW,
-                                        ClientBuild.getUCol(baseColor, lightSW),
-                                        ClientBuild.getUCol(baseColor, lightSE),
-                                        ClientBuild.getUCol(baseColor, lightNE),
-                                        ClientBuild.getUCol(baseColor, lightNW),
+                                        ClientBuild.getUCol(t1Colour, lightSW),
+                                        ClientBuild.getUCol(t1Colour, lightSE),
+                                        ClientBuild.getUCol(t1Colour, lightNE),
+                                        ClientBuild.getUCol(t1Colour, lightNW),
                                         Colour.BLACK,
                                         Colour.BLACK,
                                         Colour.BLACK,
                                         Colour.BLACK,
-                                        shadeColor,
+                                        underlay,
                                         Colour.BLACK
                                     );
                                 } else {
                                     const shape: number = this.floors[level][x0][z0] + 1;
                                     const rotation: number = this.floorr[level][x0][z0];
-                                    const flo: FloType = FloType.list[overlayId - 1];
-                                    let textureId: number = flo.texture;
-                                    let hsl: number;
-                                    let rgb: number;
+                                    const flo: FloType = FloType.list[t2 - 1];
 
-                                    if (textureId >= 0) {
-                                        rgb = Pix3D.getAverageTextureRgb(textureId);
-                                        hsl = -1;
+                                    let texture: number = flo.texture;
+                                    let t2Colour: number;
+                                    let overlay: number;
+                                    if (texture >= 0) {
+                                        overlay = Pix3D.getTextureAverage(texture);
+                                        t2Colour = -1;
                                     } else if (flo.colour === Colour.MAGENTA) {
-                                        rgb = 0;
-                                        hsl = -2;
-                                        textureId = -1;
+                                        overlay = 0;
+                                        t2Colour = -2;
+                                        texture = -1;
                                     } else {
-                                        hsl = this.getTable(flo.hue, flo.saturation, flo.lightness);
-                                        rgb = Pix3D.colourTable[this.getOCol(flo.overlayHsl, 96)];
+                                        t2Colour = ClientBuild.getTable(flo.hue, flo.saturation, flo.lightness);
+                                        overlay = Pix3D.colourTable[ClientBuild.getOCol(flo.overlayHsl, 96)];
                                     }
 
-                                    scene?.setGround(
+                                    world?.setGround(
                                         level,
                                         x0,
                                         z0,
                                         shape,
                                         rotation,
-                                        textureId,
+                                        texture,
                                         heightSW,
                                         heightSE,
                                         heightNE,
                                         heightNW,
-                                        ClientBuild.getUCol(baseColor, lightSW),
-                                        ClientBuild.getUCol(baseColor, lightSE),
-                                        ClientBuild.getUCol(baseColor, lightNE),
-                                        ClientBuild.getUCol(baseColor, lightNW),
-                                        this.getOCol(hsl, lightSW),
-                                        this.getOCol(hsl, lightSE),
-                                        this.getOCol(hsl, lightNE),
-                                        this.getOCol(hsl, lightNW),
-                                        shadeColor,
-                                        rgb
+                                        ClientBuild.getUCol(t1Colour, lightSW),
+                                        ClientBuild.getUCol(t1Colour, lightSE),
+                                        ClientBuild.getUCol(t1Colour, lightNE),
+                                        ClientBuild.getUCol(t1Colour, lightNW),
+                                        ClientBuild.getOCol(t2Colour, lightSW),
+                                        ClientBuild.getOCol(t2Colour, lightSE),
+                                        ClientBuild.getOCol(t2Colour, lightNE),
+                                        ClientBuild.getOCol(t2Colour, lightNW),
+                                        underlay,
+                                        overlay
                                     );
                                 }
                             }
@@ -330,19 +327,19 @@ export default class ClientBuild {
 
             for (let stz: number = 1; stz < this.maxTileZ - 1; stz++) {
                 for (let stx: number = 1; stx < this.maxTileX - 1; stx++) {
-                    scene?.setLayer(level, stx, stz, this.getVisBelowLevel(level, stx, stz));
+                    world?.setLayer(level, stx, stz, this.getVisBelowLevel(level, stx, stz));
                 }
             }
         }
 
         if (!ClientBuild.fullbright) {
-            scene?.shareLight(64, 768, -50, -10, -50);
+            world?.shareLight(64, 768, -50, -10, -50);
         }
 
         for (let x: number = 0; x < this.maxTileX; x++) {
             for (let z: number = 0; z < this.maxTileZ; z++) {
                 if ((this.mapl[1][x][z] & 0x2) === 2) {
-                    scene?.pushDown(x, z);
+                    world?.pushDown(x, z);
                 }
             }
         }
@@ -586,7 +583,6 @@ export default class ClientBuild {
                     if (stx >= 0 && stx < BuildArea.SIZE && stz >= 0 && stz < BuildArea.SIZE) {
                         this.mapl[level][stx][stz] = 0;
 
-                        // eslint-disable-next-line no-constant-condition
                         while (true) {
                             opcode = buf.g1();
                             if (opcode === 0) {
@@ -622,7 +618,6 @@ export default class ClientBuild {
                             }
                         }
                     } else {
-                        // eslint-disable-next-line no-constant-condition
                         while (true) {
                             opcode = buf.g1();
                             if (opcode === 0) {
@@ -648,7 +643,6 @@ export default class ClientBuild {
         const buf: Packet = new Packet(src);
         let locId: number = -1;
 
-        // eslint-disable-next-line no-constant-condition
         while (true) {
             const deltaId: number = buf.gsmart();
             if (deltaId === 0) {
@@ -658,7 +652,6 @@ export default class ClientBuild {
             locId += deltaId;
 
             let locPos: number = 0;
-            // eslint-disable-next-line no-constant-condition
             while (true) {
                 const deltaPos: number = buf.gsmart();
                 if (deltaPos === 0) {
@@ -682,18 +675,18 @@ export default class ClientBuild {
                         currentLevel = level - 1;
                     }
 
-                    let collisionMap: CollisionMap | null = null;
+                    let cmap: CollisionMap | null = null;
                     if (currentLevel >= 0) {
-                        collisionMap = collision[currentLevel];
+                        cmap = collision[currentLevel];
                     }
 
-                    this.addLoc(level, stx, stz, scene, locs, collisionMap, locId, shape, rotation);
+                    this.addLoc(level, stx, stz, scene, locs, cmap, locId, shape, rotation);
                 }
             }
         }
     }
 
-    private addLoc(level: number, x: number, z: number, scene: World | null, locs: LinkList<ClientLocAnim>, collision: CollisionMap | null, locId: number, shape: number, angle: number): void {
+    private addLoc(level: number, x: number, z: number, world: World | null, locs: LinkList<ClientLocAnim>, cmap: CollisionMap | null, locId: number, shape: number, angle: number): void {
         if (ClientBuild.lowMem) {
             if ((this.mapl[level][x][z] & 0x10) !== 0) {
                 return;
@@ -712,20 +705,20 @@ export default class ClientBuild {
 
         const loc: LocType = LocType.list(locId);
 
-        let typecode1: number = (x + (z << 7) + (locId << 14) + 0x40000000) | 0;
+        let typecode: number = (x + (z << 7) + (locId << 14) + 0x40000000) | 0;
         if (!loc.active) {
-            typecode1 += -0x80000000; // int.min
+            typecode += -0x80000000; // int.min
         }
-        typecode1 |= 0;
+        typecode |= 0;
 
         const typecode2: number = ((((angle << 6) + shape) | 0) << 24) >> 24;
 
         if (shape === LocShape.GROUND_DECOR) {
             if (!ClientBuild.lowMem || loc.active || loc.forcedecor) {
-                scene?.setGroundDecor(loc.getModel(LocShape.GROUND_DECOR, angle, heightSW, heightSE, heightNE, heightNW, -1), level, x, z, y, typecode1, typecode2);
+                world?.setGroundDecor(loc.getModel(LocShape.GROUND_DECOR, angle, heightSW, heightSE, heightNE, heightNW, -1), level, x, z, y, typecode, typecode2);
 
-                if (loc.blockwalk && loc.active) {
-                    collision?.blockGround(x, z);
+                if (loc.blockwalk && loc.active && cmap) {
+                    cmap.blockGround(x, z);
                 }
 
                 if (loc.anim !== -1) {
@@ -750,7 +743,7 @@ export default class ClientBuild {
                     height = loc.length;
                 }
 
-                if (scene?.addScenery(level, x, z, y, model, null, typecode1, typecode2, width, height, yaw) && loc.shadow) {
+                if (world?.addScenery(level, x, z, y, model, null, typecode, typecode2, width, height, yaw) && loc.shadow) {
                     for (let dx: number = 0; dx <= width; dx++) {
                         for (let dz: number = 0; dz <= height; dz++) {
                             let shade: number = (model.radius / 4) | 0;
@@ -766,29 +759,29 @@ export default class ClientBuild {
                 }
             }
 
-            if (loc.blockwalk) {
-                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape >= LocShape.ROOF_STRAIGHT) {
-            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2, 1, 1, 0);
+            world?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode, typecode2, 1, 1, 0);
 
             if (shape >= LocShape.ROOF_STRAIGHT && shape <= LocShape.ROOF_FLAT && shape !== LocShape.ROOF_DIAGONAL_WITH_ROOFEDGE && level > 0) {
                 this.mapo[level][x][z] |= 0x924;
             }
 
-            if (loc.blockwalk) {
-                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALL_STRAIGHT) {
-            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE0[angle], 0, loc.getModel(LocShape.WALL_STRAIGHT, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2);
+            world?.setWall(level, x, z, y, ClientBuild.WSHAPE0[angle], 0, loc.getModel(LocShape.WALL_STRAIGHT, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode, typecode2);
 
             if (angle === LocAngle.WEST) {
                 if (loc.shadow) {
@@ -828,8 +821,8 @@ export default class ClientBuild {
                 }
             }
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
@@ -837,10 +830,10 @@ export default class ClientBuild {
             }
 
             if (loc.wallwidth !== 16) {
-                scene?.moveDecor(level, x, z, loc.wallwidth);
+                world?.moveDecor(level, x, z, loc.wallwidth);
             }
         } else if (shape === LocShape.WALL_DIAGONAL_CORNER) {
-            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_DIAGONAL_CORNER, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2);
+            world?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_DIAGONAL_CORNER, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode, typecode2);
 
             if (loc.shadow) {
                 if (angle === LocAngle.WEST) {
@@ -854,8 +847,8 @@ export default class ClientBuild {
                 }
             }
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
@@ -864,7 +857,7 @@ export default class ClientBuild {
         } else if (shape === LocShape.WALL_L) {
             const offset: number = (angle + 1) & 0x3;
 
-            scene?.setWall(
+            world?.setWall(
                 level,
                 x,
                 z,
@@ -873,13 +866,13 @@ export default class ClientBuild {
                 ClientBuild.WSHAPE0[offset],
                 loc.getModel(LocShape.WALL_L, angle + 4, heightSW, heightSE, heightNE, heightNW, -1),
                 loc.getModel(LocShape.WALL_L, offset, heightSW, heightSE, heightNE, heightNW, -1),
-                typecode1,
+                typecode,
                 typecode2
             );
 
             if (loc.occlude) {
                 if (angle === LocAngle.WEST) {
-                    this.mapo[level][x][z] |= 0x109;
+                    this.mapo[level][x][z] |= 0x249;
                     this.mapo[level][x][z + 1] |= 0x492;
                 } else if (angle === LocAngle.NORTH) {
                     this.mapo[level][x][z + 1] |= 0x492;
@@ -893,8 +886,8 @@ export default class ClientBuild {
                 }
             }
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
@@ -902,10 +895,10 @@ export default class ClientBuild {
             }
 
             if (loc.wallwidth !== 16) {
-                scene?.moveDecor(level, x, z, loc.wallwidth);
+                world?.moveDecor(level, x, z, loc.wallwidth);
             }
         } else if (shape === LocShape.WALL_SQUARE_CORNER) {
-            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_SQUARE_CORNER, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2);
+            world?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_SQUARE_CORNER, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode, typecode2);
 
             if (loc.shadow) {
                 if (angle === LocAngle.WEST) {
@@ -919,46 +912,46 @@ export default class ClientBuild {
                 }
             }
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALL_DIAGONAL) {
-            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2, 1, 1, 0);
+            world?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode, typecode2, 1, 1, 0);
 
-            if (loc.blockwalk) {
-                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_STRAIGHT_NOOFFSET) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle * 512, ClientBuild.WSHAPE0[angle]);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle * 512, ClientBuild.WSHAPE0[angle]);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_STRAIGHT_OFFSET) {
             let wallwidth: number = 16;
-            if (scene) {
-                const typecode: number = scene.wallType(level, x, z);
+            if (world) {
+                const typecode: number = world.wallType(level, x, z);
                 if (typecode > 0) {
                     wallwidth = LocType.list((typecode >> 14) & 0x7fff).wallwidth;
                 }
             }
 
-            scene?.setDecor(
+            world?.setDecor(
                 level,
                 x,
                 z,
                 y,
                 ClientBuild.DECORXOF[angle] * wallwidth,
                 ClientBuild.DECORZOF[angle] * wallwidth,
-                typecode1,
+                typecode,
                 loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1),
                 typecode2,
                 angle * 512,
@@ -969,19 +962,19 @@ export default class ClientBuild {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_DIAGONAL_OFFSET) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 256);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 256);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_DIAGONAL_NOOFFSET) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 512);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 512);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_DIAGONAL_BOTH) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 768);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 768);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
@@ -993,10 +986,11 @@ export default class ClientBuild {
         if ((this.mapl[level][stx][stz] & 0x8) === 0) {
             return level <= 0 || (this.mapl[1][stx][stz] & 0x2) === 0 ? level : level - 1;
         }
+
         return 0;
     }
 
-    getTable(hue: number, saturation: number, lightness: number): number {
+    static getTable(hue: number, saturation: number, lightness: number): number {
         if (lightness > 179) {
             saturation = (saturation / 2) | 0;
         }
@@ -1012,7 +1006,7 @@ export default class ClientBuild {
         return (((hue / 4) | 0) << 10) + (((saturation / 32) | 0) << 7) + ((lightness / 2) | 0);
     }
 
-    static changeLocUnchecked(level: number, x: number, z: number, scene: World | null, levelHeightmap: Int32Array[][], locs: LinkList<ClientLocAnim>, collision: CollisionMap | null, locId: number, shape: number, angle: number, trueLevel: number): void {
+    static changeLocUnchecked(level: number, x: number, z: number, world: World | null, levelHeightmap: Int32Array[][], locs: LinkList<ClientLocAnim>, cmap: CollisionMap | null, locId: number, shape: number, angle: number, trueLevel: number): void {
         const heightSW: number = levelHeightmap[trueLevel][x][z];
         const heightSE: number = levelHeightmap[trueLevel][x + 1][z];
         const heightNW: number = levelHeightmap[trueLevel][x + 1][z + 1];
@@ -1027,13 +1021,13 @@ export default class ClientBuild {
         }
         typecode |= 0;
 
-        const info: number = ((((angle << 6) + shape) | 0) << 24) >> 24;
+        const typecode2: number = ((((angle << 6) + shape) | 0) << 24) >> 24;
 
         if (shape === LocShape.GROUND_DECOR) {
-            scene?.setGroundDecor(loc.getModel(LocShape.GROUND_DECOR, angle, heightSW, heightSE, heightNW, heightNE, -1), level, x, z, y, typecode, info);
+            world?.setGroundDecor(loc.getModel(LocShape.GROUND_DECOR, angle, heightSW, heightSE, heightNW, heightNE, -1), level, x, z, y, typecode, typecode2);
 
             if (loc.blockwalk && loc.active) {
-                collision?.blockGround(x, z);
+                cmap?.blockGround(x, z);
             }
 
             if (loc.anim !== -1) {
@@ -1057,41 +1051,41 @@ export default class ClientBuild {
                     height = loc.length;
                 }
 
-                scene?.addScenery(level, x, z, y, model, null, typecode, info, width, height, yaw);
+                world?.addScenery(level, x, z, y, model, null, typecode, typecode2, width, height, yaw);
             }
 
-            if (loc.blockwalk) {
-                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape >= LocShape.ROOF_STRAIGHT) {
-            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info, 1, 1, 0);
+            world?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, typecode2, 1, 1, 0);
 
-            if (loc.blockwalk) {
-                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALL_STRAIGHT) {
-            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE0[angle], 0, loc.getModel(LocShape.WALL_STRAIGHT, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info);
+            world?.setWall(level, x, z, y, ClientBuild.WSHAPE0[angle], 0, loc.getModel(LocShape.WALL_STRAIGHT, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, typecode2);
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALL_DIAGONAL_CORNER) {
-            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_DIAGONAL_CORNER, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info);
+            world?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_DIAGONAL_CORNER, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, typecode2);
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
@@ -1100,7 +1094,7 @@ export default class ClientBuild {
         } else if (shape === LocShape.WALL_L) {
             const offset: number = (angle + 1) & 0x3;
 
-            scene?.setWall(
+            world?.setWall(
                 level,
                 x,
                 z,
@@ -1110,52 +1104,52 @@ export default class ClientBuild {
                 loc.getModel(LocShape.WALL_L, angle + 4, heightSW, heightSE, heightNW, heightNE, -1),
                 loc.getModel(LocShape.WALL_L, offset, heightSW, heightSE, heightNW, heightNE, -1),
                 typecode,
-                info
+                typecode2
             );
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALL_SQUARE_CORNER) {
-            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_SQUARE_CORNER, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info);
+            world?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_SQUARE_CORNER, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, typecode2);
 
-            if (loc.blockwalk) {
-                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addWall(x, z, shape, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALL_DIAGONAL) {
-            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info, 1, 1, 0);
+            world?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, typecode2, 1, 1, 0);
 
-            if (loc.blockwalk) {
-                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            if (loc.blockwalk && cmap) {
+                cmap.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
             }
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_STRAIGHT_NOOFFSET) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle * 512, ClientBuild.WSHAPE0[angle]);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), typecode2, angle * 512, ClientBuild.WSHAPE0[angle]);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_STRAIGHT_OFFSET) {
             let wallwidth: number = 16;
-            if (scene) {
-                const typecode: number = scene.wallType(level, x, z);
+            if (world) {
+                const typecode: number = world.wallType(level, x, z);
                 if (typecode > 0) {
                     wallwidth = LocType.list((typecode >> 14) & 0x7fff).wallwidth;
                 }
             }
 
-            scene?.setDecor(
+            world?.setDecor(
                 level,
                 x,
                 z,
@@ -1164,7 +1158,7 @@ export default class ClientBuild {
                 ClientBuild.DECORZOF[angle] * wallwidth,
                 typecode,
                 loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1),
-                info,
+                typecode2,
                 angle * 512,
                 ClientBuild.WSHAPE0[angle]
             );
@@ -1173,19 +1167,19 @@ export default class ClientBuild {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_DIAGONAL_OFFSET) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle, 256);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), typecode2, angle, 256);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_DIAGONAL_NOOFFSET) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle, 512);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), typecode2, angle, 512);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
             }
         } else if (shape === LocShape.WALLDECOR_DIAGONAL_BOTH) {
-            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle, 768);
+            world?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), typecode2, angle, 768);
 
             if (loc.anim !== -1) {
                 locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
@@ -1197,16 +1191,18 @@ export default class ClientBuild {
         if (hsl === -1) {
             return 12345678;
         }
+
         lightness = ((lightness * (hsl & 0x7f)) / 128) | 0;
         if (lightness < 2) {
             lightness = 2;
         } else if (lightness > 126) {
             lightness = 126;
         }
+
         return (hsl & 0xff80) + lightness;
     }
 
-    getOCol(hsl: number, scalar: number): number {
+    static getOCol(hsl: number, scalar: number): number {
         if (hsl === -2) {
             return 12345678;
         }

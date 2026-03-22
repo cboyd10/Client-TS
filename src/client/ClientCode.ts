@@ -1,5 +1,5 @@
 export const enum ClientCode {
-    //// friends (1-203)
+    //// friends
     CC_FRIENDS_START = 1,
     CC_FRIENDS_END = 100,
     CC_FRIENDS_UPDATE_START = 101,
@@ -41,14 +41,14 @@ export const enum ClientCode {
     CC_ACCEPT_DESIGN = 326,
     CC_DESIGN_PREVIEW = 327,
 
-    //// ignores (401-503)
+    //// ignores
     CC_IGNORES_START = 401,
     CC_IGNORES_END = 500,
     CC_ADD_IGNORE = 501,
     CC_DEL_IGNORE = 502,
     CC_IGNORES_SIZE = 503,
 
-    //// reportabuse (600-613)
+    //// reportabuse
     CC_REPORT_INPUT = 600,
     CC_REPORT_RULE1 = 601,
     CC_REPORT_RULE2 = 602,
@@ -64,7 +64,7 @@ export const enum ClientCode {
     CC_REPORT_RULE12 = 612,
     CC_MOD_MUTE = 613,
 
-    //// welcome_screen/welcome_screen2 (650-655)?
+    //// welcome_screen/welcome_screen2
     CC_LAST_LOGIN_INFO = 650, // has recovery questions
     CC_UNREAD_MESSAGES = 651,
     CC_RECOVERY1 = 652,

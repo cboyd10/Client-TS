@@ -180,7 +180,6 @@ export class Client extends GameShell {
     private mapBuildPrevBaseX: number = 0;
     private mapBuildPrevBaseZ: number = 0;
     private sceneState: number = 0;
-
     private awaitingPlayerInfo: boolean = false;
     private mapBuildCentreZoneX: number = 0;
     private mapBuildCentreZoneZ: number = 0;
@@ -190,8 +189,8 @@ export class Client extends GameShell {
     private mapBuildGroundData: (Uint8Array | null)[] | null = null;
     private mapBuildLocationData: (Uint8Array | null)[] | null = null;
     private world: World | null = null;
-    private groundh: Int32Array[][] | null = null;
     private mapl: Uint8Array[][] | null = null;
+    private groundh: Int32Array[][] | null = null;
     private collision: (CollisionMap | null)[] = new TypedArray1d(BuildArea.LEVELS, null);
     private textureBuffer: Int8Array = new Int8Array(16384);
 
@@ -359,8 +358,8 @@ export class Client extends GameShell {
     private crossMode: number = 0;
 
     private selectedArea: number = 0;
-    private selectedItem: number = 0;
     private selectedComId: number = 0;
+    private selectedItem: number = 0;
     private selectedCycle: number = 0;
 
     private objDragArea: number = 0;
@@ -399,9 +398,9 @@ export class Client extends GameShell {
     private spotanims: LinkList<MapSpotAnim> = new LinkList();
     private locList: LinkList<ClientLocAnim> = new LinkList();
 
-    private statXP: number[] = [];
     private statEffectiveLevel: number[] = [];
     private statBaseLevel: number[] = [];
+    private statXP: number[] = [];
 
     private oneMouseButton: number = 0;
     private isMenuOpen: boolean = false;
@@ -436,7 +435,13 @@ export class Client extends GameShell {
     private overMainComId: number = 0;
     private overSideComId: number = 0;
     private sideTab: number = 3;
-    private sideOverlayId: number[] = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+    private sideOverlayId: number[] = [
+        -1, -1, -1,
+        -1, -1, -1,
+        -1, -1, -1,
+        -1, -1, -1,
+        -1, -1, -1
+    ];
     private tutComId: number = -1;
     private tutComMessage: string | null = null;
     private tutFlashingTab: number = -1;
@@ -466,12 +471,12 @@ export class Client extends GameShell {
 
     private socialUserhash: bigint | null = null;
     private socialInputOpen: boolean = false;
-    private socialInputHeader: string = '';
     private socialInput: string = '';
     private socialInputType: number = 0;
+    private socialInputHeader: string = '';
 
-    private dialogInput: string = '';
     private dialogInputOpen: boolean = false;
+    private dialogInput: string = '';
 
     private reportAbuseInput: string = '';
     private reportAbuseMuteOption: boolean = false;
@@ -504,11 +509,11 @@ export class Client extends GameShell {
     private lastWaveStartTime: number = 0;
 
     private cinemaCam: boolean = false;
-    private camShakeCycle: Int32Array = new Int32Array(5);
     private camShake: boolean[] = new TypedArray1d(5, false);
     private camShakeAxis: Int32Array = new Int32Array(5);
     private camShakeRan: Int32Array = new Int32Array(5);
     private camShakeAmp: Int32Array = new Int32Array(5);
+    private camShakeCycle: Int32Array = new Int32Array(5);
     private camMoveToLx: number = 0;
     private camMoveToLz: number = 0;
     private camMoveToHei: number = 0;
@@ -697,7 +702,7 @@ export class Client extends GameShell {
 
             try {
                 data = await downloadUrl(`/${filename}${crc}`);
-            } catch (e) {
+            } catch (_e) {
                 data = undefined;
                 for (let i: number = retry; i > 0; i--) {
                     await this.messageBox(progress, `Error loading - Will retry in ${i} secs.`);
@@ -740,6 +745,8 @@ export class Client extends GameShell {
             // possibly incognito mode
             this.db = null;
         }
+
+        await BZip2.init();
 
         try {
             await this.messageBox(10, 'Connecting to fileserver');
@@ -1055,6 +1062,10 @@ export class Client extends GameShell {
             await this.titleScreenDraw();
         } else {
             this.gameDraw();
+        }
+
+        if (this.isMobile) {
+            MobileKeyboard.draw();
         }
 
         this.scrollCycle = 0;
@@ -2011,9 +2022,8 @@ export class Client extends GameShell {
             tracking.release();
         }
 
-        this.timeoutTimer++;
-        if (this.timeoutTimer > 250) {
-            // custom: originally 15s (750) but due to a cloudflare issue, lowered to 5s as a patch
+        if (now - this.timeoutTimer > 15_000) {
+            // no packets received recently, connection lost
             await this.lostCon();
         }
 
@@ -2299,6 +2309,7 @@ export class Client extends GameShell {
     }
 
     private async lostCon() {
+        console.trace('lostcon');
         if (this.logoutTimer > 0) {
             await this.logout();
             return;
@@ -9833,9 +9844,9 @@ export class Client extends GameShell {
                     }
 
                     if (child.centre) {
-                        font.centreStringTag(childX + ((child.width / 2) | 0), lineY, split, colour, child.shadowed);
+                        font.centreStringTag(childX + ((child.width / 2) | 0), lineY, split, colour, child.shadow);
                     } else {
-                        font.drawStringTag(childX, lineY, split, colour, child.shadowed);
+                        font.drawStringTag(childX, lineY, split, colour, child.shadow);
                     }
                 }
             } else if (child.type === ComponentType.TYPE_GRAPHIC) {
@@ -9906,9 +9917,9 @@ export class Client extends GameShell {
                             const textY: number = childY + row * (child.marginY + 12);
 
                             if (child.centre) {
-                                font.centreStringTag(textX + ((child.width / 2) | 0), textY, text, child.colour, child.shadowed);
+                                font.centreStringTag(textX + ((child.width / 2) | 0), textY, text, child.colour, child.shadow);
                             } else {
-                                font.drawStringTag(textX, textY, text, child.colour, child.shadowed);
+                                font.drawStringTag(textX, textY, text, child.colour, child.shadow);
                             }
                         }
 

@@ -34,8 +34,9 @@ export const enum ButtonType {
 
 export default class IfType {
     static list: IfType[] = [];
-    linkObjType: Int32Array | null = null;
-    linkObjNumber: Int32Array | null = null;
+    static modelCache: LruCache<Model> | null = null;
+    static spriteCache: LruCache<Pix32> | null = null;
+
     animFrame: number = 0;
     animCycle: number = 0;
     id: number = -1;
@@ -45,17 +46,42 @@ export default class IfType {
     clientCode: number = 0;
     width: number = 0;
     height: number = 0;
+    overLayerId: number = -1;
     x: number = 0;
     y: number = 0;
     scripts: (Uint16Array | null)[] | null = null;
     scriptComparator: Uint8Array | null = null;
     scriptOperand: Uint16Array | null = null;
-    overLayerId: number = -1;
     scrollHeight: number = 0;
     scrollPos: number = 0;
     hide: boolean = false;
     children: number[] | null = null;
-    activeModel: Model | null = null;
+    childX: number[] | null = null;
+    childY: number[] | null = null;
+    linkObjType: Int32Array | null = null;
+    linkObjNumber: Int32Array | null = null;
+    objSwap: boolean = false;
+    objOps: boolean = false;
+    objUse: boolean = false;
+    marginX: number = 0;
+    marginY: number = 0;
+    invBackgroundX: Int16Array | null = null;
+    invBackgroundY: Int16Array | null = null;
+    invBackground: (Pix32 | null)[] | null = null;
+    iop: (string | null)[] | null = null;
+    fill: boolean = false;
+    centre: boolean = false;
+    font: PixFont | null = null;
+    shadow: boolean = false;
+    text: string | null = null;
+    text2: string | null = null;
+    colour: number = 0;
+    colour2: number = 0;
+    colourOver: number = 0;
+    graphic: Pix32 | null = null;
+    graphic2: Pix32 | null = null;
+    model1: Model | null = null;
+    model2: Model | null = null;
     modelAnim: number = -1;
     modelAnim2: number = -1;
     modelZoom: number = 0;
@@ -65,34 +91,9 @@ export default class IfType {
     targetBase: string | null = null;
     targetMask: number = -1;
     buttonText: string | null = null;
-    static imageCache: LruCache<Pix32> | null = null;
-    static modelCache: LruCache<Model> | null = null;
-    marginX: number = 0;
-    marginY: number = 0;
-    colour: number = 0;
-    colour2: number = 0;
-    colourOver: number = 0;
-    model1: Model | null = null;
-    graphic: Pix32 | null = null;
-    graphic2: Pix32 | null = null;
-    font: PixFont | null = null;
-    text: string | null = null;
-    text2: string | null = null;
-    objSwap: boolean = false;
-    objOps: boolean = false;
-    objUse: boolean = false;
-    fill: boolean = false;
-    centre: boolean = false;
-    shadowed: boolean = false;
-    invBackgroundX: Int16Array | null = null;
-    invBackgroundY: Int16Array | null = null;
-    childX: number[] | null = null;
-    childY: number[] | null = null;
-    invBackground: (Pix32 | null)[] | null = null;
-    iop: (string | null)[] | null = null;
 
     static init(interfaces: JagFile, media: JagFile, fonts: PixFont[]): void {
-        this.imageCache = new LruCache(50000);
+        this.spriteCache = new LruCache(50000);
         this.modelCache = new LruCache(50000);
 
         const data: Packet = new Packet(interfaces.read('data'));
@@ -124,12 +125,12 @@ export default class IfType {
                 com.overLayerId = ((com.overLayerId - 1) << 8) + data.g1();
             }
 
-            const comparatorCount: number = data.g1();
-            if (comparatorCount > 0) {
-                com.scriptComparator = new Uint8Array(comparatorCount);
-                com.scriptOperand = new Uint16Array(comparatorCount);
+            const scriptStackCount: number = data.g1();
+            if (scriptStackCount > 0) {
+                com.scriptComparator = new Uint8Array(scriptStackCount);
+                com.scriptOperand = new Uint16Array(scriptStackCount);
 
-                for (let i: number = 0; i < comparatorCount; i++) {
+                for (let i: number = 0; i < scriptStackCount; i++) {
                     com.scriptComparator[i] = data.g1();
                     com.scriptOperand[i] = data.g2();
                 }
@@ -177,6 +178,7 @@ export default class IfType {
                 com.objSwap = data.g1() === 1;
                 com.objOps = data.g1() === 1;
                 com.objUse = data.g1() === 1;
+
                 com.marginX = data.g1();
                 com.marginY = data.g1();
 
@@ -192,7 +194,7 @@ export default class IfType {
                         const graphic: string = data.gjstr();
                         if (graphic.length > 0) {
                             const spriteIndex: number = graphic.lastIndexOf(',');
-                            com.invBackground[i] = this.getImage(media, graphic.substring(0, spriteIndex), parseInt(graphic.substring(spriteIndex + 1)));
+                            com.invBackground[i] = this.getSprite(media, graphic.substring(0, spriteIndex), parseInt(graphic.substring(spriteIndex + 1)));
                         }
                     }
                 }
@@ -212,11 +214,13 @@ export default class IfType {
 
             if (com.type === ComponentType.TYPE_TEXT || com.type === ComponentType.TYPE_UNUSED) {
                 com.centre = data.g1() === 1;
+
                 const font: number = data.g1();
                 if (fonts) {
                     com.font = fonts[font];
                 }
-                com.shadowed = data.g1() === 1;
+
+                com.shadow = data.g1() === 1;
             }
 
             if (com.type === ComponentType.TYPE_TEXT) {
@@ -237,12 +241,13 @@ export default class IfType {
                 const graphic: string = data.gjstr();
                 if (graphic.length > 0) {
                     const index: number = graphic.lastIndexOf(',');
-                    com.graphic = this.getImage(media, graphic.substring(0, index), parseInt(graphic.substring(index + 1), 10));
+                    com.graphic = this.getSprite(media, graphic.substring(0, index), parseInt(graphic.substring(index + 1), 10));
                 }
-                const activeGraphic: string = data.gjstr();
-                if (activeGraphic.length > 0) {
-                    const index: number = activeGraphic.lastIndexOf(',');
-                    com.graphic2 = this.getImage(media, activeGraphic.substring(0, index), parseInt(activeGraphic.substring(index + 1), 10));
+
+                const graphic2: string = data.gjstr();
+                if (graphic2.length > 0) {
+                    const index: number = graphic2.lastIndexOf(',');
+                    com.graphic2 = this.getSprite(media, graphic2.substring(0, index), parseInt(graphic2.substring(index + 1), 10));
                 }
             }
 
@@ -254,7 +259,7 @@ export default class IfType {
 
                 const activeModel: number = data.g1();
                 if (activeModel !== 0) {
-                    com.activeModel = this.getModel(((activeModel - 1) << 8) + data.g1());
+                    com.model2 = this.getModel(((activeModel - 1) << 8) + data.g1());
                 }
 
                 com.modelAnim = data.g1();
@@ -281,14 +286,17 @@ export default class IfType {
                 com.linkObjNumber = new Int32Array(com.width * com.height);
 
                 com.centre = data.g1() === 1;
+
                 const font: number = data.g1();
                 if (fonts) {
                     com.font = fonts[font];
                 }
-                com.shadowed = data.g1() === 1;
+
+                com.shadow = data.g1() === 1;
                 com.colour = data.g4();
                 com.marginX = data.g2b();
                 com.marginY = data.g2b();
+
                 com.objOps = data.g1() === 1;
 
                 com.iop = new TypedArray1d(5, null);
@@ -323,45 +331,14 @@ export default class IfType {
             }
         }
 
-        this.imageCache = null;
+        this.spriteCache = null;
         this.modelCache = null;
-    }
-
-    private static getImage(media: JagFile, sprite: string, spriteId: number): Pix32 | null {
-        const uid: bigint = (JString.hashCode(sprite) << 8n) | BigInt(spriteId);
-        if (this.imageCache) {
-            const image: Pix32 | null = this.imageCache.find(uid) as Pix32 | null;
-            if (image) {
-                return image;
-            }
-        }
-
-        let image: Pix32;
-        try {
-            image = Pix32.depack(media, sprite, spriteId);
-            this.imageCache?.put(uid, image);
-        } catch (e) {
-            return null;
-        }
-        return image;
-    }
-
-    private static getModel(id: number): Model {
-        if (this.modelCache) {
-            const model: Model | null = this.modelCache.find(BigInt(id)) as Model | null;
-            if (model) {
-                return model;
-            }
-        }
-        const model: Model = Model.load(id);
-        this.modelCache?.put(BigInt(id), model);
-        return model;
     }
 
     getTempModel(primaryFrame: number, secondaryFrame: number, active: boolean): Model | null {
         let model: Model | null = this.model1;
         if (active) {
-            model = this.activeModel;
+            model = this.model2;
         }
 
         if (!model) {
@@ -389,107 +366,35 @@ export default class IfType {
         return tmp;
     }
 
-    getAbsoluteX(): number {
-        if (this.layerId === this.id) {
-            return this.x;
-        }
-
-        let parent: IfType = IfType.list[this.layerId];
-        if (!parent.children || !parent.childX || !parent.childY) {
-            return this.x;
-        }
-
-        let childIndex: number = parent.children.indexOf(this.id);
-        if (childIndex === -1) {
-            return this.x;
-        }
-
-        let x: number = parent.childX[childIndex];
-        while (parent.layerId !== parent.id) {
-            const grandParent: IfType = IfType.list[parent.layerId];
-            if (grandParent.children && grandParent.childX && grandParent.childY) {
-                childIndex = grandParent.children.indexOf(parent.id);
-                if (childIndex !== -1) {
-                    x += grandParent.childX[childIndex];
-                }
-            }
-            parent = grandParent;
-        }
-
-        return x;
-    }
-
-    getAbsoluteY(): number {
-        if (this.layerId === this.id) {
-            return this.y;
-        }
-
-        let parent: IfType = IfType.list[this.layerId];
-        if (!parent.children || !parent.childX || !parent.childY) {
-            return this.y;
-        }
-
-        let childIndex: number = parent.children.indexOf(this.id);
-        if (childIndex === -1) {
-            return this.y;
-        }
-
-        let y: number = parent.childY[childIndex];
-        while (parent.layerId !== parent.id) {
-            const grandParent: IfType = IfType.list[parent.layerId];
-            if (grandParent.children && grandParent.childX && grandParent.childY) {
-                childIndex = grandParent.children.indexOf(parent.id);
-                if (childIndex !== -1) {
-                    y += grandParent.childY[childIndex];
-                }
-            }
-            parent = grandParent;
-        }
-
-        return y;
-    }
-
-    outline(color: number): void {
-        const x: number = this.getAbsoluteX();
-        const y: number = this.getAbsoluteY();
-        Pix2D.drawRect(x, y, this.width, this.height, color);
-    }
-
-    move(x: number, y: number): void {
-        if (this.layerId === this.id) {
-            return;
-        }
-
-        this.x = 0;
-        this.y = 0;
-
-        const parent: IfType = IfType.list[this.layerId];
-
-        if (parent.children && parent.childX && parent.childY) {
-            const childIndex: number = parent.children.indexOf(this.id);
-
-            if (childIndex !== -1) {
-                parent.childX[childIndex] = x;
-                parent.childY[childIndex] = y;
+    private static getModel(id: number): Model {
+        if (this.modelCache) {
+            const model: Model | null = this.modelCache.find(BigInt(id)) as Model | null;
+            if (model) {
+                return model;
             }
         }
+
+        const model: Model = Model.load(id);
+        this.modelCache?.put(BigInt(id), model);
+        return model;
     }
 
-    delete(): void {
-        if (this.layerId === this.id) {
-            return;
+    private static getSprite(media: JagFile, name: string, spriteIndex: number): Pix32 | null {
+        const uid: bigint = (JString.hashCode(name) << 8n) | BigInt(spriteIndex);
+
+        if (this.spriteCache) {
+            const image = this.spriteCache.find(uid);
+            if (image) {
+                return image;
+            }
         }
 
-        const parent: IfType = IfType.list[this.layerId];
-
-        if (parent.children && parent.childX && parent.childY) {
-            const childIndex: number = parent.children.indexOf(this.id);
-
-            if (childIndex !== -1) {
-                parent.children.splice(childIndex, 1);
-                parent.childX.splice(childIndex, 1);
-                parent.childY.splice(childIndex, 1);
-            }
+        try {
+            const image = Pix32.depack(media, name, spriteIndex);
+            this.spriteCache?.put(uid, image);
+            return image;
+        } catch (_e) {
+            return null;
         }
     }
 }

@@ -1,6 +1,5 @@
 import InputTracking from '#/client/InputTracking.js';
 import { CanvasEnabledKeys, KeyCodes } from '#/client/KeyCodes.js';
-import MobileKeyboard from '#/client/MobileKeyboard.js';
 
 import { canvas, canvas2d } from '#/graphics/Canvas.js';
 import Pix3D from '#/dash3d/Pix3D.js';
@@ -192,10 +191,6 @@ export default abstract class GameShell {
             }
 
             await this.maindraw();
-
-            if (this.isMobile) {
-                MobileKeyboard.draw();
-            }
 
             // this is custom for targeting specific fps (on mobile).
             if (this.tfps < 50) {

@@ -104,7 +104,7 @@ export default class Pix3D extends Pix2D {
         }
     }
 
-    static getAverageTextureRgb(id: number): number {
+    static getTextureAverage(id: number): number {
         if (this.texAverage[id] !== 0) {
             return this.texAverage[id];
         }

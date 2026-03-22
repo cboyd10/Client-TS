@@ -13,7 +13,7 @@ export default class NpcType {
     static dat: Packet | null = null;
     static recent: (NpcType | null)[] | null = null;
     static recentPos: number = 0;
-    static modelCache: LruCache<Model> | null = new LruCache(30);
+    static modelCache: LruCache<Model> = new LruCache(30);
 
     id: number = -1;
 
@@ -71,6 +71,7 @@ export default class NpcType {
 
         const npc: NpcType = (this.recent[this.recentPos] = new NpcType());
         this.dat.pos = this.idx[id];
+        npc.id = id;
         npc.decode(this.dat);
 
         return npc;

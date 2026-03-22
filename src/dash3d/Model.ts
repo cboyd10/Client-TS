@@ -51,7 +51,7 @@ export default class Model extends Linkable2 {
     static vertex2: Packet | null = null;
     static axis: Packet | null = null;
 
-    static meta: (Metadata | null)[] | null = null;
+    static meta: (Metadata | null)[] = [];
 
     // unlit model
 
@@ -103,31 +103,32 @@ export default class Model extends Linkable2 {
     maxDepth: number = 0;
     minDepth: number = 0;
 
-    static faceClippedX: boolean[] | null = new TypedArray1d(4096, false);
-    static faceNearClipped: boolean[] | null = new TypedArray1d(4096, false);
+    static faceClippedX: boolean[] = new TypedArray1d(4096, false);
+    static faceNearClipped: boolean[] = new TypedArray1d(4096, false);
 
-    static vertexScreenX: Int32Array | null = new Int32Array(4096);
-    static vertexScreenY: Int32Array | null = new Int32Array(4096);
-    static vertexScreenZ: Int32Array | null = new Int32Array(4096);
+    static vertexScreenX: Int32Array = new Int32Array(4096);
+    static vertexScreenY: Int32Array = new Int32Array(4096);
+    static vertexScreenZ: Int32Array = new Int32Array(4096);
 
-    static vertexViewSpaceX: Int32Array | null = new Int32Array(4096);
-    static vertexViewSpaceY: Int32Array | null = new Int32Array(4096);
-    static vertexViewSpaceZ: Int32Array | null = new Int32Array(4096);
-    static tmpDepthFaceCount: Int32Array | null = new Int32Array(1500);
-    static tmpDepthFaces: Int32Array[] | null = new Int32Array2d(1500, 512);
-    static tmpPriorityFaceCount: Int32Array | null = new Int32Array(12);
-    static tmpPriorityFaces: Int32Array[] | null = new Int32Array2d(12, 2000);
-    static tmpPriority10FaceDepth: Int32Array | null = new Int32Array(2000);
-    static tmpPriority11FaceDepth: Int32Array | null = new Int32Array(2000);
-    static tmpPriorityDepthSum: Int32Array | null = new Int32Array(12);
+    static vertexViewSpaceX: Int32Array = new Int32Array(4096);
+    static vertexViewSpaceY: Int32Array = new Int32Array(4096);
+    static vertexViewSpaceZ: Int32Array = new Int32Array(4096);
+
+    static tmpDepthFaceCount: Int32Array = new Int32Array(1500);
+    static tmpDepthFaces: Int32Array[] = new Int32Array2d(1500, 512);
+    static tmpPriorityFaceCount: Int32Array = new Int32Array(12);
+    static tmpPriorityFaces: Int32Array[] = new Int32Array2d(12, 2000);
+    static tmpPriority10FaceDepth: Int32Array = new Int32Array(2000);
+    static tmpPriority11FaceDepth: Int32Array = new Int32Array(2000);
+    static tmpPriorityDepthSum: Int32Array = new Int32Array(12);
 
     static clippedX: Int32Array = new Int32Array(10);
     static clippedY: Int32Array = new Int32Array(10);
     static clippedColour: Int32Array = new Int32Array(10);
 
-    static oX: number = 0;
-    static oY: number = 0;
-    static oZ: number = 0;
+    static oX: number = 0; // animation origin x
+    static oY: number = 0; // animation origin y
+    static oZ: number = 0; // animation origin z
 
     static mouseCheck: boolean = false;
     static mouseX: number = 0;
@@ -163,13 +164,13 @@ export default class Model extends Linkable2 {
             const count: number = Model.head.g2();
             Model.meta = new TypedArray1d(count + 100, null);
 
-            let vertexTextureDataOffset: number = 0;
-            let labelDataOffset: number = 0;
-            let triangleColorDataOffset: number = 0;
-            let triangleInfoDataOffset: number = 0;
-            let trianglePriorityDataOffset: number = 0;
-            let triangleAlphaDataOffset: number = 0;
-            let triangleSkinDataOffset: number = 0;
+            let faceTextureAxisOffset: number = 0;
+            let vertexLabelOffset: number = 0;
+            let faceColourOffset: number = 0;
+            let faceRenderTypeOffset: number = 0;
+            let facePriorityOffset: number = 0;
+            let faceAlphaOffset: number = 0;
+            let faceLabelOffset: number = 0;
 
             for (let i: number = 0; i < count; i++) {
                 const id: number = Model.head.g2();
@@ -219,38 +220,38 @@ export default class Model extends Linkable2 {
                     Model.vertex1.gsmarts();
                 }
 
-                meta.faceColourOffset = triangleColorDataOffset;
-                triangleColorDataOffset += meta.numFaces * 2;
+                meta.faceColourOffset = faceColourOffset;
+                faceColourOffset += meta.numFaces * 2;
 
                 if (hasInfo === 1) {
-                    meta.faceRenderTypeOffset = triangleInfoDataOffset;
-                    triangleInfoDataOffset += meta.numFaces;
+                    meta.faceRenderTypeOffset = faceRenderTypeOffset;
+                    faceRenderTypeOffset += meta.numFaces;
                 }
 
                 if (priority === 255) {
-                    meta.facePriorityOffset = trianglePriorityDataOffset;
-                    trianglePriorityDataOffset += meta.numFaces;
+                    meta.facePriorityOffset = facePriorityOffset;
+                    facePriorityOffset += meta.numFaces;
                 } else {
                     meta.facePriorityOffset = -priority - 1;
                 }
 
                 if (hasAlpha === 1) {
-                    meta.faceAlphaOffset = triangleAlphaDataOffset;
-                    triangleAlphaDataOffset += meta.numFaces;
+                    meta.faceAlphaOffset = faceAlphaOffset;
+                    faceAlphaOffset += meta.numFaces;
                 }
 
                 if (hasSkins === 1) {
-                    meta.faceLabelOffset = triangleSkinDataOffset;
-                    triangleSkinDataOffset += meta.numFaces;
+                    meta.faceLabelOffset = faceLabelOffset;
+                    faceLabelOffset += meta.numFaces;
                 }
 
                 if (hasLabels === 1) {
-                    meta.vertexLabelOffset = labelDataOffset;
-                    labelDataOffset += meta.numPoints;
+                    meta.vertexLabelOffset = vertexLabelOffset;
+                    vertexLabelOffset += meta.numPoints;
                 }
 
-                meta.faceTextureAxisOffset = vertexTextureDataOffset;
-                vertexTextureDataOffset += meta.numT;
+                meta.faceTextureAxisOffset = faceTextureAxisOffset;
+                faceTextureAxisOffset += meta.numT;
 
                 Model.meta[id] = meta;
             }
@@ -261,10 +262,6 @@ export default class Model extends Linkable2 {
     }
 
     static load(id: number): Model {
-        if (!Model.meta) {
-            throw new Error();
-        }
-
         const meta: Metadata | null = Model.meta[id];
         if (!meta) {
             console.error(`Error model:${id} not found!`);
@@ -315,7 +312,7 @@ export default class Model extends Linkable2 {
             model.faceLabel = new Int32Array(model.numFaces);
         }
 
-        const faceColor: Int32Array = new Int32Array(model.numFaces);
+        model.faceColour = new Int32Array(model.numFaces);
 
         Model.point1.pos = meta.vertexOrderOffset;
         Model.point2.pos = meta.vertexXOffset;
@@ -323,39 +320,36 @@ export default class Model extends Linkable2 {
         Model.point4.pos = meta.vertexZOffset;
         Model.point5.pos = meta.vertexLabelOffset;
 
-        let dx: number = 0;
-        let dy: number = 0;
-        let dz: number = 0;
-        let a: number;
-        let b: number;
-        let c: number;
+        let dx = 0;
+        let dy = 0;
+        let dz = 0;
+        for (let v = 0; v < model.numPoints; v++) {
+            const order = Model.point1.g1();
 
-        for (let v: number = 0; v < model.numPoints; v++) {
-            const flags: number = Model.point1.g1();
-
-            a = 0;
-            if ((flags & 0x1) !== 0) {
-                a = Model.point2.gsmarts();
+            let x = 0;
+            if ((order & 0x1) !== 0) {
+                x = Model.point2.gsmarts();
             }
 
-            b = 0;
-            if ((flags & 0x2) !== 0) {
-                b = Model.point3.gsmarts();
+            let y = 0;
+            if ((order & 0x2) !== 0) {
+                y = Model.point3.gsmarts();
             }
 
-            c = 0;
-            if ((flags & 0x4) !== 0) {
-                c = Model.point4.gsmarts();
+            let z = 0;
+            if ((order & 0x4) !== 0) {
+                z = Model.point4.gsmarts();
             }
 
-            model.pointX[v] = dx + a;
-            model.pointY[v] = dy + b;
-            model.pointZ[v] = dz + c;
+            model.pointX[v] = dx + x;
+            model.pointY[v] = dy + y;
+            model.pointZ[v] = dz + z;
+
             dx = model.pointX[v];
             dy = model.pointY[v];
             dz = model.pointZ[v];
 
-            if (model.vertexLabel) {
+            if (model.vertexLabel !== null) {
                 model.vertexLabel[v] = Model.point5.g1();
             }
         }
@@ -366,22 +360,22 @@ export default class Model extends Linkable2 {
         Model.face4.pos = meta.faceAlphaOffset;
         Model.face5.pos = meta.faceLabelOffset;
 
-        for (let f: number = 0; f < model.numFaces; f++) {
-            faceColor[f] = Model.face1.g2();
+        for (let f = 0; f < model.numFaces; f++) {
+            model.faceColour[f] = Model.face1.g2();
 
-            if (model.faceRenderType) {
+            if (model.faceRenderType !== null) {
                 model.faceRenderType[f] = Model.face2.g1();
             }
 
-            if (model.facePriority) {
+            if (model.facePriority !== null) {
                 model.facePriority[f] = Model.face3.g1();
             }
 
-            if (model.faceAlpha) {
+            if (model.faceAlpha !== null) {
                 model.faceAlpha[f] = Model.face4.g1();
             }
 
-            if (model.faceLabel) {
+            if (model.faceLabel !== null) {
                 model.faceLabel[f] = Model.face5.g1();
             }
         }
@@ -389,31 +383,31 @@ export default class Model extends Linkable2 {
         Model.vertex1.pos = meta.faceIndexOffset;
         Model.vertex2.pos = meta.faceIndexOrderOffset;
 
-        a = 0;
-        b = 0;
-        c = 0;
-        let last: number = 0;
+        let a = 0;
+        let b = 0;
+        let c = 0;
+        let last = 0;
 
-        for (let f: number = 0; f < model.numFaces; f++) {
-            const orientation: number = Model.vertex2.g1();
+        for (let f = 0; f < model.numFaces; f++) {
+            const order = Model.vertex2.g1();
 
-            if (orientation === 1) {
+            if (order === 1) {
                 a = Model.vertex1.gsmarts() + last;
-                last = a;
-                b = Model.vertex1.gsmarts() + last;
-                last = b;
-                c = Model.vertex1.gsmarts() + last;
+                b = Model.vertex1.gsmarts() + a;
+                c = Model.vertex1.gsmarts() + b;
                 last = c;
-            } else if (orientation === 2) {
+            } else if (order === 2) {
+                // a = a;
                 b = c;
                 c = Model.vertex1.gsmarts() + last;
                 last = c;
-            } else if (orientation === 3) {
+            } else if (order === 3) {
                 a = c;
+                // b = b;
                 c = Model.vertex1.gsmarts() + last;
                 last = c;
-            } else if (orientation === 4) {
-                const tmp: number = a;
+            } else if (order === 4) {
+                const tmp = a;
                 a = b;
                 b = tmp;
                 c = Model.vertex1.gsmarts() + last;
@@ -426,7 +420,8 @@ export default class Model extends Linkable2 {
         }
 
         Model.axis.pos = meta.faceTextureAxisOffset * 6;
-        for (let f: number = 0; f < model.numT; f++) {
+
+        for (let f = 0; f < model.numT; f++) {
             model.faceTextureP[f] = Model.axis.g2();
             model.faceTextureM[f] = Model.axis.g2();
             model.faceTextureN[f] = Model.axis.g2();
@@ -439,7 +434,7 @@ export default class Model extends Linkable2 {
         const combined = new Model();
 
         let copyRenderType: boolean = false;
-        let copyPriorities: boolean = false;
+        let copyPriority: boolean = false;
         let copyAlpha: boolean = false;
         let copyLabels: boolean = false;
 
@@ -450,48 +445,56 @@ export default class Model extends Linkable2 {
 
         for (let i: number = 0; i < count; i++) {
             const model: Model | null = models[i];
-            if (model) {
+            if (model !== null) {
                 combined.numPoints += model.numPoints;
                 combined.numFaces += model.numFaces;
                 combined.numT += model.numT;
-                copyRenderType ||= model.faceRenderType !== null;
 
-                if (!model.facePriority) {
+                if (model.faceRenderType !== null) {
+                    copyRenderType = true;
+                }
+
+                if (model.facePriority === null) {
                     if (combined.priority === -1) {
                         combined.priority = model.priority;
                     }
 
                     if (combined.priority !== model.priority) {
-                        copyPriorities = true;
+                        copyPriority = true;
                     }
                 } else {
-                    copyPriorities = true;
+                    copyPriority = true;
                 }
 
-                copyAlpha ||= model.faceAlpha !== null;
-                copyLabels ||= model.faceLabel !== null;
+                if (model.faceAlpha !== null) {
+                    copyAlpha = true;
+                }
+
+                if (model.faceLabel !== null) {
+                    copyLabels = true;
+                }
             }
         }
 
-        const pointX: Int32Array = new Int32Array(combined.numPoints);
-        const pointY: Int32Array = new Int32Array(combined.numPoints);
-        const pointZ: Int32Array = new Int32Array(combined.numPoints);
+        combined.pointX = new Int32Array(combined.numPoints);
+        combined.pointY = new Int32Array(combined.numPoints);
+        combined.pointZ = new Int32Array(combined.numPoints);
 
-        const vertexLabel: Int32Array = new Int32Array(combined.numPoints);
+        combined.vertexLabel = new Int32Array(combined.numPoints);
 
-        const faceVertexA: Int32Array = new Int32Array(combined.numFaces);
-        const faceVertexB: Int32Array = new Int32Array(combined.numFaces);
-        const faceVertexC: Int32Array = new Int32Array(combined.numFaces);
+        combined.faceVertexA = new Int32Array(combined.numFaces);
+        combined.faceVertexB = new Int32Array(combined.numFaces);
+        combined.faceVertexC = new Int32Array(combined.numFaces);
 
-        const faceTextureP: Int32Array = new Int32Array(combined.numT);
-        const faceTextureM: Int32Array = new Int32Array(combined.numT);
-        const faceTextureN: Int32Array = new Int32Array(combined.numT);
+        combined.faceTextureP = new Int32Array(combined.numT);
+        combined.faceTextureM = new Int32Array(combined.numT);
+        combined.faceTextureN = new Int32Array(combined.numT);
 
         if (copyRenderType) {
             combined.faceRenderType = new Int32Array(combined.numFaces);
         }
 
-        if (copyPriorities) {
+        if (copyPriority) {
             combined.facePriority = new Int32Array(combined.numFaces);
         }
 
@@ -509,118 +512,62 @@ export default class Model extends Linkable2 {
         combined.numFaces = 0;
         combined.numT = 0;
 
-        const addVertex = (
-            src: Model,
-            vertexId: number,
-            vertexX: Int32Array,
-            vertexY: Int32Array,
-            vertexZ: Int32Array,
-            vertexLabel: Int32Array,
-            vertexCount: number
-        ): {
-            vertex: number;
-            vertexCount: number;
-        } => {
-            let identical: number = -1;
-
-            const x: number = src.pointX[vertexId];
-            const y: number = src.pointY[vertexId];
-            const z: number = src.pointZ[vertexId];
-
-            for (let v: number = 0; v < vertexCount; v++) {
-                if (x === vertexX[v] && y === vertexY[v] && z === vertexZ[v]) {
-                    identical = v;
-                    break;
-                }
-            }
-
-            if (identical === -1) {
-                vertexX[vertexCount] = x;
-                vertexY[vertexCount] = y;
-                vertexZ[vertexCount] = z;
-
-                if (vertexLabel && src.vertexLabel) {
-                    vertexLabel[vertexCount] = src.vertexLabel[vertexId];
-                }
-
-                identical = vertexCount++;
-            }
-
-            return { vertex: identical, vertexCount };
-        };
-
         for (let i: number = 0; i < count; i++) {
             const model: Model | null = models[i];
 
-            if (model) {
-                for (let face: number = 0; face < model.numFaces; face++) {
+            if (model !== null) {
+                for (let f: number = 0; f < model.numFaces; f++) {
                     if (copyRenderType) {
-                        if (!model.faceRenderType) {
+                        if (model.faceRenderType === null) {
                             if (combined.faceRenderType) {
                                 combined.faceRenderType[combined.numFaces] = 0;
                             }
                         } else {
                             if (combined.faceRenderType) {
-                                combined.faceRenderType[combined.numFaces] = model.faceRenderType[face];
+                                combined.faceRenderType[combined.numFaces] = model.faceRenderType[f];
                             }
                         }
                     }
 
-                    if (copyPriorities) {
-                        if (!model.facePriority) {
+                    if (copyPriority) {
+                        if (model.facePriority === null) {
                             if (combined.facePriority) {
                                 combined.facePriority[combined.numFaces] = model.priority;
                             }
                         } else {
                             if (combined.facePriority) {
-                                combined.facePriority[combined.numFaces] = model.facePriority[face];
+                                combined.facePriority[combined.numFaces] = model.facePriority[f];
                             }
                         }
                     }
 
                     if (copyAlpha) {
-                        if (!model.faceAlpha) {
+                        if (model.faceAlpha === null) {
                             if (combined.faceAlpha) {
                                 combined.faceAlpha[combined.numFaces] = 0;
                             }
                         } else {
                             if (combined.faceAlpha) {
-                                combined.faceAlpha[combined.numFaces] = model.faceAlpha[face];
+                                combined.faceAlpha[combined.numFaces] = model.faceAlpha[f];
                             }
                         }
                     }
 
-                    if (copyLabels && model.faceLabel) {
-                        if (combined.faceLabel) {
-                            combined.faceLabel[combined.numFaces] = model.faceLabel[face];
-                        }
+                    if (copyLabels && model.faceLabel !== null) {
+                        combined.faceLabel![combined.numFaces] = model.faceLabel[f];
                     }
 
-                    if (model.faceColour) {
-                        combined.faceColour[combined.numFaces] = model.faceColour[face];
-                    }
-                    const a: { vertex: number; vertexCount: number } = addVertex(model, model.faceVertexA[face], pointX, pointY, pointZ, vertexLabel, combined.numPoints);
-                    combined.numPoints = a.vertexCount;
-                    const b: { vertex: number; vertexCount: number } = addVertex(model, model.faceVertexB[face], pointX, pointY, pointZ, vertexLabel, combined.numPoints);
-                    combined.numPoints = b.vertexCount;
-                    const c: { vertex: number; vertexCount: number } = addVertex(model, model.faceVertexC[face], pointX, pointY, pointZ, vertexLabel, combined.numPoints);
-                    combined.numPoints = c.vertexCount;
-                    faceVertexA[combined.numFaces] = a.vertex;
-                    faceVertexB[combined.numFaces] = b.vertex;
-                    faceVertexC[combined.numFaces] = c.vertex;
+                    combined.faceColour[combined.numFaces] = model.faceColour![f];
+                    combined.faceVertexA[combined.numFaces] = combined.addPoint(model, model.faceVertexA![f]);
+                    combined.faceVertexB[combined.numFaces] = combined.addPoint(model, model.faceVertexB![f]);
+                    combined.faceVertexC[combined.numFaces] = combined.addPoint(model, model.faceVertexC![f]);
                     combined.numFaces++;
                 }
 
                 for (let f: number = 0; f < model.numT; f++) {
-                    const a: { vertex: number; vertexCount: number } = addVertex(model, model.faceTextureP![f], pointX, pointY, pointZ, vertexLabel, combined.numPoints);
-                    combined.numPoints = a.vertexCount;
-                    const b: { vertex: number; vertexCount: number } = addVertex(model, model.faceTextureM![f], pointX, pointY, pointZ, vertexLabel, combined.numPoints);
-                    combined.numPoints = b.vertexCount;
-                    const c: { vertex: number; vertexCount: number } = addVertex(model, model.faceTextureN![f], pointX, pointY, pointZ, vertexLabel, combined.numPoints);
-                    combined.numPoints = c.vertexCount;
-                    faceTextureP[combined.numT] = a.vertex;
-                    faceTextureM[combined.numT] = b.vertex;
-                    faceTextureN[combined.numT] = c.vertex;
+                    combined.faceTextureP[combined.numT] = combined.addPoint(model, model.faceTextureP![f]);
+                    combined.faceTextureM[combined.numT] = combined.addPoint(model, model.faceTextureM![f]);
+                    combined.faceTextureN[combined.numT] = combined.addPoint(model, model.faceTextureN![f]);
                     combined.numT++;
                 }
             }
@@ -644,17 +591,21 @@ export default class Model extends Linkable2 {
 
         for (let i: number = 0; i < count; i++) {
             const model: Model = models[i];
-            if (model) {
+
+            if (model !== null) {
                 combined.numPoints += model.numPoints;
                 combined.numFaces += model.numFaces;
                 combined.numT += model.numT;
 
-                copyRenderType ||= model.faceRenderType !== null;
+                if (model.faceRenderType !== null) {
+                    copyRenderType = true;
+                }
 
-                if (!model.facePriority) {
+                if (model.facePriority === null) {
                     if (combined.priority === -1) {
                         combined.priority = model.priority;
                     }
+
                     if (combined.priority !== model.priority) {
                         copyPriority = true;
                     }
@@ -662,8 +613,13 @@ export default class Model extends Linkable2 {
                     copyPriority = true;
                 }
 
-                copyAlpha ||= model.faceAlpha !== null;
-                copyColour ||= model.faceColour !== null;
+                if (model.faceAlpha !== null) {
+                    copyAlpha = true;
+                }
+
+                if (model.faceColour !== null) {
+                    copyColour = true;
+                }
             }
         }
 
@@ -705,8 +661,9 @@ export default class Model extends Linkable2 {
 
         for (let i: number = 0; i < count; i++) {
             const model: Model = models[i];
-            if (model) {
-                const vertexCount2: number = combined.numPoints;
+
+            if (model !== null) {
+                const vertexCount: number = combined.numPoints;
 
                 for (let v: number = 0; v < model.numPoints; v++) {
                     combined.pointX[combined.numPoints] = model.pointX[v];
@@ -716,21 +673,16 @@ export default class Model extends Linkable2 {
                 }
 
                 for (let f: number = 0; f < model.numFaces; f++) {
-                    combined.faceVertexA[combined.numFaces] = model.faceVertexA[f] + vertexCount2;
-                    combined.faceVertexB[combined.numFaces] = model.faceVertexB[f] + vertexCount2;
-                    combined.faceVertexC[combined.numFaces] = model.faceVertexC[f] + vertexCount2;
-                    if (model.faceColourA) {
-                        combined.faceColourA[combined.numFaces] = model.faceColourA[f];
-                    }
-                    if (model.faceColourB) {
-                        combined.faceColourB[combined.numFaces] = model.faceColourB[f];
-                    }
-                    if (model.faceColourC) {
-                        combined.faceColourC[combined.numFaces] = model.faceColourC[f];
-                    }
+                    combined.faceVertexA[combined.numFaces] = model.faceVertexA[f] + vertexCount;
+                    combined.faceVertexB[combined.numFaces] = model.faceVertexB[f] + vertexCount;
+                    combined.faceVertexC[combined.numFaces] = model.faceVertexC[f] + vertexCount;
+
+                    combined.faceColourA[combined.numFaces] = model.faceColourA![f];
+                    combined.faceColourB[combined.numFaces] = model.faceColourB![f];
+                    combined.faceColourC[combined.numFaces] = model.faceColourC![f];
 
                     if (copyRenderType) {
-                        if (!model.faceRenderType) {
+                        if (model.faceRenderType === null) {
                             if (combined.faceRenderType) {
                                 combined.faceRenderType[combined.numFaces] = 0;
                             }
@@ -742,7 +694,7 @@ export default class Model extends Linkable2 {
                     }
 
                     if (copyPriority) {
-                        if (!model.facePriority) {
+                        if (model.facePriority === null) {
                             if (combined.facePriority) {
                                 combined.facePriority[combined.numFaces] = model.priority;
                             }
@@ -754,30 +706,26 @@ export default class Model extends Linkable2 {
                     }
 
                     if (copyAlpha) {
-                        if (!model.faceAlpha) {
+                        if (model.faceAlpha === null) {
                             if (combined.faceAlpha) {
                                 combined.faceAlpha[combined.numFaces] = 0;
                             }
                         } else {
-                            if (combined.faceAlpha) {
-                                combined.faceAlpha[combined.numFaces] = model.faceAlpha[f];
-                            }
+                            combined.faceAlpha![combined.numFaces] = model.faceAlpha[f];
                         }
                     }
 
-                    if (copyColour && model.faceColour) {
-                        if (combined.faceColour) {
-                            combined.faceColour[combined.numFaces] = model.faceColour[f];
-                        }
+                    if (copyColour && model.faceColour !== null) {
+                        combined.faceColour![combined.numFaces] = model.faceColour[f];
                     }
 
                     combined.numFaces++;
                 }
 
                 for (let f: number = 0; f < model.numT; f++) {
-                    combined.faceTextureP[combined.numT] = model.faceTextureP![f] + vertexCount2;
-                    combined.faceTextureM[combined.numT] = model.faceTextureM![f] + vertexCount2;
-                    combined.faceTextureN[combined.numT] = model.faceTextureN![f] + vertexCount2;
+                    combined.faceTextureP[combined.numT] = model.faceTextureP![f] + vertexCount;
+                    combined.faceTextureM[combined.numT] = model.faceTextureM![f] + vertexCount;
+                    combined.faceTextureN[combined.numT] = model.faceTextureN![f] + vertexCount;
                     combined.numT++;
                 }
             }
@@ -787,7 +735,7 @@ export default class Model extends Linkable2 {
         return combined;
     }
 
-    static copyForAnim(src: Model, shareColors: boolean, shareAlpha: boolean, shareVertices: boolean): Model {
+    static copyForAnim(src: Model, shareColours: boolean, shareAlpha: boolean, shareVertices: boolean): Model {
         const model = new Model();
 
         model.numPoints = src.numPoints;
@@ -810,30 +758,28 @@ export default class Model extends Linkable2 {
             }
         }
 
-        let faceColor: Int32Array | null;
-        if (shareColors) {
-            faceColor = src.faceColour;
+        if (shareColours) {
+            model.faceColour = src.faceColour;
         } else {
-            faceColor = new Int32Array(model.numFaces);
+            model.faceColour = new Int32Array(model.numFaces);
+
             for (let f: number = 0; f < model.numFaces; f++) {
-                if (src.faceColour) {
-                    faceColor[f] = src.faceColour[f];
-                }
+                model.faceColour[f] = src.faceColour![f];
             }
         }
 
-        let faceAlpha: Int32Array | null;
         if (shareAlpha) {
-            faceAlpha = src.faceAlpha;
+            model.faceAlpha = src.faceAlpha;
         } else {
-            faceAlpha = new Int32Array(model.numFaces);
-            if (!src.faceAlpha) {
+            model.faceAlpha = new Int32Array(model.numFaces);
+
+            if (src.faceAlpha === null) {
                 for (let f: number = 0; f < model.numFaces; f++) {
-                    faceAlpha[f] = 0;
+                    model.faceAlpha[f] = 0;
                 }
             } else {
                 for (let f: number = 0; f < model.numFaces; f++) {
-                    faceAlpha[f] = src.faceAlpha[f];
+                    model.faceAlpha[f] = src.faceAlpha[f];
                 }
             }
         }
@@ -864,14 +810,14 @@ export default class Model extends Linkable2 {
         model.numFaces = src.numFaces;
         model.numT = src.numT;
 
-        let vertexY: Int32Array;
         if (copyVertexY) {
-            vertexY = new Int32Array(model.numPoints);
+            model.pointY = new Int32Array(model.numPoints);
+
             for (let v: number = 0; v < model.numPoints; v++) {
-                vertexY[v] = src.pointY[v];
+                model.pointY[v] = src.pointY![v];
             }
         } else {
-            vertexY = src.pointY;
+            model.pointY = src.pointY;
         }
 
         if (copyFaces) {
@@ -880,19 +826,13 @@ export default class Model extends Linkable2 {
             model.faceColourC = new Int32Array(model.numFaces);
 
             for (let f: number = 0; f < model.numFaces; f++) {
-                if (src.faceColourA) {
-                    model.faceColourA[f] = src.faceColourA[f];
-                }
-                if (src.faceColourB) {
-                    model.faceColourB[f] = src.faceColourB[f];
-                }
-                if (src.faceColourC) {
-                    model.faceColourC[f] = src.faceColourC[f];
-                }
+                model.faceColourA[f] = src.faceColourA![f];
+                model.faceColourB[f] = src.faceColourB![f];
+                model.faceColourC[f] = src.faceColourC![f];
             }
 
             model.faceRenderType = new Int32Array(model.numFaces);
-            if (!src.faceRenderType) {
+            if (src.faceRenderType === null) {
                 for (let f: number = 0; f < model.numFaces; f++) {
                     model.faceRenderType[f] = 0;
                 }
@@ -904,16 +844,12 @@ export default class Model extends Linkable2 {
 
             model.pointNormal = new TypedArray1d(model.numPoints, null);
             for (let v: number = 0; v < model.numPoints; v++) {
-                const copy: PointNormal = (model.pointNormal[v] = new PointNormal());
-                if (src.pointNormal) {
-                    const original: PointNormal | null = src.pointNormal[v];
-                    if (original) {
-                        copy.x = original.x;
-                        copy.y = original.y;
-                        copy.z = original.z;
-                        copy.w = original.w;
-                    }
-                }
+                const normal: PointNormal = (model.pointNormal[v] = new PointNormal());
+                const original: PointNormal = src.pointNormal![v]!;
+                normal.x = original.x;
+                normal.y = original.y;
+                normal.z = original.z;
+                normal.w = original.w;
             }
 
             model.sharedPointNormal = src.sharedPointNormal;
@@ -970,18 +906,17 @@ export default class Model extends Linkable2 {
             model.pointZ[v] = src.pointZ[v];
         }
 
-        let faceAlpha: Int32Array | null;
         if (shareAlpha) {
-            faceAlpha = src.faceAlpha;
+            model.faceAlpha = src.faceAlpha;
         } else {
-            faceAlpha = new Int32Array(model.numFaces);
+            model.faceAlpha = new Int32Array(model.numFaces);
             if (!src.faceAlpha) {
                 for (let f: number = 0; f < model.numFaces; f++) {
-                    faceAlpha[f] = 0;
+                    model.faceAlpha[f] = 0;
                 }
             } else {
                 for (let f: number = 0; f < model.numFaces; f++) {
-                    faceAlpha[f] = src.faceAlpha[f];
+                    model.faceAlpha[f] = src.faceAlpha[f];
                 }
             }
         }
@@ -1007,6 +942,35 @@ export default class Model extends Linkable2 {
         model.faceTextureN = src.faceTextureN;
 
         return model;
+    }
+
+    addPoint(src: Model, vertex: number) {
+        let index = -1;
+
+        const x = src.pointX![vertex];
+        const y = src.pointY![vertex];
+        const z = src.pointZ![vertex];
+
+        for (let v = 0; v < this.numPoints; v++) {
+            if (this.pointX![v] === x && this.pointY![v] === y && this.pointZ![v] === z) {
+                index = v;
+                break;
+            }
+        }
+
+        if (index === -1) {
+            this.pointX![this.numPoints] = x;
+            this.pointY![this.numPoints] = y;
+            this.pointZ![this.numPoints] = z;
+
+            if (src.vertexLabel !== null) {
+                this.vertexLabel![this.numPoints] = src.vertexLabel[vertex];
+            }
+
+            index = this.numPoints++;
+        }
+
+        return index;
     }
 
     calcBoundingCylinder(): void {

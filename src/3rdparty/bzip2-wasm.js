@@ -165,6 +165,5 @@ class BZ2Wasm {
 }
 
 const BZip2 = new BZ2Wasm();
-await BZip2.init();
 
 export default BZip2;
