@@ -79,35 +79,45 @@ async function applyTerser(script: BunOutput): Promise<boolean> {
                     '__wasm_call_ctors',
                     // imports:
                     'HEAPU8',
+                    '_malloc',
+                    '_free',
+                    '_realloc',
+                    '_BZ2_bzBuffToBuffCompress',
+                    '_BZ2_bzBuffToBuffDecompress',
+                    '__emscripten_stack_restore',
+                    '__emscripten_stack_alloc',
+                    '_emscripten_stack_get_current',
+                    'memory',
+                    '__indirect_function_table',
+                    'wasmMemory',
+                    '_tsf_load_memory',
+                    '_tsf_close',
+                    '_tsf_reset',
+                    '_tsf_set_output',
+                    '_tsf_channel_set_bank_preset',
+                    '_tml_load_memory',
+                    '_midi_render',
                     // exports:
                     '_emscripten_stack_restore',
                     '_emscripten_stack_alloc',
                     'emscripten_stack_get_current',
                     'memory',
-                    '_malloc',
                     'malloc',
-                    '_free',
                     'free',
-                    '_realloc',
                     'realloc',
-                    '__indirect_function_table',
-                    '_tsf_load_memory',
                     'tsf_load_memory',
-                    '_tsf_close',
                     'tsf_close',
-                    '_tsf_reset',
                     'tsf_reset',
-                    '_tsf_set_output',
                     'tsf_set_output',
-                    '_tsf_channel_set_bank_preset',
                     'tsf_channel_set_bank_preset',
-                    '_tml_load_memory',
                     'tml_load_memory',
-                    '_midi_render',
                     'midi_render',
+                    'BZ2_bzBuffToBuffCompress',
+                    'BZ2_bzBuffToBuffDecompress',
                     'setValue',
                     'getValue',
-                    'calledRun'
+                    'calledRun',
+                    'exit'
                 ]
             }
         }
@@ -141,7 +151,7 @@ for (const file of entrypoints) {
     const script = await bunBuild(file, [], prod, prod ? ['console'] : []);
     if (script) {
         if (prod) {
-            // await applyTerser(script);
+            await applyTerser(script);
         }
 
         fs.writeFileSync(`out/${output}`, script.source);
