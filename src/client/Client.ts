@@ -127,33 +127,115 @@ export class Client extends GameShell {
     private errorHost: boolean = false;
     private errorMessage: string | null = null;
 
-    // important client stuff
-    private db: Database | null = null;
+    private ingame: boolean = false;
     private loopCycle: number = 0;
+
+    private showFps: boolean = false;
+    private rebootTimer: number = 0;
+
+    private hintType: number = 0;
+    private hintNpc: number = 0;
+    private hintPlayer: number = 0;
+    private hintTileX: number = 0;
+    private hintTileZ: number = 0;
+    private hintHeight: number = 0;
+    private hintOffsetX: number = 0;
+    private hintOffsetZ: number = 0;
+
+    private lastAddress: number = 0;
+    private daysSinceLastLogin: number = 0;
+    private daysSinceRecoveriesChanged: number = 0;
+    private unreadMessages: number = 0;
+
+    private db: Database | null = null;
     private jagChecksum: number[] = [];
+
+    private npc: (ClientNpc | null)[] = new TypedArray1d(8192, null);
+    private npcCount: number = 0;
+    private npcIds: Int32Array = new Int32Array(8192);
+
     private stream: ClientStream | null = null;
-    private in: Packet = Packet.alloc(1);
+    private loginSeed: bigint = 0n;
+    private randomIn: Isaac | null = null;
     private out: Packet = Packet.alloc(1);
     private loginout: Packet = Packet.alloc(1);
-    private loginSeed: bigint = 0n;
-    private timeoutTimer: number = 0;
-    private logoutTimer: number = 0;
-    private rebootTimer: number = 0;
-    private randomIn: Isaac | null = null;
-    private ptype: number = 0;
+    private in: Packet = Packet.alloc(1);
     private psize: number = 0;
+    private ptype: number = 0;
+    private timeoutTimer: number = 0;
+    private noTimeoutTimer: number = 0;
+    private logoutTimer: number = 0;
     private ptype0: number = 0;
     private ptype1: number = 0;
     private ptype2: number = 0;
-    private ingame: boolean = false;
 
-    // archives
     private title: JagFile | null = null;
+    private p11: PixFont | null = null;
+    private p12: PixFont | null = null;
+    private b12: PixFont | null = null;
+    private q8: PixFont | null = null;
 
-    // login screen properties
+    private mapBuildBaseX: number = 0;
+    private mapBuildBaseZ: number = 0;
+    private mapBuildPrevBaseX: number = 0;
+    private mapBuildPrevBaseZ: number = 0;
+    private sceneState: number = 0;
+
+    private awaitingPlayerInfo: boolean = false;
+    private mapBuildCentreZoneX: number = 0;
+    private mapBuildCentreZoneZ: number = 0;
+    private mapBuildIndex: Int32Array | null = null;
+    private mapBuildGroundReady: boolean[] | null = null;
+    private mapBuildLocationReady: boolean[] | null = null;
+    private mapBuildGroundData: (Uint8Array | null)[] | null = null;
+    private mapBuildLocationData: (Uint8Array | null)[] | null = null;
+    private world: World | null = null;
+    private groundh: Int32Array[][] | null = null;
+    private mapl: Uint8Array[][] | null = null;
+    private collision: (CollisionMap | null)[] = new TypedArray1d(BuildArea.LEVELS, null);
+    private textureBuffer: Int8Array = new Int8Array(16384);
+
+    private zoneUpdateX: number = 0;
+    private zoneUpdateZ: number = 0;
+
+    private tryMoveNearest: number = 0;
+    private dirMap: Int32Array = new Int32Array(BuildArea.SIZE * BuildArea.SIZE);
+    private distMap: Int32Array = new Int32Array(BuildArea.SIZE * BuildArea.SIZE);
+    private routeX: Int32Array = new Int32Array(4000);
+    private routeZ: Int32Array = new Int32Array(4000);
+
+    private macroCameraX: number = 0;
+    private macroCameraXModifier: number = 2;
+    private macroCameraZ: number = 0;
+    private macroCameraZModifier: number = 2;
+    private macroCameraAngle: number = 0;
+    private macroCameraAngleModifier: number = 1;
+    private macroCameraCycle: number = 0;
+    private macroMinimapAngle: number = 0;
+    private macroMinimapAngleModifier: number = 2;
+    private macroMinimapZoom: number = 0;
+    private macroMinimapZoomModifier: number = 1;
+    private macroMinimapCycle: number = 0;
+
+    private worldUpdateNum: number = 0;
+
+    private minimap: Pix32 | null = null;
+    private compass: Pix32 | null = null;
+    private mapscene: (Pix8 | null)[] = new TypedArray1d(50, null);
+    private mapfunction: (Pix32 | null)[] = new TypedArray1d(50, null);
+    private hitmarks: (Pix32 | null)[] = new TypedArray1d(20, null);
+    private headicons: (Pix32 | null)[] = new TypedArray1d(20, null);
+    private mapflag: Pix32 | null = null;
+    private cross: (Pix32 | null)[] = new TypedArray1d(8, null);
+    private mapdots1: Pix32 | null = null;
+    private mapdots2: Pix32 | null = null;
+    private mapdots3: Pix32 | null = null;
+    private mapdots4: Pix32 | null = null;
+    private scrollbar1: Pix8 | null = null;
+    private scrollbar2: Pix8 | null = null;
+
     private redrawFrame: boolean = true;
-    private loginscreen: number = 0;
-    private loginSelect: number = 0;
+
     private imageTitle2: PixMap | null = null;
     private imageTitle3: PixMap | null = null;
     private imageTitle4: PixMap | null = null;
@@ -165,18 +247,13 @@ export class Client extends GameShell {
     private imageTitle8: PixMap | null = null;
     private imageTitlebox: Pix8 | null = null;
     private imageTitlebutton: Pix8 | null = null;
+    private loginscreen: number = 0;
+    private loginSelect: number = 0;
     private loginMes1: string = '';
     private loginMes2: string = '';
     private loginUser: string = '';
     private loginPass: string = '';
 
-    // fonts
-    private p11: PixFont | null = null;
-    private p12: PixFont | null = null;
-    private b12: PixFont | null = null;
-    private q8: PixFont | null = null;
-
-    // login screen pillar flames properties
     private imageRunes: Pix8[] = [];
     private flameActive: boolean = false;
     private imageFlamesLeft: Pix32 | null = null;
@@ -195,7 +272,6 @@ export class Client extends GameShell {
     private flameGradientCycle1: number = 0;
     private flamesInterval: ReturnType<typeof setInterval> | null = null;
 
-    // game world properties
     private areaSidebar: PixMap | null = null;
     private areaMapback: PixMap | null = null;
     private areaViewport: PixMap | null = null;
@@ -216,32 +292,12 @@ export class Client extends GameShell {
     private chatbackScanline: Int32Array | null = null;
     private sidebarScanline: Int32Array | null = null;
     private viewportScanline: Int32Array | null = null;
-    private compassMaskLineOffsets: Int32Array = new Int32Array(33);
-    private compassMaskLineLengths: Int32Array = new Int32Array(33);
-    private minimapMaskLineOffsets: Int32Array = new Int32Array(151);
-    private minimapMaskLineLengths: Int32Array = new Int32Array(151);
-
     private invback: Pix8 | null = null;
     private chatback: Pix8 | null = null;
-    private mapback: Pix8 | null = null;
     private backbase1: Pix8 | null = null;
     private backbase2: Pix8 | null = null;
     private backhmid1: Pix8 | null = null;
     private sideicons: (Pix8 | null)[] = new TypedArray1d(13, null);
-    private minimap: Pix32 | null = null;
-    private compass: Pix32 | null = null;
-    private mapscene: (Pix8 | null)[] = new TypedArray1d(50, null);
-    private mapfunction: (Pix32 | null)[] = new TypedArray1d(50, null);
-    private hitmarks: (Pix32 | null)[] = new TypedArray1d(20, null);
-    private headicons: (Pix32 | null)[] = new TypedArray1d(20, null);
-    private mapflag: Pix32 | null = null;
-    private cross: (Pix32 | null)[] = new TypedArray1d(8, null);
-    private mapdots1: Pix32 | null = null;
-    private mapdots2: Pix32 | null = null;
-    private mapdots3: Pix32 | null = null;
-    private mapdots4: Pix32 | null = null;
-    private scrollbar1: Pix8 | null = null;
-    private scrollbar2: Pix8 | null = null;
     private redstone1: Pix8 | null = null;
     private redstone2: Pix8 | null = null;
     private redstone3: Pix8 | null = null;
@@ -252,233 +308,35 @@ export class Client extends GameShell {
     private redstone3v: Pix8 | null = null;
     private redstone1hv: Pix8 | null = null;
     private redstone2hv: Pix8 | null = null;
-
-    private idkDesignButton1: Pix32 | null = null;
-    private idkDesignButton2: Pix32 | null = null;
-
-    private activeMapFunctions: (Pix32 | null)[] = new TypedArray1d(1000, null);
-
     private redrawSidebar: boolean = false;
     private redrawChatback: boolean = false;
     private redrawSideicons: boolean = false;
     private redrawPrivacySettings: boolean = false;
-    private mainModalId: number = -1;
-    private scrollCycle: number = 0;
-    private crossMode: number = 0;
-    private crossCycle: number = 0;
-    private crossX: number = 0;
-    private crossY: number = 0;
-    private chatDisabled: number = 0;
-    private isMenuOpen: boolean = false;
-    private menuArea: number = 0;
-    private menuX: number = 0;
-    private menuY: number = 0;
-    private menuWidth: number = 0;
-    private menuHeight: number = 0;
-    private menuNumEntries: number = 0;
-    private menuOption: string[] = [];
-    private sideModalId: number = -1;
-    private chatComId: number = -1;
-    private chatInterface: IfType = new IfType();
-    private chatScrollHeight: number = 78;
-    private chatScrollPos: number = 0;
-    private ignoreCount: number = 0;
-    private ignoreUserhash: bigint[] = [];
-    private hintType: number = 0;
-    private hintNpc: number = 0;
-    private hintOffsetX: number = 0;
-    private hintOffsetZ: number = 0;
-    private hintPlayer: number = 0;
-    private hintTileX: number = 0;
-    private hintTileZ: number = 0;
-    private hintHeight: number = 0;
-    private statXP: number[] = [];
-    private statEffectiveLevel: number[] = [];
-    private statBaseLevel: number[] = [];
-    private levelExperience: number[] = [];
-    private tutComMessage: string | null = null;
-    private tutFlashingTab: number = -1;
-    private sideTab: number = 3;
-    private sideOverlayId: number[] = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
-    private chatPublicMode: number = 0;
-    private chatPrivateMode: number = 0;
-    private chatTradeMode: number = 0;
+
+    private mapback: Pix8 | null = null;
+    private compassMaskLineOffsets: Int32Array = new Int32Array(33);
+    private compassMaskLineLengths: Int32Array = new Int32Array(33);
+    private minimapMaskLineOffsets: Int32Array = new Int32Array(151);
+    private minimapMaskLineLengths: Int32Array = new Int32Array(151);
+
     private scrollGrabbed: boolean = false;
     private scrollInputPadding: number = 0;
-    private socialInputOpen: boolean = false;
-    private socialInputHeader: string = '';
-    private socialInput: string = '';
-    private socialInputType: number = 0;
-    private dialogInput: string = '';
-    private dialogInputOpen: boolean = false;
-    private tutComId: number = -1;
-    private chatText: (string | null)[] = new TypedArray1d(100, null);
-    private chatUsername: (string | null)[] = new TypedArray1d(100, null);
-    private chatType: Int32Array = new Int32Array(100);
-    private privateMessageIds: Int32Array = new Int32Array(100);
-    private privateMessageCount: number = 0;
-    private splitPrivateChat: number = 0;
-    private chatEffects: number = 0;
-    private chatInput: string = '';
-    private overMainComId: number = 0;
-    private overSideComId: number = 0;
-    private overChatComId: number = 0;
-    private objDragComId: number = 0;
-    private objDragSlot: number = 0;
-    private objDragArea: number = 0;
-    private objGrabX: number = 0;
-    private objGrabY: number = 0;
-    private objDragCycles: number = 0;
-    private objGrabThreshold: boolean = false;
-    private useMode: number = 0;
-    private objSelectedSlot: number = 0;
-    private objSelectedComId: number = 0;
-    private objComId: number = 0;
-    private objSelectedName: string | null = null;
-    private selectedArea: number = 0;
-    private selectedItem: number = 0;
-    private selectedComId: number = 0;
-    private selectedCycle: number = 0;
-    private resumedPauseButton: boolean = false;
-    private var: number[] = [];
-    private varServ: number[] = [];
-    private targetMode: number = 0;
-    private targetComId: number = 0;
-    private targetMask: number = 0;
-    private targetOp: string | null = null;
-    private oneMouseButton: number = 0;
-    private menuAction: Int32Array = new Int32Array(500);
-    private menuParamA: Int32Array = new Int32Array(500);
-    private menuParamB: Int32Array = new Int32Array(500);
-    private menuParamC: Int32Array = new Int32Array(500);
-    private hoveredSlotComId: number = 0;
-    private hoveredSlot: number = 0;
-    private lastOverComId: number = 0;
-    private reportAbuseInput: string = '';
-    private reportAbuseMuteOption: boolean = false;
-    private reportAbuseComId: number = -1;
-    private lastAddress: number = 0;
-    private daysSinceLastLogin: number = 0;
-    private daysSinceRecoveriesChanged: number = 0;
-    private unreadMessages: number = 0;
-    private activeMapFunctionCount: number = 0;
-    private activeMapFunctionX: Int32Array = new Int32Array(1000);
-    private activeMapFunctionZ: Int32Array = new Int32Array(1000);
+    private scrollCycle: number = 0;
 
-    // scene
-    private world: World | null = null;
-    private sceneState: number = 0;
-    private worldUpdateNum: number = 0;
-    private sceneCycle: number = 0;
-    private minimapFlagX: number = 0;
-    private minimapFlagZ: number = 0;
-    private cinemaCam: boolean = false;
-    private macroCameraCycle: number = 0;
-    private macroCameraX: number = 0;
-    private macroCameraZ: number = 0;
-    private macroCameraAngle: number = 0;
-    private macroCameraXModifier: number = 2;
-    private macroCameraZModifier: number = 2;
-    private macroCameraAngleModifier: number = 1;
-    private camShakeCycle: Int32Array = new Int32Array(5);
-    private camShake: boolean[] = new TypedArray1d(5, false);
-    private camShakeAxis: Int32Array = new Int32Array(5);
-    private camShakeRan: Int32Array = new Int32Array(5);
-    private camShakeAmp: Int32Array = new Int32Array(5);
     private camX: number = 0;
     private camY: number = 0;
     private camZ: number = 0;
     private camPitch: number = 0;
     private camYaw: number = 0;
-    private cameraPitchClamp: number = 0;
-    private macroMinimapCycle: number = 0;
-    private macroMinimapAngle: number = 0;
-    private macroMinimapZoom: number = 0;
-    private macroMinimapZoomModifier: number = 1;
-    private macroMinimapAngleModifier: number = 2;
-    private minimapLevel: number = -1;
-    private zoneUpdateX: number = 0;
-    private zoneUpdateZ: number = 0;
-    private mapBuildCentreZoneX: number = 0;
-    private mapBuildCentreZoneZ: number = 0;
-    private mapBuildBaseX: number = 0;
-    private mapBuildBaseZ: number = 0;
-    private mapBuildGroundData: (Uint8Array | null)[] | null = null;
-    private mapBuildLandReady: boolean[] | null = null;
-    private mapBuildLocationData: (Uint8Array | null)[] | null = null;
-    private mapBuildLocationReady: boolean[] | null = null;
-    private mapBuildIndex: Int32Array | null = null;
-    private awaitingPlayerInfo: boolean = false;
-    private mapBuildPrevBaseX: number = 0;
-    private mapBuildPrevBaseZ: number = 0;
-    private textureBuffer: Int8Array = new Int8Array(16384);
-    private collision: (CollisionMap | null)[] = new TypedArray1d(BuildArea.LEVELS, null);
-    private minusedlevel: number = 0;
     private orbitCameraPitch: number = 128;
     private orbitCameraYaw: number = 0;
     private orbitCameraYawVelocity: number = 0;
     private orbitCameraPitchVelocity: number = 0;
     private orbitCameraX: number = 0;
     private orbitCameraZ: number = 0;
-    private groundh: Int32Array[][] | null = null;
-    private mapl: Uint8Array[][] | null = null;
-    private tileLastOccupiedCycle: Int32Array[] = new Int32Array2d(BuildArea.SIZE, BuildArea.SIZE);
-    private projectX: number = 0;
-    private projectY: number = 0;
     private cameraMovedWrite: number = 0;
-    private camLookAtLx: number = 0;
-    private camLookAtLz: number = 0;
-    private camLookAtHei: number = 0;
-    private camLookAtRate: number = 0;
-    private camLookAtRate2: number = 0;
-    private camMoveToLx: number = 0;
-    private camMoveToLz: number = 0;
-    private camMoveToHei: number = 0;
-    private camMoveToRate: number = 0;
-    private camMoveToRate2: number = 0;
+    private cameraPitchClamp: number = 0;
 
-    // entities
-    private players: (ClientPlayer | null)[] = new TypedArray1d(MAX_PLAYER_COUNT, null);
-    private playerCount: number = 0;
-    private playerIds: Int32Array = new Int32Array(MAX_PLAYER_COUNT);
-    private entityUpdateCount: number = 0;
-    private entityRemovalCount: number = 0;
-    private entityUpdateIds: Int32Array = new Int32Array(MAX_PLAYER_COUNT);
-    private entityRemovalIds: Int32Array = new Int32Array(1000);
-    private playerAppearanceBuffer: (Packet | null)[] = new TypedArray1d(MAX_PLAYER_COUNT, null);
-    private npc: (ClientNpc | null)[] = new TypedArray1d(8192, null);
-    private npcCount: number = 0;
-    private npcIds: Int32Array = new Int32Array(8192);
-    private projectiles: LinkList<ClientProj> = new LinkList();
-    private spotanims: LinkList<MapSpotAnim> = new LinkList();
-    private groundObj: (LinkList<ClientObj> | null)[][][] = new TypedArray3d(BuildArea.LEVELS, BuildArea.SIZE, BuildArea.SIZE, null);
-    private locChanges: LinkList<LocChange> = new LinkList();
-    private locList: LinkList<ClientLocAnim> = new LinkList();
-
-    // bfs pathfinder
-    private routeX: Int32Array = new Int32Array(4000);
-    private routeZ: Int32Array = new Int32Array(4000);
-    private dirMap: Int32Array = new Int32Array(BuildArea.SIZE * BuildArea.SIZE);
-    private distMap: Int32Array = new Int32Array(BuildArea.SIZE * BuildArea.SIZE);
-    private tryMoveNearest: number = 0;
-
-    // player
-    private localPlayer: ClientPlayer | null = null;
-    private runenergy: number = 0;
-    private inMultizone: number = 0;
-    private selfSlot: number = -1;
-    private runweight: number = 0;
-    private noTimeoutTimer: number = 0;
-    private wildernessLevel: number = 0;
-    private worldLocationState: number = 0;
-    private staffmod: boolean = false;
-    private idkDesignGender: boolean = true;
-    private idkDesignRedraw: boolean = false;
-    private idkDesignPart: Int32Array = new Int32Array(7);
-    private idkDesignColour: Int32Array = new Int32Array(5);
-
-    // friends/chats
-    private friendCount: number = 0;
     private chatCount: number = 0;
     private chatX: Int32Array = new Int32Array(MAX_CHATS);
     private chatY: Int32Array = new Int32Array(MAX_CHATS);
@@ -488,30 +346,194 @@ export class Client extends GameShell {
     private chatEffect: Int32Array = new Int32Array(MAX_CHATS);
     private chatTimer: Int32Array = new Int32Array(MAX_CHATS);
     private chats: (string | null)[] = new TypedArray1d(MAX_CHATS, null);
-    private friendUsername: (string | null)[] = new TypedArray1d(100, null);
-    private friendUserhash: BigInt64Array = new BigInt64Array(100);
-    private friendNodeId: Int32Array = new Int32Array(100);
-    private socialUserhash: bigint | null = null;
 
-    // audio
-    private waveCount: number = 0;
+    private tileLastOccupiedCycle: Int32Array[] = new Int32Array2d(BuildArea.SIZE, BuildArea.SIZE);
+    private sceneCycle: number = 0;
+
+    private projectX: number = 0;
+    private projectY: number = 0;
+
+    private crossX: number = 0;
+    private crossY: number = 0;
+    private crossCycle: number = 0;
+    private crossMode: number = 0;
+
+    private selectedArea: number = 0;
+    private selectedItem: number = 0;
+    private selectedComId: number = 0;
+    private selectedCycle: number = 0;
+
+    private objDragArea: number = 0;
+    private objDragComId: number = 0;
+    private hoveredSlotComId: number = 0;
+    private objDragSlot: number = 0;
+    private objGrabX: number = 0;
+    private objGrabY: number = 0;
+    private hoveredSlot: number = 0;
+    private objGrabThreshold: boolean = false;
+    private objDragCycles: number = 0;
+
+    private inMultizone: number = 0;
+    private chatDisabled: number = 0;
+    private wildernessLevel: number = 0;
+    private worldLocationState: number = 0;
+
+    private players: (ClientPlayer | null)[] = new TypedArray1d(MAX_PLAYER_COUNT, null);
+    private playerCount: number = 0;
+    private playerIds: Int32Array = new Int32Array(MAX_PLAYER_COUNT);
+
+    private entityUpdateCount: number = 0;
+    private entityUpdateIds: Int32Array = new Int32Array(MAX_PLAYER_COUNT);
+    private playerAppearanceBuffer: (Packet | null)[] = new TypedArray1d(MAX_PLAYER_COUNT, null);
+
+    private minusedlevel: number = 0;
+    private selfSlot: number = -1;
+    private localPlayer: ClientPlayer | null = null;
+
+    private entityRemovalCount: number = 0;
+    private entityRemovalIds: Int32Array = new Int32Array(1000);
+
+    private groundObj: (LinkList<ClientObj> | null)[][][] = new TypedArray3d(BuildArea.LEVELS, BuildArea.SIZE, BuildArea.SIZE, null);
+    private locChanges: LinkList<LocChange> = new LinkList();
+    private projectiles: LinkList<ClientProj> = new LinkList();
+    private spotanims: LinkList<MapSpotAnim> = new LinkList();
+    private locList: LinkList<ClientLocAnim> = new LinkList();
+
+    private statXP: number[] = [];
+    private statEffectiveLevel: number[] = [];
+    private statBaseLevel: number[] = [];
+
+    private oneMouseButton: number = 0;
+    private isMenuOpen: boolean = false;
+    private menuNumEntries: number = 0;
+    private menuArea: number = 0;
+    private menuX: number = 0;
+    private menuY: number = 0;
+    private menuWidth: number = 0;
+    private menuHeight: number = 0;
+    private menuParamB: Int32Array = new Int32Array(500);
+    private menuParamC: Int32Array = new Int32Array(500);
+    private menuAction: Int32Array = new Int32Array(500);
+    private menuParamA: Int32Array = new Int32Array(500);
+    private menuOption: string[] = [];
+
+    private useMode: number = 0;
+    private objComId: number = 0;
+    private objSelectedName: string | null = null;
+    private objSelectedComId: number = 0;
+    private objSelectedSlot: number = 0;
+
+    private targetMode: number = 0;
+    private targetComId: number = 0;
+    private targetMask: number = 0;
+    private targetOp: string | null = null;
+
+    private chatComId: number = -1;
+    private mainModalId: number = -1;
+    private sideModalId: number = -1;
+    private lastOverComId: number = 0;
+    private overChatComId: number = 0;
+    private overMainComId: number = 0;
+    private overSideComId: number = 0;
+    private sideTab: number = 3;
+    private sideOverlayId: number[] = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+    private tutComId: number = -1;
+    private tutComMessage: string | null = null;
+    private tutFlashingTab: number = -1;
+
+    private chatEffects: number = 0;
+    private splitPrivateChat: number = 0;
+
+    private resumedPauseButton: boolean = false;
+    private runenergy: number = 0;
+    private runweight: number = 0;
+    private staffmod: boolean = false;
+    private var: number[] = [];
+    private varServ: number[] = [];
+
+    private chatInterface: IfType = new IfType();
+    private chatScrollHeight: number = 78;
+    private chatScrollPos: number = 0;
+    private chatInput: string = '';
+    private chatType: Int32Array = new Int32Array(100);
+    private chatUsername: (string | null)[] = new TypedArray1d(100, null);
+    private chatText: (string | null)[] = new TypedArray1d(100, null);
+    private chatPublicMode: number = 0;
+    private chatPrivateMode: number = 0;
+    private chatTradeMode: number = 0;
+    private privateMessageIds: Int32Array = new Int32Array(100);
+    private privateMessageCount: number = 0;
+
+    private socialUserhash: bigint | null = null;
+    private socialInputOpen: boolean = false;
+    private socialInputHeader: string = '';
+    private socialInput: string = '';
+    private socialInputType: number = 0;
+
+    private dialogInput: string = '';
+    private dialogInputOpen: boolean = false;
+
+    private reportAbuseInput: string = '';
+    private reportAbuseMuteOption: boolean = false;
+    private reportAbuseComId: number = -1;
+
+    private minimapLevel: number = -1;
+    private activeMapFunctionCount: number = 0;
+    private activeMapFunctionX: Int32Array = new Int32Array(1000);
+    private activeMapFunctionZ: Int32Array = new Int32Array(1000);
+    private activeMapFunctions: (Pix32 | null)[] = new TypedArray1d(1000, null);
+    private minimapFlagX: number = 0;
+    private minimapFlagZ: number = 0;
+
+    private midiActive: boolean = true;
+    private midiVolume: number = 0;
+    private midiSong: string | null = null;
+    private midiCrc: number = 0;
+    private midiSize: number = 0;
+    private nextMusicDelay: number = 0;
+
     private waveEnabled: boolean = true;
+    private waveVolume: number = 0;
+    private waveCount: number = 0;
     private waveIds: Int32Array = new Int32Array(50);
     private waveLoops: Int32Array = new Int32Array(50);
     private waveDelay: Int32Array = new Int32Array(50);
-    private waveVolume: number = 64;
     private lastWaveId: number = -1;
     private lastWaveLoops: number = -1;
     private lastWaveLength: number = 0;
     private lastWaveStartTime: number = 0;
-    private nextMusicDelay: number = 0;
-    private midiActive: boolean = true;
-    private midiSong: string | null = null;
-    private midiCrc: number = 0;
-    private midiSize: number = 0;
-    private midiVolume: number = 64;
 
-    private showFps: boolean = false;
+    private cinemaCam: boolean = false;
+    private camShakeCycle: Int32Array = new Int32Array(5);
+    private camShake: boolean[] = new TypedArray1d(5, false);
+    private camShakeAxis: Int32Array = new Int32Array(5);
+    private camShakeRan: Int32Array = new Int32Array(5);
+    private camShakeAmp: Int32Array = new Int32Array(5);
+    private camMoveToLx: number = 0;
+    private camMoveToLz: number = 0;
+    private camMoveToHei: number = 0;
+    private camMoveToRate: number = 0;
+    private camMoveToRate2: number = 0;
+    private camLookAtLx: number = 0;
+    private camLookAtLz: number = 0;
+    private camLookAtHei: number = 0;
+    private camLookAtRate: number = 0;
+    private camLookAtRate2: number = 0;
+
+    private friendCount: number = 0;
+    private friendUsername: (string | null)[] = new TypedArray1d(100, null);
+    private friendUserhash: BigInt64Array = new BigInt64Array(100);
+    private friendNodeId: Int32Array = new Int32Array(100);
+
+    private ignoreCount: number = 0;
+    private ignoreUserhash: bigint[] = [];
+
+    private idkDesignGender: boolean = true;
+    private idkDesignRedraw: boolean = false;
+    private idkDesignPart: Int32Array = new Int32Array(7);
+    private idkDesignColour: Int32Array = new Int32Array(5);
+    private idkDesignButton1: Pix32 | null = null;
+    private idkDesignButton2: Pix32 | null = null;
 
     // ----
 
@@ -4892,12 +4914,12 @@ export class Client extends GameShell {
     }
 
     private checkScene(): number {
-        if (!this.mapBuildGroundData || !this.mapBuildLandReady || !this.mapBuildLocationData || !this.mapBuildLocationReady) {
+        if (!this.mapBuildGroundData || !this.mapBuildGroundReady || !this.mapBuildLocationData || !this.mapBuildLocationReady) {
             return -1000;
         }
 
-        for (let i = 0; i < this.mapBuildLandReady.length; i++) {
-            if (this.mapBuildLandReady[i] === false) {
+        for (let i = 0; i < this.mapBuildGroundReady.length; i++) {
+            if (this.mapBuildGroundReady[i] === false) {
                 return -1;
             }
 
@@ -6485,7 +6507,7 @@ export class Client extends GameShell {
                 const x: number = this.in.g1();
                 const z: number = this.in.g1();
 
-                if (this.mapBuildIndex && this.mapBuildGroundData && this.mapBuildLandReady) {
+                if (this.mapBuildIndex && this.mapBuildGroundData && this.mapBuildGroundReady) {
                     let index: number = -1;
                     for (let i: number = 0; i < this.mapBuildIndex.length; i++) {
                         if (this.mapBuildIndex[i] === (x << 8) + z) {
@@ -6495,7 +6517,7 @@ export class Client extends GameShell {
 
                     if (index !== -1) {
                         this.db?.cachesave(`m${x}_${z}`, this.mapBuildGroundData[index]);
-                        this.mapBuildLandReady[index] = true;
+                        this.mapBuildGroundReady[index] = true;
                     }
                 }
 
@@ -6584,7 +6606,7 @@ export class Client extends GameShell {
                 const regions: number = ((this.psize - 2) / 10) | 0;
 
                 this.mapBuildGroundData = new TypedArray1d(regions, null);
-                this.mapBuildLandReady = new TypedArray1d(regions, false);
+                this.mapBuildGroundReady = new TypedArray1d(regions, false);
                 this.mapBuildLocationData = new TypedArray1d(regions, null);
                 this.mapBuildLocationReady = new TypedArray1d(regions, false);
                 this.mapBuildIndex = new Int32Array(regions);
@@ -6615,10 +6637,10 @@ export class Client extends GameShell {
                             mapCount += 3;
                         } else {
                             this.mapBuildGroundData[i] = data;
-                            this.mapBuildLandReady[i] = true;
+                            this.mapBuildGroundReady[i] = true;
                         }
                     } else {
-                        this.mapBuildLandReady[i] = true;
+                        this.mapBuildGroundReady[i] = true;
                     }
 
                     if (locCrc !== 0) {
