@@ -8,6 +8,7 @@ import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 import { TypedArray1d, TypedArray2d } from '#/util/Arrays.js';
 import { downloadUrl, sleep } from '#/util/JsUtil.js';
+import { canvas } from '#/graphics/Canvas.js';
 
 export class MapView extends GameShell {
     static shouldDrawBorders: boolean = false;
@@ -184,16 +185,16 @@ export class MapView extends GameShell {
         this.run();
     }
 
-    override async load(): Promise<void> {
-        this.keyHeight = this.height - this.keyY - 20;
-        this.overviewX = this.width - this.imageOverviewWidth - 5;
-        this.overviewY = this.height - this.imageOverviewHeight - 20;
+    override async maininit(): Promise<void> {
+        this.keyHeight = this.sHei - this.keyY - 20;
+        this.overviewX = this.sWid - this.imageOverviewWidth - 5;
+        this.overviewY = this.sHei - this.imageOverviewHeight - 20;
 
         this.db = new Database(await Database.openDatabase());
 
         const worldmap: JagFile = await this.loadWorldmap();
 
-        await this.drawProgress(100, 'Please wait... Rendering Map');
+        await this.messageBox(100, 'Please wait... Rendering Map');
 
         const labelData: Packet = new Packet(worldmap.read('labels.dat'));
         this.labelCount = labelData.g2();
@@ -280,18 +281,18 @@ export class MapView extends GameShell {
         }
     }
 
-    override async draw(): Promise<void> {
+    override async maindraw(): Promise<void> {
         if (this.redraw) {
             this.redraw = false;
             this.redrawTimer = 0;
 
             Pix2D.cls();
 
-            const left: number = this.offsetX - ((this.width / this.zoom) | 0);
-            const top: number = this.offsetZ - ((this.height / this.zoom) | 0);
-            const right: number = this.offsetX + ((this.width / this.zoom) | 0);
-            const bottom: number = this.offsetZ + ((this.height / this.zoom) | 0);
-            this.drawMap(left, top, right, bottom, 0, 0, this.width, this.height);
+            const left: number = this.offsetX - ((this.sWid / this.zoom) | 0);
+            const top: number = this.offsetZ - ((this.sHei / this.zoom) | 0);
+            const right: number = this.offsetX + ((this.sWid / this.zoom) | 0);
+            const bottom: number = this.offsetZ + ((this.sHei / this.zoom) | 0);
+            this.drawMap(left, top, right, bottom, 0, 0, this.sWid, this.sHei);
 
             if (this.showOverview) {
                 this.imageOverview?.quickPlotSprite(this.overviewX, this.overviewY);
@@ -358,7 +359,7 @@ export class MapView extends GameShell {
             this.drawString(this.overviewX, this.overviewY + this.imageOverviewHeight, this.imageOverviewWidth, 18, this.colorInactiveBorderTL, this.colorInactive, this.colorInactiveBorderBR, 'Overview');
             this.drawString(this.keyX, this.keyY + this.keyHeight, this.keyWidth, 18, this.colorInactiveBorderTL, this.colorInactive, this.colorInactiveBorderBR, 'Key');
 
-            let y = this.height - this.keyY - 20 + 1;
+            let y = this.sHei - this.keyY - 20 + 1;
             if (this.targetZoom == 3.0) {
                 this.drawString(170, y, 50, 30, this.colorActiveBorderTL, this.colorActive, this.colorActiveBorderBR, '37%');
             } else {
@@ -395,20 +396,20 @@ export class MapView extends GameShell {
         this.redrawTimer = 0;
     }
 
-    override async update(): Promise<void> {
-        if (this.actionKey[1] == 1) {
+    override async mainloop(): Promise<void> {
+        if (this.keyHeld[1] == 1) {
             this.offsetX = (this.offsetX - 16.0 / this.zoom) | 0;
             this.redraw = true;
         }
-        if (this.actionKey[2] == 1) {
+        if (this.keyHeld[2] == 1) {
             this.offsetX = (this.offsetX + 16.0 / this.zoom) | 0;
             this.redraw = true;
         }
-        if (this.actionKey[3] == 1) {
+        if (this.keyHeld[3] == 1) {
             this.offsetZ = (this.offsetZ - 16.0 / this.zoom) | 0;
             this.redraw = true;
         }
-        if (this.actionKey[4] == 1) {
+        if (this.keyHeld[4] == 1) {
             this.offsetZ = (this.offsetZ + 16.0 / this.zoom) | 0;
             this.redraw = true;
         }
@@ -461,7 +462,7 @@ export class MapView extends GameShell {
             this.lastOffsetX = this.offsetX;
             this.lastOffsetZ = this.offsetZ;
 
-            let zoomY: number = this.height - this.keyY - 20 + 1;
+            let zoomY: number = this.sHei - this.keyY - 20 + 1;
             if (this.mouseClickX > 170 && this.mouseClickX < 220 && this.mouseClickY > zoomY) {
                 this.targetZoom = 3.0;
                 this.nextMouseClickX = -1;
@@ -579,21 +580,21 @@ export class MapView extends GameShell {
             this.flashTimer--;
         }
 
-        const left: number = this.offsetX - ((this.width / this.zoom) | 0);
-        const top: number = this.offsetZ - ((this.height / this.zoom) | 0);
-        const right: number = this.offsetX + ((this.width / this.zoom) | 0);
-        const bottom: number = this.offsetZ + ((this.height / this.zoom) | 0);
+        const left: number = this.offsetX - ((this.sWid / this.zoom) | 0);
+        const top: number = this.offsetZ - ((this.sHei / this.zoom) | 0);
+        const right: number = this.offsetX + ((this.sWid / this.zoom) | 0);
+        const bottom: number = this.offsetZ + ((this.sHei / this.zoom) | 0);
         if (left < 48) {
-            this.offsetX = ((this.width / this.zoom) | 0) + 48;
+            this.offsetX = ((this.sWid / this.zoom) | 0) + 48;
         }
         if (top < 48) {
-            this.offsetZ = ((this.height / this.zoom) | 0) + 48;
+            this.offsetZ = ((this.sHei / this.zoom) | 0) + 48;
         }
         if (right > this.sizeX - 48) {
-            this.offsetX = this.sizeX - 48 - ((this.width / this.zoom) | 0);
+            this.offsetX = this.sizeX - 48 - ((this.sWid / this.zoom) | 0);
         }
         if (bottom > this.sizeZ - 48) {
-            this.offsetZ = this.sizeZ - 48 - ((this.height / this.zoom) | 0);
+            this.offsetZ = this.sizeZ - 48 - ((this.sHei / this.zoom) | 0);
         }
     }
 
@@ -607,14 +608,14 @@ export class MapView extends GameShell {
 
         let retry: number = 5;
         while (!data) {
-            await this.drawProgress(0, 'Requesting map');
+            await this.messageBox(0, 'Requesting map');
 
             try {
                 data = await downloadUrl('/worldmap.jag');
             } catch (e) {
                 data = undefined;
                 for (let i: number = retry; i > 0; i--) {
-                    await this.drawProgress(0, `Error loading - Will retry in ${i} secs.`);
+                    await this.messageBox(0, `Error loading - Will retry in ${i} secs.`);
                     await sleep(1000);
                 }
 
@@ -1606,27 +1607,96 @@ export class MapView extends GameShell {
     }
 
     // ----
-    getTitleScreenState(): number {
-        return -1;
+
+    dragging = false;
+    activePointerId: number | null = null;
+
+    override mouseDown(x: number, y: number, e: MouseEvent) {
+        this.nextMouseClickX = x;
+        this.nextMouseClickY = y;
+
+        this.mouseX = x;
+        this.mouseY = y;
+
+        if (e.button === 2) {
+            this.mouseClickButton = 2;
+            this.mouseButton = 2;
+        } else {
+            this.mouseClickButton = 1;
+            this.mouseButton = 1;
+            canvas.style.cursor = 'grabbing';
+            this.dragging = true;
+        }
+
+        // e.preventDefault();
     }
 
-    isChatBackInputOpen(): boolean {
-        return false;
+    override mouseUp(_x: number, _y: number, e: MouseEvent) {
+        this.dragging = false;
+        canvas.style.cursor = 'grab';
+
+        this.mouseX = -1;
+        this.mouseY = -1;
+        this.mouseButton = 0;
+        this.nextMouseClickX = -1;
+        this.nextMouseClickY = -1;
+        this.mouseClickButton = 0;
+
+        // e.preventDefault();
     }
 
-    isShowSocialInput(): boolean {
-        return false;
+    override pointerDown(x: number, y: number, e: PointerEvent) {
+        this.idleTimer = performance.now();
+        this.mouseX = x;
+        this.mouseY = y;
+        this.mouseButton = 1;
+        this.nextMouseClickX = x;
+        this.nextMouseClickY = y;
+        this.mouseClickButton = 1;
     }
 
-    getChatInterfaceId(): number {
-        return -1;
+    override pointerUp(_x: number, _y: number, e: PointerEvent) {
+        this.mouseX = -1;
+        this.mouseY = -1;
+        this.mouseButton = 0;
+        this.nextMouseClickX = -1;
+        this.nextMouseClickY = -1;
+        this.mouseClickButton = 0;
     }
 
-    getViewportInterfaceId(): number {
-        return -1;
+    override pointerEnter() {
     }
 
-    getReportAbuseInterfaceId(): number {
-        return -1;
+    override pointerLeave() {
+    }
+
+    override pointerMove(x: number, y: number, _e: PointerEvent) {
+        if (!this.dragging) {
+            this.mouseX = x;
+            this.mouseY = y;
+        }
+    }
+
+    override windowMouseUp(e: MouseEvent) {
+        this.dragging = false;
+        canvas.style.cursor = 'grab';
+
+        this.mouseX = -1;
+        this.mouseY = -1;
+        this.mouseButton = 0;
+        this.nextMouseClickX = -1;
+        this.nextMouseClickY = -1;
+        this.mouseClickButton = 0;
+    }
+
+    override windowMouseMove(e: MouseEvent) {
+        if (this.dragging) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) | 0;
+            const y = (e.clientY - rect.top) | 0;
+
+            this.mouseX = x;
+            this.mouseY = y;
+        }
     }
 }
