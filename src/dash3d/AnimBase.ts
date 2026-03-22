@@ -4,12 +4,13 @@ import Packet from '#/io/Packet.js';
 import { TypedArray1d } from '#/util/Arrays.js';
 
 export default class AnimBase {
-    static instances: AnimBase[] = [];
-    length: number = 0;
-    types: Uint8Array | null = null;
+    static list: AnimBase[] = [];
+
+    size: number = 0;
+    type: Uint8Array | null = null;
     labels: (Uint8Array | null)[] | null = null;
 
-    static unpack(models: JagFile): void {
+    static init(models: JagFile): void {
         const head: Packet = new Packet(models.read('base_head.dat'));
         const type: Packet = new Packet(models.read('base_type.dat'));
         const label: Packet = new Packet(models.read('base_label.dat'));
@@ -36,10 +37,10 @@ export default class AnimBase {
                 groupLabels[j] = labels;
             }
 
-            this.instances[id] = new AnimBase();
-            this.instances[id].length = length;
-            this.instances[id].types = transformTypes;
-            this.instances[id].labels = groupLabels;
+            this.list[id] = new AnimBase();
+            this.list[id].size = length;
+            this.list[id].type = transformTypes;
+            this.list[id].labels = groupLabels;
         }
     }
 }

@@ -1,6 +1,6 @@
 import LruCache from '#/datastruct/LruCache.js';
 
-import LocShape from '#/dash3d/LocShape.js';
+import { LocShape } from '#/dash3d/LocShape.js';
 import { LocAngle } from '#/dash3d/LocAngle.js';
 
 import Model from '#/dash3d/Model.js';
@@ -237,7 +237,7 @@ export default class LocType {
         if (active === -1) {
             this.active = false;
 
-            if (this.shape.length > 0 && this.shape[0] === LocShape.CENTREPIECE_STRAIGHT.id) {
+            if (this.shape.length > 0 && this.shape[0] === LocShape.CENTREPIECE_STRAIGHT) {
                 this.active = true;
             }
 
@@ -275,24 +275,24 @@ export default class LocType {
             }*/
 
             if (this.hillskew || this.sharelight) {
-                cached = Model.modelCopyFaces(cached, this.hillskew, this.sharelight);
+                cached = Model.hillSkewCopy(cached, this.hillskew, this.sharelight);
             }
 
             if (this.hillskew) {
                 const groundY: number = ((heightmapSW + heightmapSE + heightmapNE + heightmapNW) / 4) | 0;
 
-                for (let i: number = 0; i < cached.vertexCount; i++) {
-                    const x: number = cached.vertexX[i];
-                    const z: number = cached.vertexZ[i];
+                for (let i: number = 0; i < cached.numPoints; i++) {
+                    const x: number = cached.pointX[i];
+                    const z: number = cached.pointZ[i];
 
                     const heightS: number = heightmapSW + ((((heightmapSE - heightmapSW) * (x + 64)) / 128) | 0);
                     const heightN: number = heightmapNW + ((((heightmapNE - heightmapNW) * (x + 64)) / 128) | 0);
                     const y: number = heightS + ((((heightN - heightS) * (z + 64)) / 128) | 0);
 
-                    cached.vertexY[i] += y - groundY;
+                    cached.pointY[i] += y - groundY;
                 }
 
-                cached.calculateBoundsY();
+                cached.recalcBoundingCylinder();
             }
 
             return cached;
@@ -318,9 +318,9 @@ export default class LocType {
 
         let model: Model | null = LocType.mc1?.find(BigInt(modelId)) as Model | null;
         if (!model) {
-            model = Model.get(modelId & 0xffff);
+            model = Model.load(modelId & 0xffff);
             if (flip) {
-                model.rotateY180();
+                model.mirror();
             }
 
             LocType.mc1?.put(BigInt(modelId), model);
@@ -329,16 +329,16 @@ export default class LocType {
         const scaled: boolean = this.resizex !== 128 || this.resizey !== 128 || this.resizez !== 128;
         const translated: boolean = this.offsetx !== 0 || this.offsety !== 0 || this.offsetz !== 0;
 
-        let modified: Model = Model.modelShareColored(model, !this.recol_s, !this.animateTransparencies, angle === LocAngle.WEST && transformId === -1 && !scaled && !translated);
+        let modified: Model = Model.copyForAnim(model, !this.recol_s, !this.animateTransparencies, angle === LocAngle.WEST && transformId === -1 && !scaled && !translated);
         if (transformId !== -1) {
-            modified.createLabelReferences();
-            modified.applyTransform(transformId);
+            modified.prepareAnim();
+            modified.animate(transformId);
             modified.labelFaces = null;
             modified.labelVertices = null;
         }
 
         while (angle-- > 0) {
-            modified.rotateY90();
+            modified.rotate90();
         }
 
         if (this.recol_s && this.recol_d) {
@@ -348,7 +348,7 @@ export default class LocType {
         }
 
         if (scaled) {
-            modified.scale(this.resizex, this.resizey, this.resizez);
+            modified.resize(this.resizex, this.resizey, this.resizez);
         }
 
         if (translated) {
@@ -364,24 +364,24 @@ export default class LocType {
         LocType.mc2?.put(typecode, modified);
 
         if (this.hillskew || this.sharelight) {
-            modified = Model.modelCopyFaces(modified, this.hillskew, this.sharelight);
+            modified = Model.hillSkewCopy(modified, this.hillskew, this.sharelight);
         }
 
         if (this.hillskew) {
             const groundY: number = ((heightmapSW + heightmapSE + heightmapNE + heightmapNW) / 4) | 0;
 
-            for (let i: number = 0; i < modified.vertexCount; i++) {
-                const x: number = modified.vertexX[i];
-                const z: number = modified.vertexZ[i];
+            for (let i: number = 0; i < modified.numPoints; i++) {
+                const x: number = modified.pointX[i];
+                const z: number = modified.pointZ[i];
 
                 const heightS: number = heightmapSW + ((((heightmapSE - heightmapSW) * (x + 64)) / 128) | 0);
                 const heightN: number = heightmapNW + ((((heightmapNE - heightmapNW) * (x + 64)) / 128) | 0);
                 const y: number = heightS + ((((heightN - heightS) * (z + 64)) / 128) | 0);
 
-                modified.vertexY[i] += y - groundY;
+                modified.pointY[i] += y - groundY;
             }
 
-            modified.calculateBoundsY();
+            modified.recalcBoundingCylinder();
         }
 
         return modified;

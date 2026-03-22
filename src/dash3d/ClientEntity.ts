@@ -21,53 +21,53 @@ export default abstract class ClientEntity extends ModelSource {
     chatTimer: number = 100;
     chatColour: number = 0;
     chatEffect: number = 0;
-    damage: number = 0;
-    damageType: number = 0;
     combatCycle: number = -1000;
+    damageValue: number = 0;
+    damageType: number = 0;
     health: number = 0;
     totalHealth: number = 0;
-    targetId: number = -1;
-    targetTileX: number = 0;
-    targetTileZ: number = 0;
-    secondarySeqId: number = -1;
-    secondarySeqFrame: number = 0;
-    secondarySeqCycle: number = 0;
-    primarySeqId: number = -1;
-    primarySeqFrame: number = 0;
-    primarySeqCycle: number = 0;
-    primarySeqDelay: number = 0;
-    primarySeqLoop: number = 0;
+    faceEntity: number = -1;
+    faceSquareX: number = 0;
+    faceSquareZ: number = 0;
+    secondaryAnim: number = -1;
+    secondaryAnimFrame: number = 0;
+    secondaryAnimCycle: number = 0;
+    primaryAnim: number = -1;
+    primaryAnimFrame: number = 0;
+    primaryAnimCycle: number = 0;
+    primaryAnimDelay: number = 0;
+    primaryAnimLoop: number = 0;
     spotanimId: number = -1;
     spotanimFrame: number = 0;
     spotanimCycle: number = 0;
     spotanimLastCycle: number = 0;
     spotanimHeight: number = 0;
-    forceMoveStartSceneTileX: number = 0;
-    forceMoveEndSceneTileX: number = 0;
-    forceMoveStartSceneTileZ: number = 0;
-    forceMoveEndSceneTileZ: number = 0;
-    forceMoveEndCycle: number = 0;
-    forceMoveStartCycle: number = 0;
-    forceMoveFaceDirection: number = 0;
+    exactStartX: number = 0;
+    exactEndX: number = 0;
+    exactStartZ: number = 0;
+    exactEndZ: number = 0;
+    exactMoveEnd: number = 0;
+    exactMoveStart: number = 0;
+    exactMoveFacing: number = 0;
     cycle: number = 0;
     height: number = 0;
     dstYaw: number = 0;
     routeLength: number = 0;
-    routeTileX: Int32Array = new Int32Array(10);
-    routeTileZ: Int32Array = new Int32Array(10);
+    routeX: Int32Array = new Int32Array(10);
+    routeZ: Int32Array = new Int32Array(10);
     routeRun: boolean[] = new TypedArray1d(10, false);
-    seqDelayMove: number = 0;
+    animDelayMove: number = 0;
 
-    abstract isVisible(): boolean;
+    abstract isReady(): boolean;
 
-    move(teleport: boolean, x: number, z: number): void {
-        if (this.primarySeqId !== -1 && SeqType.list[this.primarySeqId].priority <= 1) {
-            this.primarySeqId = -1;
+    teleport(jump: boolean, x: number, z: number): void {
+        if (this.primaryAnim !== -1 && SeqType.list[this.primaryAnim].priority <= 1) {
+            this.primaryAnim = -1;
         }
 
-        if (!teleport) {
-            const dx: number = x - this.routeTileX[0];
-            const dz: number = z - this.routeTileZ[0];
+        if (!jump) {
+            const dx: number = x - this.routeX[0];
+            const dz: number = z - this.routeZ[0];
 
             if (dx >= -8 && dx <= 8 && dz >= -8 && dz <= 8) {
                 if (this.routeLength < 9) {
@@ -75,29 +75,29 @@ export default abstract class ClientEntity extends ModelSource {
                 }
 
                 for (let i: number = this.routeLength; i > 0; i--) {
-                    this.routeTileX[i] = this.routeTileX[i - 1];
-                    this.routeTileZ[i] = this.routeTileZ[i - 1];
+                    this.routeX[i] = this.routeX[i - 1];
+                    this.routeZ[i] = this.routeZ[i - 1];
                     this.routeRun[i] = this.routeRun[i - 1];
                 }
 
-                this.routeTileX[0] = x;
-                this.routeTileZ[0] = z;
+                this.routeX[0] = x;
+                this.routeZ[0] = z;
                 this.routeRun[0] = false;
                 return;
             }
         }
 
         this.routeLength = 0;
-        this.seqDelayMove = 0;
-        this.routeTileX[0] = x;
-        this.routeTileZ[0] = z;
-        this.x = this.routeTileX[0] * 128 + this.size * 64;
-        this.z = this.routeTileZ[0] * 128 + this.size * 64;
+        this.animDelayMove = 0;
+        this.routeX[0] = x;
+        this.routeZ[0] = z;
+        this.x = this.routeX[0] * 128 + this.size * 64;
+        this.z = this.routeZ[0] * 128 + this.size * 64;
     }
 
-    step(running: boolean, direction: number): void {
-        let nextX: number = this.routeTileX[0];
-        let nextZ: number = this.routeTileZ[0];
+    moveCode(running: boolean, direction: number): void {
+        let nextX: number = this.routeX[0];
+        let nextZ: number = this.routeZ[0];
 
         if (direction === 0) {
             nextX--;
@@ -121,8 +121,8 @@ export default abstract class ClientEntity extends ModelSource {
             nextZ--;
         }
 
-        if (this.primarySeqId !== -1 && SeqType.list[this.primarySeqId].priority <= 1) {
-            this.primarySeqId = -1;
+        if (this.primaryAnim !== -1 && SeqType.list[this.primaryAnim].priority <= 1) {
+            this.primaryAnim = -1;
         }
 
         if (this.routeLength < 9) {
@@ -130,13 +130,13 @@ export default abstract class ClientEntity extends ModelSource {
         }
 
         for (let i: number = this.routeLength; i > 0; i--) {
-            this.routeTileX[i] = this.routeTileX[i - 1];
-            this.routeTileZ[i] = this.routeTileZ[i - 1];
+            this.routeX[i] = this.routeX[i - 1];
+            this.routeZ[i] = this.routeZ[i - 1];
             this.routeRun[i] = this.routeRun[i - 1];
         }
 
-        this.routeTileX[0] = nextX;
-        this.routeTileZ[0] = nextZ;
+        this.routeX[0] = nextX;
+        this.routeZ[0] = nextZ;
         this.routeRun[0] = running;
     }
 }

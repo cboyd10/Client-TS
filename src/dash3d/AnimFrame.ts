@@ -4,16 +4,17 @@ import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 export default class AnimFrame {
-    static instances: AnimFrame[] = [];
+    static list: AnimFrame[] = [];
+
     delay: number = 0;
     base: AnimBase | null = null;
-    length: number = 0;
-    groups: Int32Array | null = null;
-    x: Int32Array | null = null;
-    y: Int32Array | null = null;
-    z: Int32Array | null = null;
+    size: number = 0;
+    ti: Int32Array | null = null;
+    tx: Int32Array | null = null;
+    ty: Int32Array | null = null;
+    tz: Int32Array | null = null;
 
-    static unpack(models: JagFile): void {
+    static init(models: JagFile): void {
         const head: Packet = new Packet(models.read('frame_head.dat'));
         const tran1: Packet = new Packet(models.read('frame_tran1.dat'));
         const tran2: Packet = new Packet(models.read('frame_tran2.dat'));
@@ -22,19 +23,19 @@ export default class AnimFrame {
         const total: number = head.g2();
         head.pos += 2; // const count = head.g2();
 
-        const labels: Int32Array = new Int32Array(500);
-        const x: Int32Array = new Int32Array(500);
-        const y: Int32Array = new Int32Array(500);
-        const z: Int32Array = new Int32Array(500);
+        const tempTi: Int32Array = new Int32Array(500);
+        const tempTx: Int32Array = new Int32Array(500);
+        const tempTy: Int32Array = new Int32Array(500);
+        const tempTz: Int32Array = new Int32Array(500);
 
         for (let i: number = 0; i < total; i++) {
             const id: number = head.g2();
 
-            const frame: AnimFrame = (this.instances[id] = new AnimFrame());
+            const frame: AnimFrame = (this.list[id] = new AnimFrame());
             frame.delay = del.g1();
 
             const baseId: number = head.g2();
-            const base: AnimBase = AnimBase.instances[baseId];
+            const base: AnimBase = AnimBase.list[baseId];
             frame.base = base;
 
             const groupCount: number = head.g1();
@@ -42,48 +43,48 @@ export default class AnimFrame {
             let current: number = 0;
 
             for (let j: number = 0; j < groupCount; j++) {
-                if (!base.types) {
+                if (!base.type) {
                     throw new Error();
                 }
 
                 const flags: number = tran1.g1();
                 if (flags > 0) {
-                    if (base.types[j] !== 0) {
+                    if (base.type[j] !== 0) {
                         for (let group: number = j - 1; group > lastGroup; group--) {
-                            if (base.types[group] === 0) {
-                                labels[current] = group;
-                                x[current] = 0;
-                                y[current] = 0;
-                                z[current] = 0;
+                            if (base.type[group] === 0) {
+                                tempTi[current] = group;
+                                tempTx[current] = 0;
+                                tempTy[current] = 0;
+                                tempTz[current] = 0;
                                 current++;
                                 break;
                             }
                         }
                     }
 
-                    labels[current] = j;
+                    tempTi[current] = j;
 
                     let defaultValue: number = 0;
-                    if (base.types[labels[current]] === 3) {
+                    if (base.type[tempTi[current]] === 3) {
                         defaultValue = 128;
                     }
 
                     if ((flags & 0x1) === 0) {
-                        x[current] = defaultValue;
+                        tempTx[current] = defaultValue;
                     } else {
-                        x[current] = tran2.gsmarts();
+                        tempTx[current] = tran2.gsmarts();
                     }
 
                     if ((flags & 0x2) === 0) {
-                        y[current] = defaultValue;
+                        tempTy[current] = defaultValue;
                     } else {
-                        y[current] = tran2.gsmarts();
+                        tempTy[current] = tran2.gsmarts();
                     }
 
                     if ((flags & 0x4) === 0) {
-                        z[current] = defaultValue;
+                        tempTz[current] = defaultValue;
                     } else {
-                        z[current] = tran2.gsmarts();
+                        tempTz[current] = tran2.gsmarts();
                     }
 
                     lastGroup = j;
@@ -91,17 +92,17 @@ export default class AnimFrame {
                 }
             }
 
-            frame.length = current;
-            frame.groups = new Int32Array(current);
-            frame.x = new Int32Array(current);
-            frame.y = new Int32Array(current);
-            frame.z = new Int32Array(current);
+            frame.size = current;
+            frame.ti = new Int32Array(current);
+            frame.tx = new Int32Array(current);
+            frame.ty = new Int32Array(current);
+            frame.tz = new Int32Array(current);
 
             for (let j: number = 0; j < current; j++) {
-                frame.groups[j] = labels[j];
-                frame.x[j] = x[j];
-                frame.y[j] = y[j];
-                frame.z[j] = z[j];
+                frame.ti[j] = tempTi[j];
+                frame.tx[j] = tempTx[j];
+                frame.ty[j] = tempTy[j];
+                frame.tz[j] = tempTz[j];
             }
         }
     }

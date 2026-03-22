@@ -4,30 +4,30 @@ import Linkable from '#/datastruct/Linkable.js';
 
 export default class ClientLocAnim extends Linkable {
     readonly index: number;
-    heightmapSW: number;
-    readonly heightmapSE: number;
-    readonly heightmapNE: number;
-    readonly heightmapNW: number;
-    seq: SeqType;
-    seqFrame: number;
-    seqCycle: number;
+    heightSW: number;
+    readonly heightSE: number;
+    readonly heightNE: number;
+    readonly heightNW: number;
+    anim: SeqType;
+    animFrame: number;
+    animCycle: number;
 
     constructor(index: number, heightmapSW: number, heightmapSE: number, heightmapNE: number, heightmapNW: number, seq: SeqType, randomFrame: boolean) {
         super();
 
         this.index = index;
-        this.heightmapSW = heightmapSW;
-        this.heightmapSE = heightmapSE;
-        this.heightmapNE = heightmapNE;
-        this.heightmapNW = heightmapNW;
-        this.seq = seq;
+        this.heightSW = heightmapSW;
+        this.heightSE = heightmapSE;
+        this.heightNE = heightmapNE;
+        this.heightNW = heightmapNW;
+        this.anim = seq;
 
-        if (randomFrame && seq.loops !== -1 && this.seq.delay) {
-            this.seqFrame = (Math.random() * this.seq.numFrames) | 0;
-            this.seqCycle = (Math.random() * this.seq.delay[this.seqFrame]) | 0;
+        if (randomFrame && seq.loops !== -1 && this.anim.delay) {
+            this.animFrame = (Math.random() * this.anim.numFrames) | 0;
+            this.animCycle = (Math.random() * this.anim.delay[this.animFrame]) | 0;
         } else {
-            this.seqFrame = -1;
-            this.seqCycle = 0;
+            this.animFrame = -1;
+            this.animCycle = 0;
         }
     }
 }

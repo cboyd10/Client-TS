@@ -17,17 +17,17 @@ import { TypedArray1d } from '#/util/Arrays.js';
 export const enum PlayerUpdate {
     APPEARANCE = 0x1,
     ANIM = 0x2,
-    FACE_ENTITY = 0x4,
+    FACEENTITY = 0x4,
     SAY = 0x8,
-    DAMAGE = 0x10,
-    FACE_COORD = 0x20,
+    HITMARK = 0x10,
+    FACESQUARE = 0x20,
     CHAT = 0x40,
     BIG_UPDATE = 0x80,
     SPOTANIM = 0x100,
-    EXACT_MOVE = 0x200
+    EXACTMOVE = 0x200
 }
 
-const enum HairColor {
+const enum HairColour {
     HAIR_DARK_BROWN = 6798,
     HAIR_WHITE = 107,
     HAIR_LIGHT_GREY = 10283,
@@ -42,7 +42,7 @@ const enum HairColor {
     HAIR_MAGENTA = 54193,
 }
 
-const enum BodyColorSource {   
+const enum BodyColourSource {   
     BODY_KHAKI = 8741,
     BODY_CHARCOAL = 12,
     BODY_CRIMSON = 64030,
@@ -61,7 +61,7 @@ const enum BodyColorSource {
     BODY_EMERALD = 25239,
 }
 
-const enum BodyColorDest {
+const enum BodyColourDest {
     BODY_RECOLOR_KHAKI = 9104,
     BODY_RECOLOR_CHARCOAL = 10275,
     BODY_RECOLOR_CRIMSON = 7595,
@@ -80,7 +80,7 @@ const enum BodyColorDest {
     BODY_RECOLOR_EMERALD = 25486,
 }
 
-const enum FeetColor {
+const enum FeetColour {
     FEET_BROWN = 4626,
     FEET_KHAKI = 11146,
     FEET_ASHEN = 6439,
@@ -89,7 +89,7 @@ const enum FeetColor {
     FEET_GREY = 10270,
 }
 
-const enum SkinColor {
+const enum SkinColour {
     SKIN = 4574,
     SKIN_DARKER = 4550,
     SKIN_DARKER_DARKER = 4537,
@@ -102,106 +102,106 @@ const enum SkinColor {
 
 export default class ClientPlayer extends ClientEntity {
     // prettier-ignore
-    static readonly TORSO_RECOLORS: number[] = [
-        BodyColorDest.BODY_RECOLOR_KHAKI,
-        BodyColorDest.BODY_RECOLOR_CHARCOAL,
-        BodyColorDest.BODY_RECOLOR_CRIMSON,
-        BodyColorDest.BODY_RECOLOR_NAVY,
-        BodyColorDest.BODY_RECOLOR_STRAW,
-        BodyColorDest.BODY_RECOLOR_WHITE,
-        BodyColorDest.BODY_RECOLOR_RED,
-        BodyColorDest.BODY_RECOLOR_BLUE,
-        BodyColorDest.BODY_RECOLOR_GREEN,
-        BodyColorDest.BODY_RECOLOR_YELLOW,
-        BodyColorDest.BODY_RECOLOR_PURPLE,
-        BodyColorDest.BODY_RECOLOR_ORANGE,
-        BodyColorDest.BODY_RECOLOR_ROSE,
-        BodyColorDest.BODY_RECOLOR_LIME,
-        BodyColorDest.BODY_RECOLOR_CYAN,
-        BodyColorDest.BODY_RECOLOR_EMERALD
+    static readonly recol2d: number[] = [
+        BodyColourDest.BODY_RECOLOR_KHAKI,
+        BodyColourDest.BODY_RECOLOR_CHARCOAL,
+        BodyColourDest.BODY_RECOLOR_CRIMSON,
+        BodyColourDest.BODY_RECOLOR_NAVY,
+        BodyColourDest.BODY_RECOLOR_STRAW,
+        BodyColourDest.BODY_RECOLOR_WHITE,
+        BodyColourDest.BODY_RECOLOR_RED,
+        BodyColourDest.BODY_RECOLOR_BLUE,
+        BodyColourDest.BODY_RECOLOR_GREEN,
+        BodyColourDest.BODY_RECOLOR_YELLOW,
+        BodyColourDest.BODY_RECOLOR_PURPLE,
+        BodyColourDest.BODY_RECOLOR_ORANGE,
+        BodyColourDest.BODY_RECOLOR_ROSE,
+        BodyColourDest.BODY_RECOLOR_LIME,
+        BodyColourDest.BODY_RECOLOR_CYAN,
+        BodyColourDest.BODY_RECOLOR_EMERALD
     ];
 
     // prettier-ignore
-    static readonly DESIGN_IDK_COLORS: number[][] = [
+    static readonly recol1d: number[][] = [
         [ // hair
-            HairColor.HAIR_DARK_BROWN,
-            HairColor.HAIR_WHITE,
-            HairColor.HAIR_LIGHT_GREY,
-            HairColor.HAIR_DARK_GREY,
-            HairColor.HAIR_APRICOT,
-            HairColor.HAIR_STRAW,
-            HairColor.HAIR_LIGHT_BROWN,
-            HairColor.HAIR_BROWN,
-            HairColor.HAIR_TURQUOISE,
-            HairColor.HAIR_GREEN,
-            HairColor.HAIR_GINGER,
-            HairColor.HAIR_MAGENTA
+            HairColour.HAIR_DARK_BROWN,
+            HairColour.HAIR_WHITE,
+            HairColour.HAIR_LIGHT_GREY,
+            HairColour.HAIR_DARK_GREY,
+            HairColour.HAIR_APRICOT,
+            HairColour.HAIR_STRAW,
+            HairColour.HAIR_LIGHT_BROWN,
+            HairColour.HAIR_BROWN,
+            HairColour.HAIR_TURQUOISE,
+            HairColour.HAIR_GREEN,
+            HairColour.HAIR_GINGER,
+            HairColour.HAIR_MAGENTA
         ],
         [ // torso
-            BodyColorSource.BODY_KHAKI,
-            BodyColorSource.BODY_CHARCOAL,
-            BodyColorSource.BODY_CRIMSON,
-            BodyColorSource.BODY_NAVY,
-            BodyColorSource.BODY_STRAW,
-            BodyColorSource.BODY_WHITE,
-            BodyColorSource.BODY_RED,
-            BodyColorSource.BODY_BLUE,
-            BodyColorSource.BODY_GREEN,
-            BodyColorSource.BODY_YELLOW,
-            BodyColorSource.BODY_PURPLE,
-            BodyColorSource.BODY_ORANGE,
-            BodyColorSource.BODY_ROSE,
-            BodyColorSource.BODY_LIME,
-            BodyColorSource.BODY_CYAN,
-            BodyColorSource.BODY_EMERALD
+            BodyColourSource.BODY_KHAKI,
+            BodyColourSource.BODY_CHARCOAL,
+            BodyColourSource.BODY_CRIMSON,
+            BodyColourSource.BODY_NAVY,
+            BodyColourSource.BODY_STRAW,
+            BodyColourSource.BODY_WHITE,
+            BodyColourSource.BODY_RED,
+            BodyColourSource.BODY_BLUE,
+            BodyColourSource.BODY_GREEN,
+            BodyColourSource.BODY_YELLOW,
+            BodyColourSource.BODY_PURPLE,
+            BodyColourSource.BODY_ORANGE,
+            BodyColourSource.BODY_ROSE,
+            BodyColourSource.BODY_LIME,
+            BodyColourSource.BODY_CYAN,
+            BodyColourSource.BODY_EMERALD
         ],
         [ // legs
-            BodyColorSource.BODY_EMERALD - 1,
-            BodyColorSource.BODY_KHAKI + 1,
-            BodyColorSource.BODY_CHARCOAL,
-            BodyColorSource.BODY_CRIMSON,
-            BodyColorSource.BODY_NAVY,
-            BodyColorSource.BODY_STRAW,
-            BodyColorSource.BODY_WHITE,
-            BodyColorSource.BODY_RED,
-            BodyColorSource.BODY_BLUE,
-            BodyColorSource.BODY_GREEN,
-            BodyColorSource.BODY_YELLOW,
-            BodyColorSource.BODY_PURPLE,
-            BodyColorSource.BODY_ORANGE,
-            BodyColorSource.BODY_ROSE,
-            BodyColorSource.BODY_LIME,
-            BodyColorSource.BODY_CYAN
+            BodyColourSource.BODY_EMERALD - 1,
+            BodyColourSource.BODY_KHAKI + 1,
+            BodyColourSource.BODY_CHARCOAL,
+            BodyColourSource.BODY_CRIMSON,
+            BodyColourSource.BODY_NAVY,
+            BodyColourSource.BODY_STRAW,
+            BodyColourSource.BODY_WHITE,
+            BodyColourSource.BODY_RED,
+            BodyColourSource.BODY_BLUE,
+            BodyColourSource.BODY_GREEN,
+            BodyColourSource.BODY_YELLOW,
+            BodyColourSource.BODY_PURPLE,
+            BodyColourSource.BODY_ORANGE,
+            BodyColourSource.BODY_ROSE,
+            BodyColourSource.BODY_LIME,
+            BodyColourSource.BODY_CYAN
         ],
         [ // feet
-            FeetColor.FEET_BROWN,
-            FeetColor.FEET_KHAKI,
-            FeetColor.FEET_ASHEN,
-            FeetColor.FEET_DARK,
-            FeetColor.FEET_TERRACOTTA,
-            FeetColor.FEET_GREY
+            FeetColour.FEET_BROWN,
+            FeetColour.FEET_KHAKI,
+            FeetColour.FEET_ASHEN,
+            FeetColour.FEET_DARK,
+            FeetColour.FEET_TERRACOTTA,
+            FeetColour.FEET_GREY
         ],
         [ // skin
-            SkinColor.SKIN_DARKER,
-            SkinColor.SKIN_DARKER_DARKER,
-            SkinColor.SKIN_DARKER_DARKER_DARKER,
-            SkinColor.SKIN_DARKER_DARKER_DARKER_DARKER,
-            SkinColor.SKIN_DARKER_DARKER_DARKER_DARKER_DARKER,
-            SkinColor.SKIN_DARKER_DARKER_DARKER_DARKER_DARKER_DARKER,
-            SkinColor.SKIN_DARKER_DARKER_DARKER_DARKER_DARKER_DARKER_DARKER,
-            SkinColor.SKIN
+            SkinColour.SKIN_DARKER,
+            SkinColour.SKIN_DARKER_DARKER,
+            SkinColour.SKIN_DARKER_DARKER_DARKER,
+            SkinColour.SKIN_DARKER_DARKER_DARKER_DARKER,
+            SkinColour.SKIN_DARKER_DARKER_DARKER_DARKER_DARKER,
+            SkinColour.SKIN_DARKER_DARKER_DARKER_DARKER_DARKER_DARKER,
+            SkinColour.SKIN_DARKER_DARKER_DARKER_DARKER_DARKER_DARKER_DARKER,
+            SkinColour.SKIN
         ]
     ];
 
     name: string | null = null;
-    visible: boolean = false;
+    ready: boolean = false;
     gender: number = 0;
     headicons: number = 0;
     appearance: Uint16Array = new Uint16Array(12);
     colour: Uint16Array = new Uint16Array(5);
     combatLevel: number = 0;
-    hash: bigint = 0n;
-    lowMemory: boolean = false;
+    baseId: bigint = 0n;
+    lowMem: boolean = false;
     static modelCache: LruCache<Model> | null = new LruCache(200);
     y: number = 0;
     locStartCycle: number = 0;
@@ -215,8 +215,7 @@ export default class ClientPlayer extends ClientEntity {
     maxTileX: number = 0;
     maxTileZ: number = 0;
 
-    /*@__MANGLE_PROP__*/
-    read(buf: Packet): void {
+    setAppearance(buf: Packet): void {
         buf.pos = 0;
 
         this.gender = buf.g1();
@@ -233,7 +232,7 @@ export default class ClientPlayer extends ClientEntity {
 
         for (let part: number = 0; part < 5; part++) {
             let color: number = buf.g1();
-            if (color < 0 || color >= ClientPlayer.DESIGN_IDK_COLORS[part].length) {
+            if (color < 0 || color >= ClientPlayer.recol1d[part].length) {
                 color = 0;
             }
             this.colour[part] = color;
@@ -276,60 +275,60 @@ export default class ClientPlayer extends ClientEntity {
 
         this.name = JString.toScreenName(JString.toRawUsername(buf.g8()));
         this.combatLevel = buf.g1();
-        this.visible = true;
+        this.ready = true;
 
-        this.hash = 0n;
+        this.baseId = 0n;
         for (let part: number = 0; part < 12; part++) {
-            this.hash <<= 0x4n;
+            this.baseId <<= 0x4n;
             if (this.appearance[part] >= 256) {
-                this.hash += BigInt(this.appearance[part]) - 256n;
+                this.baseId += BigInt(this.appearance[part]) - 256n;
             }
         }
         if (this.appearance[0] >= 256) {
-            this.hash += (BigInt(this.appearance[0]) - 256n) >> 4n;
+            this.baseId += (BigInt(this.appearance[0]) - 256n) >> 4n;
         }
         if (this.appearance[1] >= 256) {
-            this.hash += (BigInt(this.appearance[1]) - 256n) >> 8n;
+            this.baseId += (BigInt(this.appearance[1]) - 256n) >> 8n;
         }
         for (let part: number = 0; part < 5; part++) {
-            this.hash <<= 0x3n;
-            this.hash += BigInt(this.colour[part]);
+            this.baseId <<= 0x3n;
+            this.baseId += BigInt(this.colour[part]);
         }
-        this.hash <<= 0x1n;
-        this.hash += BigInt(this.gender);
+        this.baseId <<= 0x1n;
+        this.baseId += BigInt(this.gender);
     }
 
-    override getModel(loopCycle: number): Model | null {
-        if (!this.visible) {
+    override getTempModel(loopCycle: number): Model | null {
+        if (!this.ready) {
             return null;
         }
 
-        let model: Model = this.getAnimatedModel();
+        let model: Model = this.getTempModel2();
         this.height = model.minY;
-        model.picking = true;
+        model.useAABBMouseCheck = true;
 
-        if (this.lowMemory) {
+        if (this.lowMem) {
             return model;
         }
 
         if (this.spotanimId !== -1 && this.spotanimFrame !== -1) {
             const spotanim: SpotType = SpotType.list[this.spotanimId];
-            const model2: Model = Model.modelShareColored(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
+            const model2: Model = Model.copyForAnim(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
 
             model2.translate(-this.spotanimHeight, 0, 0);
-            model2.createLabelReferences();
+            model2.prepareAnim();
             if (spotanim.seq && spotanim.seq.frames) {
-                model2.applyTransform(spotanim.seq.frames[this.spotanimFrame]);
+                model2.animate(spotanim.seq.frames[this.spotanimFrame]);
             }
             model2.labelFaces = null;
             model2.labelVertices = null;
             if (spotanim.resizeh !== 128 || spotanim.resizev !== 128) {
-                model2.scale(spotanim.resizeh, spotanim.resizev, spotanim.resizeh);
+                model2.resize(spotanim.resizeh, spotanim.resizev, spotanim.resizeh);
             }
             model2.calculateNormals(spotanim.ambient + 64, spotanim.contrast + 850, -30, -50, -30, true);
 
             const models: Model[] = [model, model2];
-            model = Model.modelFromModelsBounds(models, 2);
+            model = Model.combine(models, 2);
         }
 
         if (this.locModel) {
@@ -342,70 +341,70 @@ export default class ClientPlayer extends ClientEntity {
                 if (loc) {
                     loc.translate(this.locOffsetY - this.y, this.locOffsetX - this.x, this.locOffsetZ - this.z);
                     if (this.dstYaw === 512) {
-                        loc.rotateY90();
-                        loc.rotateY90();
-                        loc.rotateY90();
+                        loc.rotate90();
+                        loc.rotate90();
+                        loc.rotate90();
                     } else if (this.dstYaw === 1024) {
-                        loc.rotateY90();
-                        loc.rotateY90();
+                        loc.rotate90();
+                        loc.rotate90();
                     } else if (this.dstYaw === 1536) {
-                        loc.rotateY90();
+                        loc.rotate90();
                     }
 
                     const models: Model[] = [model, loc];
-                    model = Model.modelFromModelsBounds(models, 2);
+                    model = Model.combine(models, 2);
                     if (this.dstYaw === 512) {
-                        loc.rotateY90();
+                        loc.rotate90();
                     } else if (this.dstYaw === 1024) {
-                        loc.rotateY90();
-                        loc.rotateY90();
+                        loc.rotate90();
+                        loc.rotate90();
                     } else if (this.dstYaw === 1536) {
-                        loc.rotateY90();
-                        loc.rotateY90();
-                        loc.rotateY90();
+                        loc.rotate90();
+                        loc.rotate90();
+                        loc.rotate90();
                     }
                     loc.translate(this.y - this.locOffsetY, this.x - this.locOffsetX, this.z - this.locOffsetZ);
                 }
             }
         }
 
-        model.picking = true;
+        model.useAABBMouseCheck = true;
         return model;
     }
 
-    private getAnimatedModel(): Model {
-        let hashCode: bigint = this.hash;
+    private getTempModel2(): Model {
+        let hashCode: bigint = this.baseId;
         let primaryTransformId: number = -1;
         let secondaryTransformId: number = -1;
-        let rightHandValue: number = -1;
         let leftHandValue: number = -1;
+        let rightHandValue: number = -1;
 
-        if (this.primarySeqId >= 0 && this.primarySeqDelay === 0) {
-            const seq: SeqType = SeqType.list[this.primarySeqId];
+        if (this.primaryAnim >= 0 && this.primaryAnimDelay === 0) {
+            const seq: SeqType = SeqType.list[this.primaryAnim];
 
             if (seq.frames) {
-                primaryTransformId = seq.frames[this.primarySeqFrame];
+                primaryTransformId = seq.frames[this.primaryAnimFrame];
             }
-            if (this.secondarySeqId >= 0 && this.secondarySeqId !== this.readyanim) {
-                const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
+            if (this.secondaryAnim >= 0 && this.secondaryAnim !== this.readyanim) {
+                const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
                 if (secondFrames) {
-                    secondaryTransformId = secondFrames[this.secondarySeqFrame];
+                    secondaryTransformId = secondFrames[this.secondaryAnimFrame];
                 }
             }
 
             if (seq.replaceheldleft >= 0) {
-                rightHandValue = seq.replaceheldleft;
-                hashCode += BigInt(rightHandValue - this.appearance[5]) << 8n;
+                leftHandValue = seq.replaceheldleft;
+                hashCode += BigInt(leftHandValue - this.appearance[5]) << 8n;
             }
 
             if (seq.replaceheldright >= 0) {
-                leftHandValue = seq.replaceheldright;
-                hashCode += BigInt(leftHandValue - this.appearance[3]) << 16n;
+                rightHandValue = seq.replaceheldright;
+                hashCode += BigInt(rightHandValue - this.appearance[3]) << 16n;
             }
-        } else if (this.secondarySeqId >= 0) {
-            const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
+        } else if (this.secondaryAnim >= 0) {
+            const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
             if (secondFrames) {
-                primaryTransformId = secondFrames[this.secondarySeqFrame];
+                primaryTransformId = secondFrames[this.secondaryAnimFrame];
             }
         }
 
@@ -417,12 +416,12 @@ export default class ClientPlayer extends ClientEntity {
             for (let part: number = 0; part < 12; part++) {
                 let value: number = this.appearance[part];
 
-                if (leftHandValue >= 0 && part === 3) {
-                    value = leftHandValue;
+                if (rightHandValue >= 0 && part === 3) {
+                    value = rightHandValue;
                 }
 
-                if (rightHandValue >= 0 && part === 5) {
-                    value = rightHandValue;
+                if (leftHandValue >= 0 && part === 5) {
+                    value = leftHandValue;
                 }
 
                 if (value >= 256 && value < 512) {
@@ -441,41 +440,41 @@ export default class ClientPlayer extends ClientEntity {
                 }
             }
 
-            model = Model.modelFromModels(models, modelCount);
+            model = Model.combineForAnim(models, modelCount);
             for (let part: number = 0; part < 5; part++) {
                 if (this.colour[part] === 0) {
                     continue;
                 }
-                model.recolour(ClientPlayer.DESIGN_IDK_COLORS[part][0], ClientPlayer.DESIGN_IDK_COLORS[part][this.colour[part]]);
+                model.recolour(ClientPlayer.recol1d[part][0], ClientPlayer.recol1d[part][this.colour[part]]);
                 if (part === 1) {
-                    model.recolour(ClientPlayer.TORSO_RECOLORS[0], ClientPlayer.TORSO_RECOLORS[this.colour[part]]);
+                    model.recolour(ClientPlayer.recol2d[0], ClientPlayer.recol2d[this.colour[part]]);
                 }
             }
 
-            model.createLabelReferences();
+            model.prepareAnim();
             model.calculateNormals(64, 850, -30, -50, -30, true);
             ClientPlayer.modelCache?.put(hashCode, model);
         }
 
-        if (this.lowMemory) {
+        if (this.lowMem) {
             return model;
         }
 
-        const tmp: Model = Model.modelShareAlpha(model, true);
+        const tmp: Model = Model.set(model, true);
         if (primaryTransformId !== -1 && secondaryTransformId !== -1) {
-            tmp.applyTransforms(primaryTransformId, secondaryTransformId, SeqType.list[this.primarySeqId].walkmerge);
+            tmp.maskAnimate(primaryTransformId, secondaryTransformId, SeqType.list[this.primaryAnim].walkmerge);
         } else if (primaryTransformId !== -1) {
-            tmp.applyTransform(primaryTransformId);
+            tmp.animate(primaryTransformId);
         }
 
-        tmp.calculateBoundsCylinder();
+        tmp.calcBoundingCylinder();
         tmp.labelFaces = null;
         tmp.labelVertices = null;
         return tmp;
     }
 
     getHeadModel(): Model | null {
-        if (!this.visible) {
+        if (!this.ready) {
             return null;
         }
 
@@ -496,23 +495,23 @@ export default class ClientPlayer extends ClientEntity {
             }
         }
 
-        const tmp: Model = Model.modelFromModels(models, modelCount);
+        const tmp: Model = Model.combineForAnim(models, modelCount);
         for (let part: number = 0; part < 5; part++) {
             if (this.colour[part] === 0) {
                 continue;
             }
 
-            tmp.recolour(ClientPlayer.DESIGN_IDK_COLORS[part][0], ClientPlayer.DESIGN_IDK_COLORS[part][this.colour[part]]);
+            tmp.recolour(ClientPlayer.recol1d[part][0], ClientPlayer.recol1d[part][this.colour[part]]);
 
             if (part === 1) {
-                tmp.recolour(ClientPlayer.TORSO_RECOLORS[0], ClientPlayer.TORSO_RECOLORS[this.colour[part]]);
+                tmp.recolour(ClientPlayer.recol2d[0], ClientPlayer.recol2d[this.colour[part]]);
             }
         }
 
         return tmp;
     }
 
-    isVisible(): boolean {
-        return this.visible;
+    isReady(): boolean {
+        return this.ready;
     }
 }

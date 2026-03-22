@@ -8,7 +8,7 @@ export default class GroundObject {
     readonly middleObj: Model | null;
     readonly bottomObj: Model | null;
     readonly typecode: number;
-    readonly offset: number;
+    readonly height: number;
 
     constructor(y: number, x: number, z: number, topObj: Model | null, middleObj: Model | null, bottomObj: Model | null, typecode: number, offset: number) {
         this.y = y;
@@ -18,6 +18,6 @@ export default class GroundObject {
         this.middleObj = middleObj;
         this.bottomObj = bottomObj;
         this.typecode = typecode;
-        this.offset = offset;
+        this.height = offset;
     }
 }

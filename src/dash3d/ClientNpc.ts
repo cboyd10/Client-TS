@@ -8,82 +8,83 @@ import Model from '#/dash3d/Model.js';
 
 export const enum NpcUpdate {
     ANIM = 0x2,
-    FACE_ENTITY = 0x4,
+    FACEENTITY = 0x4,
     SAY = 0x8,
-    DAMAGE = 0x10,
-    CHANGE_TYPE = 0x20,
+    HITMARK = 0x10,
+    CHANGETYPE = 0x20,
     SPOTANIM = 0x40,
-    FACE_COORD = 0x80
+    FACESQUARE = 0x80
 }
 
 export default class ClientNpc extends ClientEntity {
     type: NpcType | null = null;
 
-    override getModel(_loopCycle: number): Model | null {
+    override getTempModel(_loopCycle: number): Model | null {
         if (this.type == null) {
             return null;
         }
 
         if (this.spotanimId === -1 || this.spotanimFrame === -1) {
-            return this.getAnimatedModel();
+            return this.getTempModel2();
         }
 
-        const model: Model | null = this.getAnimatedModel();
+        const model: Model | null = this.getTempModel2();
         if (!model) {
             return null;
         }
 
         const spotanim: SpotType = SpotType.list[this.spotanimId];
 
-        const model1: Model = Model.modelShareColored(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
+        const model1: Model = Model.copyForAnim(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
         model1.translate(-this.spotanimHeight, 0, 0);
-        model1.createLabelReferences();
+        model1.prepareAnim();
         if (spotanim.seq && spotanim.seq.frames) {
-            model1.applyTransform(spotanim.seq.frames[this.spotanimFrame]);
+            model1.animate(spotanim.seq.frames[this.spotanimFrame]);
         }
         model1.labelFaces = null;
         model1.labelVertices = null;
 
         if (spotanim.resizeh !== 128 || spotanim.resizev !== 128) {
-            model1.scale(spotanim.resizeh, spotanim.resizev, spotanim.resizeh);
+            model1.resize(spotanim.resizeh, spotanim.resizev, spotanim.resizeh);
         }
 
         model1.calculateNormals(64 + spotanim.ambient, 850 + spotanim.contrast, -30, -50, -30, true);
-        const models: Model[] = [model, model1];
 
-        const tmp: Model = Model.modelFromModelsBounds(models, 2);
+        const models: Model[] = [model, model1];
+        const tmp: Model = Model.combine(models, 2);
+
         if (this.type.size === 1) {
-            tmp.picking = true;
+            tmp.useAABBMouseCheck = true;
         }
 
         return tmp;
     }
 
-    private getAnimatedModel(): Model | null {
+    private getTempModel2(): Model | null {
         if (!this.type) {
             return null;
         }
 
-        if (this.primarySeqId >= 0 && this.primarySeqDelay === 0) {
-            const frames: Int16Array | null = SeqType.list[this.primarySeqId].frames;
+        if (this.primaryAnim >= 0 && this.primaryAnimDelay === 0) {
+            const frames: Int16Array | null = SeqType.list[this.primaryAnim].frames;
             if (frames) {
-                const primaryTransformId: number = frames[this.primarySeqFrame];
+                const primaryTransformId: number = frames[this.primaryAnimFrame];
                 let secondaryTransformId: number = -1;
-                if (this.secondarySeqId >= 0 && this.secondarySeqId !== this.readyanim) {
-                    const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
+                if (this.secondaryAnim >= 0 && this.secondaryAnim !== this.readyanim) {
+                    const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
                     if (secondFrames) {
-                        secondaryTransformId = secondFrames[this.secondarySeqFrame];
+                        secondaryTransformId = secondFrames[this.secondaryAnimFrame];
                     }
                 }
-                return this.type.getTempModel(primaryTransformId, secondaryTransformId, SeqType.list[this.primarySeqId].walkmerge);
+                return this.type.getTempModel(primaryTransformId, secondaryTransformId, SeqType.list[this.primaryAnim].walkmerge);
             }
         }
 
         let transformId: number = -1;
-        if (this.secondarySeqId >= 0) {
-            const secondFrames: Int16Array | null = SeqType.list[this.secondarySeqId].frames;
+        if (this.secondaryAnim >= 0) {
+            const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
             if (secondFrames) {
-                transformId = secondFrames[this.secondarySeqFrame];
+                transformId = secondFrames[this.secondaryAnimFrame];
             }
         }
 
@@ -96,7 +97,7 @@ export default class ClientNpc extends ClientEntity {
         return model;
     }
 
-    isVisible(): boolean {
+    isReady(): boolean {
         return this.type !== null;
     }
 }

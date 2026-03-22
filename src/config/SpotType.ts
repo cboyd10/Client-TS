@@ -90,7 +90,7 @@ export default class SpotType {
             }
         }
 
-        model = Model.get(this.model);
+        model = Model.load(this.model);
 
         for (let i: number = 0; i < 6; i++) {
             if (this.recol_s[0] !== 0) {

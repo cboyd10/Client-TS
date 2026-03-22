@@ -68,14 +68,14 @@ export default class IdkType {
 
         const models: (Model | null)[] = new TypedArray1d(this.model.length, null);
         for (let i: number = 0; i < this.model.length; i++) {
-            models[i] = Model.get(this.model[i]);
+            models[i] = Model.load(this.model[i]);
         }
 
         let model: Model | null;
         if (models.length === 1) {
             model = models[0];
         } else {
-            model = Model.modelFromModels(models, models.length);
+            model = Model.combineForAnim(models, models.length);
         }
 
         for (let i: number = 0; i < 6 && this.recol_s[i] !== 0; i++) {
@@ -91,11 +91,11 @@ export default class IdkType {
         const models: (Model | null)[] = new TypedArray1d(5, null);
         for (let i: number = 0; i < 5; i++) {
             if (this.head[i] !== -1) {
-                models[count++] = Model.get(this.head[i]);
+                models[count++] = Model.load(this.head[i]);
             }
         }
 
-        const model: Model = Model.modelFromModels(models, count);
+        const model: Model = Model.combineForAnim(models, count);
         for (let i: number = 0; i < 6 && this.recol_s[i] !== 0; i++) {
             model.recolour(this.recol_s[i], this.recol_d[i]);
         }

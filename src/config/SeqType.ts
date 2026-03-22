@@ -59,7 +59,7 @@ export default class SeqType {
 
                     this.delay[i] = dat.g2();
                     if (this.delay[i] === 0) {
-                        this.delay[i] = AnimFrame.instances[this.frames[i]].delay;
+                        this.delay[i] = AnimFrame.list[this.frames[i]].delay;
                     }
 
                     if (this.delay[i] === 0) {

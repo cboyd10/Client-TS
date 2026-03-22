@@ -17,14 +17,14 @@ import VarpType from '#/config/VarpType.js';
 import Component from '#/config/Component.js';
 import { ComponentType, ButtonType } from '#/config/Component.js';
 
-import CollisionMap, { CollisionConstants } from '#/dash3d/CollisionMap.js';
+import CollisionMap, { BuildArea } from '#/dash3d/CollisionMap.js';
 import { CollisionFlag } from '#/dash3d/CollisionFlag.js';
 import { DirectionFlag } from '#/dash3d/DirectionFlag.js';
 import { LocAngle } from '#/dash3d/LocAngle.js';
 import { LocLayer } from '#/dash3d/LocLayer.js';
-import LocShape from '#/dash3d/LocShape.js';
+import { LOC_SHAPE_TO_LAYER, LocShape } from '#/dash3d/LocShape.js';
+import ClientBuild from '#/client/ClientBuild.js';
 import World from '#/dash3d/World.js';
-import World3D from '#/dash3d/World3D.js';
 
 import ClientNpc, { NpcUpdate } from '#/dash3d/ClientNpc.js';
 import ClientPlayer, { PlayerUpdate } from '#/dash3d/ClientPlayer.js';
@@ -48,7 +48,7 @@ import AnimFrame from '#/dash3d/AnimFrame.js';
 import { canvas2d } from '#/graphics/Canvas.js';
 import { Colour } from '#/graphics/Colour.js';
 import Pix2D from '#/graphics/Pix2D.js';
-import Pix3D from '#/graphics/Pix3D.js';
+import Pix3D from '#/dash3d/Pix3D.js';
 import Model from '#/dash3d/Model.js';
 import Pix8 from '#/graphics/Pix8.js';
 import Pix32 from '#/graphics/Pix32.js';
@@ -342,7 +342,7 @@ export class Client extends GameShell {
     private activeMapFunctionZ: Int32Array = new Int32Array(1000);
 
     // scene
-    private scene: World3D | null = null;
+    private scene: World | null = null;
     private sceneState: number = 0;
     private sceneDelta: number = 0;
     private sceneCycle: number = 0;
@@ -388,7 +388,7 @@ export class Client extends GameShell {
     private scenePrevBaseTileX: number = 0;
     private scenePrevBaseTileZ: number = 0;
     private textureBuffer: Int8Array = new Int8Array(16384);
-    private levelCollisionMap: (CollisionMap | null)[] = new TypedArray1d(CollisionConstants.LEVELS, null);
+    private levelCollisionMap: (CollisionMap | null)[] = new TypedArray1d(BuildArea.LEVELS, null);
     private currentLevel: number = 0;
     private orbitCameraPitch: number = 128;
     private orbitCameraYaw: number = 0;
@@ -398,7 +398,7 @@ export class Client extends GameShell {
     private orbitCameraZ: number = 0;
     private levelHeightmap: Int32Array[][] | null = null;
     private levelTileFlags: Uint8Array[][] | null = null;
-    private tileLastOccupiedCycle: Int32Array[] = new Int32Array2d(CollisionConstants.SIZE, CollisionConstants.SIZE);
+    private tileLastOccupiedCycle: Int32Array[] = new Int32Array2d(BuildArea.SIZE, BuildArea.SIZE);
     private projectX: number = 0;
     private projectY: number = 0;
     private cameraMovedWrite: number = 0;
@@ -427,15 +427,15 @@ export class Client extends GameShell {
     private npcIds: Int32Array = new Int32Array(8192);
     private projectiles: LinkList<ClientProj> = new LinkList();
     private spotanims: LinkList<MapSpotAnim> = new LinkList();
-    private objStacks: (LinkList<ClientObj> | null)[][][] = new TypedArray3d(CollisionConstants.LEVELS, CollisionConstants.SIZE, CollisionConstants.SIZE, null);
+    private objStacks: (LinkList<ClientObj> | null)[][][] = new TypedArray3d(BuildArea.LEVELS, BuildArea.SIZE, BuildArea.SIZE, null);
     private locChanges: LinkList<LocChange> = new LinkList();
     private locList: LinkList<ClientLocAnim> = new LinkList();
 
     // bfs pathfinder
     private bfsStepX: Int32Array = new Int32Array(4000);
     private bfsStepZ: Int32Array = new Int32Array(4000);
-    private bfsDirection: Int32Array = new Int32Array(CollisionConstants.SIZE * CollisionConstants.SIZE);
-    private bfsCost: Int32Array = new Int32Array(CollisionConstants.SIZE * CollisionConstants.SIZE);
+    private bfsDirection: Int32Array = new Int32Array(BuildArea.SIZE * BuildArea.SIZE);
+    private bfsCost: Int32Array = new Int32Array(BuildArea.SIZE * BuildArea.SIZE);
     private tryMoveNearest: number = 0;
 
     // player
@@ -528,17 +528,17 @@ export class Client extends GameShell {
     }
 
     static setLowMemory(): void {
-        World3D.lowMemory = true;
-        Pix3D.lowMemory = true;
-        Client.lowMemory = true;
         World.lowMemory = true;
+        Pix3D.lowMem = true;
+        Client.lowMemory = true;
+        ClientBuild.lowMem = true;
     }
 
     static setHighMemory(): void {
-        World3D.lowMemory = false;
-        Pix3D.lowMemory = false;
-        Client.lowMemory = false;
         World.lowMemory = false;
+        Pix3D.lowMem = false;
+        Client.lowMemory = false;
+        ClientBuild.lowMem = false;
     }
 
     private async saveMidi(name: string, crc: number, length: number, fade: boolean): Promise<void> {
@@ -627,10 +627,10 @@ export class Client extends GameShell {
             const jagWordenc: JagFile = await this.getJagFile('wordenc', 'chat system', this.jagChecksum[7], 65);
             const jagSounds: JagFile = await this.getJagFile('sounds', 'sound effects', this.jagChecksum[8], 70);
 
-            this.levelTileFlags = new Uint8Array3d(CollisionConstants.LEVELS, CollisionConstants.SIZE, CollisionConstants.SIZE);
-            this.levelHeightmap = new Int32Array3d(CollisionConstants.LEVELS, CollisionConstants.SIZE + 1, CollisionConstants.SIZE + 1);
-            this.scene = new World3D(this.levelHeightmap, CollisionConstants.SIZE, CollisionConstants.LEVELS, CollisionConstants.SIZE);
-            for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
+            this.levelTileFlags = new Uint8Array3d(BuildArea.LEVELS, BuildArea.SIZE, BuildArea.SIZE);
+            this.levelHeightmap = new Int32Array3d(BuildArea.LEVELS, BuildArea.SIZE + 1, BuildArea.SIZE + 1);
+            this.scene = new World(this.levelHeightmap, BuildArea.SIZE, BuildArea.LEVELS, BuildArea.SIZE);
+            for (let level: number = 0; level < BuildArea.LEVELS; level++) {
                 this.levelCollisionMap[level] = new CollisionMap();
             }
             this.imageMinimap = new Pix32(512, 512);
@@ -792,9 +792,9 @@ export class Client extends GameShell {
 
             await this.drawProgress(83, 'Unpacking models');
 
-            Model.unpack(jagModels);
-            AnimBase.unpack(jagModels);
-            AnimFrame.unpack(jagModels);
+            Model.init(jagModels);
+            AnimBase.init(jagModels);
+            AnimFrame.init(jagModels);
 
             await this.drawProgress(86, 'Unpacking config');
 
@@ -856,14 +856,14 @@ export class Client extends GameShell {
                 this.minimapMaskLineLengths[y - 9] = right - left;
             }
 
-            Pix3D.init3D(479, 96);
-            this.areaChatbackOffsets = Pix3D.lineOffset;
+            Pix3D.setClipping(479, 96);
+            this.areaChatbackOffsets = Pix3D.scanline;
 
-            Pix3D.init3D(190, 261);
-            this.areaSidebarOffsets = Pix3D.lineOffset;
+            Pix3D.setClipping(190, 261);
+            this.areaSidebarOffsets = Pix3D.scanline;
 
-            Pix3D.init3D(512, 334);
-            this.areaViewportOffsets = Pix3D.lineOffset;
+            Pix3D.setClipping(512, 334);
+            this.areaViewportOffsets = Pix3D.scanline;
 
             const distance: Int32Array = new Int32Array(9);
             for (let x: number = 0; x < 9; x++) {
@@ -873,7 +873,7 @@ export class Client extends GameShell {
                 distance[x] = (offset * sin) >> 16;
             }
 
-            World3D.init(512, 334, 500, 800, distance);
+            World.resetVisCalc(512, 334, 500, 800, distance);
             WordFilter.unpack(jagWordenc);
 
             this.initializeLevelExperience();
@@ -1297,9 +1297,9 @@ export class Client extends GameShell {
                 this.projectiles.clear();
                 this.spotanims.clear();
 
-                for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
-                    for (let x: number = 0; x < CollisionConstants.SIZE; x++) {
-                        for (let z: number = 0; z < CollisionConstants.SIZE; z++) {
+                for (let level: number = 0; level < BuildArea.LEVELS; level++) {
+                    for (let x: number = 0; x < BuildArea.SIZE; x++) {
+                        for (let z: number = 0; z < BuildArea.SIZE; z++) {
                             this.objStacks[level][x][z] = null;
                         }
                     }
@@ -1414,9 +1414,9 @@ export class Client extends GameShell {
 
         InputTracking.setDisabled();
         this.clearCache();
-        this.scene?.reset();
+        this.scene?.resetMap();
 
-        for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
+        for (let level: number = 0; level < BuildArea.LEVELS; level++) {
             this.levelCollisionMap[level]?.reset();
         }
 
@@ -1603,12 +1603,12 @@ export class Client extends GameShell {
                 this.out.p3(4991788);
             }
 
-            if (World3D.clickTileX !== -1) {
+            if (World.groundX !== -1) {
                 if (this.localPlayer) {
-                    const x: number = World3D.clickTileX;
-                    const z: number = World3D.clickTileZ;
-                    const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], x, z, 0, 0, 0, 0, 0, 0, true);
-                    World3D.clickTileX = -1;
+                    const x: number = World.groundX;
+                    const z: number = World.groundZ;
+                    const success: boolean = this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], x, z, 0, 0, 0, 0, 0, 0, true);
+                    World.groundX = -1;
 
                     if (success) {
                         this.crossX = this.mouseClickX;
@@ -1776,7 +1776,7 @@ export class Client extends GameShell {
     }
 
     private updateSceneState(): void {
-        if (Client.lowMemory && this.sceneState === 2 && World.levelBuilt !== this.currentLevel) {
+        if (Client.lowMemory && this.sceneState === 2 && ClientBuild.minusedlevel !== this.currentLevel) {
             this.areaViewport?.setPixels();
             this.fontPlain12?.centreString(257, 151, 'Loading - please wait.', Colour.BLACK);
             this.fontPlain12?.centreString(256, 150, 'Loading - please wait.', Colour.WHITE);
@@ -1814,7 +1814,7 @@ export class Client extends GameShell {
         }
 
         this.sceneState = 2;
-        World.levelBuilt = this.currentLevel;
+        ClientBuild.minusedlevel = this.currentLevel;
         this.buildScene();
         return 0;
     }
@@ -1827,14 +1827,14 @@ export class Client extends GameShell {
             this.projectiles.clear();
             Pix3D.clearTexels();
             this.clearCache();
-            this.scene?.reset();
+            this.scene?.resetMap();
 
-            for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
+            for (let level: number = 0; level < BuildArea.LEVELS; level++) {
                 this.levelCollisionMap[level]?.reset();
             }
 
-            const world: World = new World(CollisionConstants.SIZE, CollisionConstants.SIZE, this.levelHeightmap!, this.levelTileFlags!);
-            World.lowMemory = World3D.lowMemory;
+            const world: ClientBuild = new ClientBuild(BuildArea.SIZE, BuildArea.SIZE, this.levelHeightmap!, this.levelTileFlags!);
+            ClientBuild.lowMem = World.lowMemory;
 
             const maps: number = this.sceneMapLandData?.length ?? 0;
 
@@ -1845,16 +1845,16 @@ export class Client extends GameShell {
 
                     // underground pass check
                     if (x === 33 && z >= 71 && z <= 73) {
-                        World.lowMemory = false;
+                        ClientBuild.lowMem = false;
                         break;
                     }
                 }
             }
 
             if (Client.lowMemory) {
-                this.scene?.setMinLevel(this.currentLevel);
+                this.scene?.fillBaseLevel(this.currentLevel);
             } else {
-                this.scene?.setMinLevel(0);
+                this.scene?.fillBaseLevel(0);
             }
 
             if (this.sceneMapIndex && this.sceneMapLandData) {
@@ -1891,23 +1891,23 @@ export class Client extends GameShell {
 
             this.out.p1Enc(ClientProt.NO_TIMEOUT);
 
-            world.build(this.scene, this.levelCollisionMap);
+            world.finishBuild(this.scene, this.levelCollisionMap);
             this.areaViewport?.setPixels();
 
             this.out.p1Enc(ClientProt.NO_TIMEOUT);
 
             for (let loc: ClientLocAnim | null = this.locList.head() as ClientLocAnim | null; loc; loc = this.locList.next() as ClientLocAnim | null) {
-                if ((this.levelTileFlags && this.levelTileFlags[1][loc.heightmapNE][loc.heightmapNW] & 0x2) === 2) {
-                    loc.heightmapSW--;
+                if ((this.levelTileFlags && this.levelTileFlags[1][loc.heightNE][loc.heightNW] & 0x2) === 2) {
+                    loc.heightSW--;
 
-                    if (loc.heightmapSW < 0) {
+                    if (loc.heightSW < 0) {
                         loc.unlink();
                     }
                 }
             }
 
-            for (let x: number = 0; x < CollisionConstants.SIZE; x++) {
-                for (let z: number = 0; z < CollisionConstants.SIZE; z++) {
+            for (let x: number = 0; x < BuildArea.SIZE; x++) {
+                for (let z: number = 0; z < BuildArea.SIZE; z++) {
                     this.sortObjStacks(x, z);
                 }
             }
@@ -1943,16 +1943,16 @@ export class Client extends GameShell {
             pixels[i] = 0;
         }
 
-        for (let z: number = 1; z < CollisionConstants.SIZE - 1; z++) {
-            let offset: number = (CollisionConstants.SIZE - 1 - z) * 512 * 4 + 24628;
+        for (let z: number = 1; z < BuildArea.SIZE - 1; z++) {
+            let offset: number = (BuildArea.SIZE - 1 - z) * 512 * 4 + 24628;
 
-            for (let x: number = 1; x < CollisionConstants.SIZE - 1; x++) {
+            for (let x: number = 1; x < BuildArea.SIZE - 1; x++) {
                 if (this.levelTileFlags && (this.levelTileFlags[level][x][z] & 0x18) === 0) {
-                    this.scene?.drawMinimapTile(level, x, z, pixels, offset, 512);
+                    this.scene?.render2DGround(level, x, z, pixels, offset, 512);
                 }
 
                 if (level < 3 && this.levelTileFlags && (this.levelTileFlags[level + 1][x][z] & 0x8) !== 0) {
-                    this.scene?.drawMinimapTile(level + 1, x, z, pixels, offset, 512);
+                    this.scene?.render2DGround(level + 1, x, z, pixels, offset, 512);
                 }
 
                 offset += 4;
@@ -1964,8 +1964,8 @@ export class Client extends GameShell {
 
         this.imageMinimap.setPixels();
 
-        for (let z: number = 1; z < CollisionConstants.SIZE - 1; z++) {
-            for (let x: number = 1; x < CollisionConstants.SIZE - 1; x++) {
+        for (let z: number = 1; z < BuildArea.SIZE - 1; z++) {
+            for (let x: number = 1; x < BuildArea.SIZE - 1; x++) {
                 if (this.levelTileFlags && (this.levelTileFlags[level][x][z] & 0x18) === 0) {
                     this.drawMinimapLoc(x, z, level, wallRgb, doorRgb);
                 }
@@ -1980,9 +1980,9 @@ export class Client extends GameShell {
 
         this.activeMapFunctionCount = 0;
 
-        for (let x: number = 0; x < CollisionConstants.SIZE; x++) {
-            for (let z: number = 0; z < CollisionConstants.SIZE; z++) {
-                let typecode: number = this.scene?.getGroundDecorTypecode(this.currentLevel, x, z) ?? 0;
+        for (let x: number = 0; x < BuildArea.SIZE; x++) {
+            for (let z: number = 0; z < BuildArea.SIZE; z++) {
+                let typecode: number = this.scene?.gdType(this.currentLevel, x, z) ?? 0;
                 if (typecode === 0) {
                     continue;
                 }
@@ -1997,8 +1997,8 @@ export class Client extends GameShell {
                 let stz: number = z;
 
                 if (func !== 22 && func !== 29 && func !== 34 && func !== 36 && func !== 46 && func !== 47 && func !== 48) {
-                    const maxX: number = CollisionConstants.SIZE;
-                    const maxZ: number = CollisionConstants.SIZE;
+                    const maxX: number = BuildArea.SIZE;
+                    const maxZ: number = BuildArea.SIZE;
                     const collisionmap: CollisionMap | null = this.levelCollisionMap[this.currentLevel];
 
                     if (collisionmap) {
@@ -2006,19 +2006,19 @@ export class Client extends GameShell {
 
                         for (let i: number = 0; i < 10; i++) {
                             const rand: number = (Math.random() * 4.0) | 0;
-                            if (rand === 0 && stx > 0 && stx > x - 3 && (flags[CollisionMap.index(stx - 1, stz)] & CollisionFlag.BLOCK_WEST) === CollisionFlag.OPEN) {
+                            if (rand === 0 && stx > 0 && stx > x - 3 && (flags[CollisionMap.index(stx - 1, stz)] & CollisionFlag.PL_WALK_E) === CollisionFlag._OPEN) {
                                 stx--;
                             }
 
-                            if (rand === 1 && stx < maxX - 1 && stx < x + 3 && (flags[CollisionMap.index(stx + 1, stz)] & CollisionFlag.BLOCK_EAST) === CollisionFlag.OPEN) {
+                            if (rand === 1 && stx < maxX - 1 && stx < x + 3 && (flags[CollisionMap.index(stx + 1, stz)] & CollisionFlag.PL_WALK_W) === CollisionFlag._OPEN) {
                                 stx++;
                             }
 
-                            if (rand === 2 && stz > 0 && stz > z - 3 && (flags[CollisionMap.index(stx, stz - 1)] & CollisionFlag.BLOCK_SOUTH) === CollisionFlag.OPEN) {
+                            if (rand === 2 && stz > 0 && stz > z - 3 && (flags[CollisionMap.index(stx, stz - 1)] & CollisionFlag.PL_WALK_N) === CollisionFlag._OPEN) {
                                 stz--;
                             }
 
-                            if (rand === 3 && stz < maxZ - 1 && stz < z + 3 && (flags[CollisionMap.index(stx, stz + 1)] & CollisionFlag.BLOCK_NORTH) === CollisionFlag.OPEN) {
+                            if (rand === 3 && stz < maxZ - 1 && stz < z + 3 && (flags[CollisionMap.index(stx, stz + 1)] & CollisionFlag.PL_WALK_S) === CollisionFlag._OPEN) {
                                 stz++;
                             }
                         }
@@ -2335,7 +2335,7 @@ export class Client extends GameShell {
 
         let lastTypecode: number = -1;
         for (let picked: number = 0; picked < Model.pickedCount; picked++) {
-            const typecode: number = Model.pickedBitsets[picked];
+            const typecode: number = Model.pickedEntityTypecode[picked];
             const x: number = typecode & 0x7f;
             const z: number = (typecode >> 7) & 0x7f;
             const entityType: number = (typecode >> 29) & 0x3;
@@ -2347,7 +2347,7 @@ export class Client extends GameShell {
 
             lastTypecode = typecode;
 
-            if (entityType === 2 && this.scene && this.scene.getInfo(this.currentLevel, x, z, typecode) >= 0) {
+            if (entityType === 2 && this.scene && this.scene.typeCode2(this.currentLevel, x, z, typecode) >= 0) {
                 const loc: LocType = LocType.list(typeId);
 
                 if (this.objSelected === 1) {
@@ -2444,11 +2444,11 @@ export class Client extends GameShell {
                 }
 
                 for (let obj: ClientObj | null = objs.tail() as ClientObj | null; obj; obj = objs.prev() as ClientObj | null) {
-                    const type: ObjType = ObjType.list(obj.index);
+                    const type: ObjType = ObjType.list(obj.id);
                     if (this.objSelected === 1) {
                         this.menuOption[this.menuSize] = 'Use ' + this.objSelectedName + ' with @lre@' + type.name;
                         this.menuAction[this.menuSize] = 217;
-                        this.menuParamA[this.menuSize] = obj.index;
+                        this.menuParamA[this.menuSize] = obj.id;
                         this.menuParamB[this.menuSize] = x;
                         this.menuParamC[this.menuSize] = z;
                         this.menuSize++;
@@ -2469,14 +2469,14 @@ export class Client extends GameShell {
                                     this.menuAction[this.menuSize] = 877;
                                 }
 
-                                this.menuParamA[this.menuSize] = obj.index;
+                                this.menuParamA[this.menuSize] = obj.id;
                                 this.menuParamB[this.menuSize] = x;
                                 this.menuParamC[this.menuSize] = z;
                                 this.menuSize++;
                             } else if (op === 2) {
                                 this.menuOption[this.menuSize] = 'Take @lre@' + type.name;
                                 this.menuAction[this.menuSize] = 99;
-                                this.menuParamA[this.menuSize] = obj.index;
+                                this.menuParamA[this.menuSize] = obj.id;
                                 this.menuParamB[this.menuSize] = x;
                                 this.menuParamC[this.menuSize] = z;
                                 this.menuSize++;
@@ -2485,14 +2485,14 @@ export class Client extends GameShell {
 
                         this.menuOption[this.menuSize] = 'Examine @lre@' + type.name;
                         this.menuAction[this.menuSize] = 1102;
-                        this.menuParamA[this.menuSize] = obj.index;
+                        this.menuParamA[this.menuSize] = obj.id;
                         this.menuParamB[this.menuSize] = x;
                         this.menuParamC[this.menuSize] = z;
                         this.menuSize++;
                     } else if ((this.activeSpellFlags & 0x1) === 1) {
                         this.menuOption[this.menuSize] = this.spellCaption + ' @lre@' + type.name;
                         this.menuAction[this.menuSize] = 965;
-                        this.menuParamA[this.menuSize] = obj.index;
+                        this.menuParamA[this.menuSize] = obj.id;
                         this.menuParamB[this.menuSize] = x;
                         this.menuParamC[this.menuSize] = z;
                         this.menuSize++;
@@ -2655,7 +2655,7 @@ export class Client extends GameShell {
         const tileX: number = (this.localPlayer.x + relX) >> 7;
         const tileZ: number = (this.localPlayer.z - relY) >> 7;
 
-        if (this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], tileX, tileZ, 1, 0, 0, 0, 0, 0, true)) {
+        if (this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], tileX, tileZ, 1, 0, 0, 0, 0, 0, true)) {
             // the additional 14-bytes in MOVE_MINIMAPCLICK
             this.out.p1(x);
             this.out.p1(y);
@@ -3327,28 +3327,28 @@ export class Client extends GameShell {
 
     private updateEntity(e: ClientEntity): void {
         if (e.x < 128 || e.z < 128 || e.x >= 13184 || e.z >= 13184) {
-            e.primarySeqId = -1;
+            e.primaryAnim = -1;
             e.spotanimId = -1;
-            e.forceMoveEndCycle = 0;
-            e.forceMoveStartCycle = 0;
-            e.x = e.routeTileX[0] * 128 + e.size * 64;
-            e.z = e.routeTileZ[0] * 128 + e.size * 64;
+            e.exactMoveEnd = 0;
+            e.exactMoveStart = 0;
+            e.x = e.routeX[0] * 128 + e.size * 64;
+            e.z = e.routeZ[0] * 128 + e.size * 64;
             e.routeLength = 0;
         }
 
         if (e === this.localPlayer && (e.x < 1536 || e.z < 1536 || e.x >= 11776 || e.z >= 11776)) {
-            e.primarySeqId = -1;
+            e.primaryAnim = -1;
             e.spotanimId = -1;
-            e.forceMoveEndCycle = 0;
-            e.forceMoveStartCycle = 0;
-            e.x = e.routeTileX[0] * 128 + e.size * 64;
-            e.z = e.routeTileZ[0] * 128 + e.size * 64;
+            e.exactMoveEnd = 0;
+            e.exactMoveStart = 0;
+            e.x = e.routeX[0] * 128 + e.size * 64;
+            e.z = e.routeZ[0] * 128 + e.size * 64;
             e.routeLength = 0;
         }
 
-        if (e.forceMoveEndCycle > this.loopCycle) {
+        if (e.exactMoveEnd > this.loopCycle) {
             this.updateForceMovement(e);
-        } else if (e.forceMoveStartCycle >= this.loopCycle) {
+        } else if (e.exactMoveStart >= this.loopCycle) {
             this.startForceMovement(e);
         } else {
             this.updateMovement(e);
@@ -3359,47 +3359,47 @@ export class Client extends GameShell {
     }
 
     private updateForceMovement(e: ClientEntity): void {
-        const delta: number = e.forceMoveEndCycle - this.loopCycle;
-        const dstX: number = e.forceMoveStartSceneTileX * 128 + e.size * 64;
-        const dstZ: number = e.forceMoveStartSceneTileZ * 128 + e.size * 64;
+        const delta: number = e.exactMoveEnd - this.loopCycle;
+        const dstX: number = e.exactStartX * 128 + e.size * 64;
+        const dstZ: number = e.exactStartZ * 128 + e.size * 64;
 
         e.x += ((dstX - e.x) / delta) | 0;
         e.z += ((dstZ - e.z) / delta) | 0;
 
-        e.seqDelayMove = 0;
+        e.animDelayMove = 0;
 
-        if (e.forceMoveFaceDirection === 0) {
+        if (e.exactMoveFacing === 0) {
             e.dstYaw = 1024;
-        } else if (e.forceMoveFaceDirection === 1) {
+        } else if (e.exactMoveFacing === 1) {
             e.dstYaw = 1536;
-        } else if (e.forceMoveFaceDirection === 2) {
+        } else if (e.exactMoveFacing === 2) {
             e.dstYaw = 0;
-        } else if (e.forceMoveFaceDirection === 3) {
+        } else if (e.exactMoveFacing === 3) {
             e.dstYaw = 512;
         }
     }
 
     private startForceMovement(e: ClientEntity): void {
-        if (e.forceMoveStartCycle === this.loopCycle || e.primarySeqId === -1 || e.primarySeqDelay !== 0 || e.primarySeqCycle + 1 > SeqType.list[e.primarySeqId].delay![e.primarySeqFrame]) {
-            const duration: number = e.forceMoveStartCycle - e.forceMoveEndCycle;
-            const delta: number = this.loopCycle - e.forceMoveEndCycle;
-            const dx0: number = e.forceMoveStartSceneTileX * 128 + e.size * 64;
-            const dz0: number = e.forceMoveStartSceneTileZ * 128 + e.size * 64;
-            const dx1: number = e.forceMoveEndSceneTileX * 128 + e.size * 64;
-            const dz1: number = e.forceMoveEndSceneTileZ * 128 + e.size * 64;
+        if (e.exactMoveStart === this.loopCycle || e.primaryAnim === -1 || e.primaryAnimDelay !== 0 || e.primaryAnimCycle + 1 > SeqType.list[e.primaryAnim].delay![e.primaryAnimFrame]) {
+            const duration: number = e.exactMoveStart - e.exactMoveEnd;
+            const delta: number = this.loopCycle - e.exactMoveEnd;
+            const dx0: number = e.exactStartX * 128 + e.size * 64;
+            const dz0: number = e.exactStartZ * 128 + e.size * 64;
+            const dx1: number = e.exactEndX * 128 + e.size * 64;
+            const dz1: number = e.exactEndZ * 128 + e.size * 64;
             e.x = ((dx0 * (duration - delta) + dx1 * delta) / duration) | 0;
             e.z = ((dz0 * (duration - delta) + dz1 * delta) / duration) | 0;
         }
 
-        e.seqDelayMove = 0;
+        e.animDelayMove = 0;
 
-        if (e.forceMoveFaceDirection === 0) {
+        if (e.exactMoveFacing === 0) {
             e.dstYaw = 1024;
-        } else if (e.forceMoveFaceDirection === 1) {
+        } else if (e.exactMoveFacing === 1) {
             e.dstYaw = 1536;
-        } else if (e.forceMoveFaceDirection === 2) {
+        } else if (e.exactMoveFacing === 2) {
             e.dstYaw = 0;
-        } else if (e.forceMoveFaceDirection === 3) {
+        } else if (e.exactMoveFacing === 3) {
             e.dstYaw = 512;
         }
 
@@ -3407,25 +3407,25 @@ export class Client extends GameShell {
     }
 
     private updateMovement(e: ClientEntity): void {
-        e.secondarySeqId = e.readyanim;
+        e.secondaryAnim = e.readyanim;
 
         if (e.routeLength === 0) {
-            e.seqDelayMove = 0;
+            e.animDelayMove = 0;
             return;
         }
 
-        if (e.primarySeqId !== -1 && e.primarySeqDelay === 0) {
-            const seq: SeqType = SeqType.list[e.primarySeqId];
+        if (e.primaryAnim !== -1 && e.primaryAnimDelay === 0) {
+            const seq: SeqType = SeqType.list[e.primaryAnim];
             if (!seq.walkmerge) {
-                e.seqDelayMove++;
+                e.animDelayMove++;
                 return;
             }
         }
 
         const x: number = e.x;
         const z: number = e.z;
-        const dstX: number = e.routeTileX[e.routeLength - 1] * 128 + e.size * 64;
-        const dstZ: number = e.routeTileZ[e.routeLength - 1] * 128 + e.size * 64;
+        const dstX: number = e.routeX[e.routeLength - 1] * 128 + e.size * 64;
+        const dstZ: number = e.routeZ[e.routeLength - 1] * 128 + e.size * 64;
 
         if (dstX - x > 256 || dstX - x < -256 || dstZ - z > 256 || dstZ - z < -256) {
             e.x = dstX;
@@ -3473,10 +3473,10 @@ export class Client extends GameShell {
             seqId = e.walkanim;
         }
 
-        e.secondarySeqId = seqId;
+        e.secondaryAnim = seqId;
 
         let moveSpeed: number = 4;
-        if (e.yaw !== e.dstYaw && e.targetId === -1) {
+        if (e.yaw !== e.dstYaw && e.faceEntity === -1) {
             moveSpeed = 2;
         }
 
@@ -3488,17 +3488,17 @@ export class Client extends GameShell {
             moveSpeed = 8;
         }
 
-        if (e.seqDelayMove > 0 && e.routeLength > 1) {
+        if (e.animDelayMove > 0 && e.routeLength > 1) {
             moveSpeed = 8;
-            e.seqDelayMove--;
+            e.animDelayMove--;
         }
 
         if (e.routeRun[e.routeLength - 1]) {
             moveSpeed <<= 0x1;
         }
 
-        if (moveSpeed >= 8 && e.secondarySeqId === e.walkanim && e.runanim !== -1) {
-            e.secondarySeqId = e.runanim;
+        if (moveSpeed >= 8 && e.secondaryAnim === e.walkanim && e.runanim !== -1) {
+            e.secondaryAnim = e.runanim;
         }
 
         if (x < dstX) {
@@ -3530,8 +3530,8 @@ export class Client extends GameShell {
     }
 
     private updateFacingDirection(e: ClientEntity): void {
-        if (e.targetId !== -1 && e.targetId < 32768) {
-            const npc: ClientNpc | null = this.npcs[e.targetId];
+        if (e.faceEntity !== -1 && e.faceEntity < 32768) {
+            const npc: ClientNpc | null = this.npcs[e.faceEntity];
             if (npc) {
                 const dstX: number = e.x - npc.x;
                 const dstZ: number = e.z - npc.z;
@@ -3542,8 +3542,8 @@ export class Client extends GameShell {
             }
         }
 
-        if (e.targetId >= 32768) {
-            let index: number = e.targetId - 32768;
+        if (e.faceEntity >= 32768) {
+            let index: number = e.faceEntity - 32768;
             if (index === this.localPid) {
                 index = Constants.LOCAL_PLAYER_INDEX;
             }
@@ -3559,16 +3559,16 @@ export class Client extends GameShell {
             }
         }
 
-        if ((e.targetTileX !== 0 || e.targetTileZ !== 0) && (e.routeLength === 0 || e.seqDelayMove > 0)) {
-            const dstX: number = e.x - (e.targetTileX - this.sceneBaseTileX - this.sceneBaseTileX) * 64;
-            const dstZ: number = e.z - (e.targetTileZ - this.sceneBaseTileZ - this.sceneBaseTileZ) * 64;
+        if ((e.faceSquareX !== 0 || e.faceSquareZ !== 0) && (e.routeLength === 0 || e.animDelayMove > 0)) {
+            const dstX: number = e.x - (e.faceSquareX - this.sceneBaseTileX - this.sceneBaseTileX) * 64;
+            const dstZ: number = e.z - (e.faceSquareZ - this.sceneBaseTileZ - this.sceneBaseTileZ) * 64;
 
             if (dstX !== 0 || dstZ !== 0) {
                 e.dstYaw = ((Math.atan2(dstX, dstZ) * 325.949) | 0) & 0x7ff;
             }
 
-            e.targetTileX = 0;
-            e.targetTileZ = 0;
+            e.faceSquareX = 0;
+            e.faceSquareZ = 0;
         }
 
         const remainingYaw: number = (e.dstYaw - e.yaw) & 0x7ff;
@@ -3583,11 +3583,11 @@ export class Client extends GameShell {
 
             e.yaw &= 0x7ff;
 
-            if (e.secondarySeqId === e.readyanim && e.yaw !== e.dstYaw) {
+            if (e.secondaryAnim === e.readyanim && e.yaw !== e.dstYaw) {
                 if (e.turnanim != -1) {
-                    e.secondarySeqId = e.turnanim;
+                    e.secondaryAnim = e.turnanim;
                 } else {
-                    e.secondarySeqId = e.walkanim;
+                    e.secondaryAnim = e.walkanim;
                 }
             }
         }
@@ -3597,48 +3597,48 @@ export class Client extends GameShell {
         e.needsForwardDrawPadding = false;
 
         let seq: SeqType | null;
-        if (e.secondarySeqId !== -1) {
-            seq = SeqType.list[e.secondarySeqId];
-            e.secondarySeqCycle++;
+        if (e.secondaryAnim !== -1) {
+            seq = SeqType.list[e.secondaryAnim];
+            e.secondaryAnimCycle++;
 
-            if (seq.delay && e.secondarySeqFrame < seq.numFrames && e.secondarySeqCycle > seq.delay[e.secondarySeqFrame]) {
-                e.secondarySeqCycle = 0;
-                e.secondarySeqFrame++;
+            if (seq.delay && e.secondaryAnimFrame < seq.numFrames && e.secondaryAnimCycle > seq.delay[e.secondaryAnimFrame]) {
+                e.secondaryAnimCycle = 0;
+                e.secondaryAnimFrame++;
             }
 
-            if (e.secondarySeqFrame >= seq.numFrames) {
-                e.secondarySeqCycle = 0;
-                e.secondarySeqFrame = 0;
+            if (e.secondaryAnimFrame >= seq.numFrames) {
+                e.secondaryAnimCycle = 0;
+                e.secondaryAnimFrame = 0;
             }
         }
 
-        if (e.primarySeqId !== -1 && e.primarySeqDelay === 0) {
-            seq = SeqType.list[e.primarySeqId];
-            e.primarySeqCycle++;
+        if (e.primaryAnim !== -1 && e.primaryAnimDelay === 0) {
+            seq = SeqType.list[e.primaryAnim];
+            e.primaryAnimCycle++;
 
-            while (seq.delay && e.primarySeqFrame < seq.numFrames && e.primarySeqCycle > seq.delay[e.primarySeqFrame]) {
-                e.primarySeqCycle -= seq.delay[e.primarySeqFrame];
-                e.primarySeqFrame++;
+            while (seq.delay && e.primaryAnimFrame < seq.numFrames && e.primaryAnimCycle > seq.delay[e.primaryAnimFrame]) {
+                e.primaryAnimCycle -= seq.delay[e.primaryAnimFrame];
+                e.primaryAnimFrame++;
             }
 
-            if (e.primarySeqFrame >= seq.numFrames) {
-                e.primarySeqFrame -= seq.loops;
-                e.primarySeqLoop++;
+            if (e.primaryAnimFrame >= seq.numFrames) {
+                e.primaryAnimFrame -= seq.loops;
+                e.primaryAnimLoop++;
 
-                if (e.primarySeqLoop >= seq.maxloops) {
-                    e.primarySeqId = -1;
+                if (e.primaryAnimLoop >= seq.maxloops) {
+                    e.primaryAnim = -1;
                 }
 
-                if (e.primarySeqFrame < 0 || e.primarySeqFrame >= seq.numFrames) {
-                    e.primarySeqId = -1;
+                if (e.primaryAnimFrame < 0 || e.primaryAnimFrame >= seq.numFrames) {
+                    e.primaryAnim = -1;
                 }
             }
 
             e.needsForwardDrawPadding = seq.reachforward;
         }
 
-        if (e.primarySeqDelay > 0) {
-            e.primarySeqDelay--;
+        if (e.primaryAnimDelay > 0) {
+            e.primaryAnimDelay--;
         }
 
         if (e.spotanimId !== -1 && this.loopCycle >= e.spotanimLastCycle) {
@@ -4308,14 +4308,14 @@ export class Client extends GameShell {
         }
 
         const cycle = Pix3D.cycle;
-        Model.checkHover = true;
+        Model.mouseCheck = true;
         Model.pickedCount = 0;
         Model.mouseX = this.mouseX - 8;
         Model.mouseY = this.mouseY - 11;
 
         Pix2D.cls();
-        this.scene?.draw(this.cameraX, this.cameraY, this.cameraZ, level, this.cameraYaw, this.cameraPitch, this.loopCycle);
-        this.scene?.clearLocChanges();
+        this.scene?.renderAll(this.cameraX, this.cameraY, this.cameraZ, level, this.cameraYaw, this.cameraPitch, this.loopCycle);
+        this.scene?.removeSprites();
         this.draw2DEntityElements();
         this.drawTileHint();
         this.updateTextures(cycle);
@@ -4349,19 +4349,19 @@ export class Client extends GameShell {
                 id = this.playerIds[i] << 14;
             }
 
-            if (!player || !player.isVisible()) {
+            if (!player || !player.isReady()) {
                 continue;
             }
 
-            player.lowMemory = false;
-            if ((Client.lowMemory && this.playerCount > 50 || this.playerCount > 200) && i != -1 && player.secondarySeqId == player.readyanim) {
-                player.lowMemory = true;
+            player.lowMem = false;
+            if ((Client.lowMemory && this.playerCount > 50 || this.playerCount > 200) && i != -1 && player.secondaryAnim == player.readyanim) {
+                player.lowMem = true;
             }
 
             const stx: number = player.x >> 7;
             const stz: number = player.z >> 7;
 
-            if (stx < 0 || stx >= CollisionConstants.SIZE || stz < 0 || stz >= CollisionConstants.SIZE) {
+            if (stx < 0 || stx >= BuildArea.SIZE || stz < 0 || stz >= BuildArea.SIZE) {
                 continue;
             }
 
@@ -4375,11 +4375,11 @@ export class Client extends GameShell {
                 }
 
                 player.y = this.getHeightmapY(this.currentLevel, player.x, player.z);
-                this.scene?.changeLoc(this.currentLevel, player.x, player.y, player.z, null, player, id, player.yaw, 60, player.needsForwardDrawPadding);
+                this.scene?.addDynamic(this.currentLevel, player.x, player.y, player.z, null, player, id, player.yaw, 60, player.needsForwardDrawPadding);
             } else {
-                player.lowMemory = false;
+                player.lowMem = false;
                 player.y = this.getHeightmapY(this.currentLevel, player.x, player.z);
-                this.scene?.changeLoc2(this.currentLevel, player.x, player.y, player.z, player.minTileX, player.minTileZ, player.maxTileX, player.maxTileZ, null, player, id, player.yaw);
+                this.scene?.addDynamic2(this.currentLevel, player.x, player.y, player.z, player.minTileX, player.minTileZ, player.maxTileX, player.maxTileZ, null, player, id, player.yaw);
             }
         }
     }
@@ -4389,14 +4389,14 @@ export class Client extends GameShell {
             const npc: ClientNpc | null = this.npcs[this.npcIds[i]];
             const typecode: number = ((this.npcIds[i] << 14) + 0x20000000) | 0;
 
-            if (!npc || !npc.isVisible()) {
+            if (!npc || !npc.isReady()) {
                 continue;
             }
 
             const x: number = npc.x >> 7;
             const z: number = npc.z >> 7;
 
-            if (x < 0 || x >= CollisionConstants.SIZE || z < 0 || z >= CollisionConstants.SIZE) {
+            if (x < 0 || x >= BuildArea.SIZE || z < 0 || z >= BuildArea.SIZE) {
                 continue;
             }
 
@@ -4408,24 +4408,24 @@ export class Client extends GameShell {
                 this.tileLastOccupiedCycle[x][z] = this.sceneCycle;
             }
 
-            this.scene?.changeLoc(this.currentLevel, npc.x, this.getHeightmapY(this.currentLevel, npc.x, npc.z), npc.z, null, npc, typecode, npc.yaw, (npc.size - 1) * 64 + 60, npc.needsForwardDrawPadding);
+            this.scene?.addDynamic(this.currentLevel, npc.x, this.getHeightmapY(this.currentLevel, npc.x, npc.z), npc.z, null, npc, typecode, npc.yaw, (npc.size - 1) * 64 + 60, npc.needsForwardDrawPadding);
         }
     }
 
     private pushProjectiles(): void {
         for (let proj: ClientProj | null = this.projectiles.head() as ClientProj | null; proj; proj = this.projectiles.next() as ClientProj | null) {
-            if (proj.projLevel !== this.currentLevel || this.loopCycle > proj.lastCycle) {
+            if (proj.projLevel !== this.currentLevel || this.loopCycle > proj.t2) {
                 proj.unlink();
-            } else if (this.loopCycle >= proj.startCycle) {
-                if (proj.projTarget > 0) {
-                    const npc: ClientNpc | null = this.npcs[proj.projTarget - 1];
+            } else if (this.loopCycle >= proj.t1) {
+                if (proj.target > 0) {
+                    const npc: ClientNpc | null = this.npcs[proj.target - 1];
                     if (npc) {
-                        proj.updateVelocity(npc.x, this.getHeightmapY(proj.projLevel, npc.x, npc.z) - proj.projOffsetY, npc.z, this.loopCycle);
+                        proj.setTarget(npc.x, this.getHeightmapY(proj.projLevel, npc.x, npc.z) - proj.h2, npc.z, this.loopCycle);
                     }
                 }
 
-                if (proj.projTarget < 0) {
-                    const index: number = -proj.projTarget - 1;
+                if (proj.target < 0) {
+                    const index: number = -proj.target - 1;
                     let player: ClientPlayer | null;
                     if (index === this.localPid) {
                         player = this.localPlayer;
@@ -4434,27 +4434,27 @@ export class Client extends GameShell {
                     }
 
                     if (player) {
-                        proj.updateVelocity(player.x, this.getHeightmapY(proj.projLevel, player.x, player.z) - proj.projOffsetY, player.z, this.loopCycle);
+                        proj.setTarget(player.x, this.getHeightmapY(proj.projLevel, player.x, player.z) - proj.h2, player.z, this.loopCycle);
                     }
                 }
 
-                proj.update(this.sceneDelta);
-                this.scene?.changeLoc(this.currentLevel, proj.x | 0, proj.y | 0, proj.z | 0, null, proj, -1, proj.yaw, 60, false);
+                proj.move(this.sceneDelta);
+                this.scene?.addDynamic(this.currentLevel, proj.x | 0, proj.y | 0, proj.z | 0, null, proj, -1, proj.yaw, 60, false);
             }
         }
     }
 
     private pushSpotanims(): void {
         for (let spot: MapSpotAnim | null = this.spotanims.head() as MapSpotAnim | null; spot; spot = this.spotanims.next() as MapSpotAnim | null) {
-            if (spot.spotLevel !== this.currentLevel || spot.seqComplete) {
+            if (spot.level !== this.currentLevel || spot.animComplete) {
                 spot.unlink();
             } else if (this.loopCycle >= spot.startCycle) {
                 spot.update(this.sceneDelta);
 
-                if (spot.seqComplete) {
+                if (spot.animComplete) {
                     spot.unlink();
                 } else {
-                    this.scene?.changeLoc(spot.spotLevel, spot.x, spot.y, spot.z, null, spot, -1, 0, 60, false);
+                    this.scene?.addDynamic(spot.level, spot.x, spot.y, spot.z, null, spot, -1, 0, 60, false);
                 }
             }
         }
@@ -4463,23 +4463,23 @@ export class Client extends GameShell {
     private pushLocs(): void {
         for (let loc: ClientLocAnim | null = this.locList.head() as ClientLocAnim | null; loc; loc = this.locList.next() as ClientLocAnim | null) {
             let append: boolean = false;
-            loc.seqCycle += this.sceneDelta;
-            if (loc.seqFrame === -1) {
-                loc.seqFrame = 0;
+            loc.animCycle += this.sceneDelta;
+            if (loc.animFrame === -1) {
+                loc.animFrame = 0;
                 append = true;
             }
 
-            if (loc.seq.delay) {
-                while (loc.seqCycle > loc.seq.delay[loc.seqFrame]) {
-                    loc.seqCycle -= loc.seq.delay[loc.seqFrame] + 1;
-                    loc.seqFrame++;
+            if (loc.anim.delay) {
+                while (loc.animCycle > loc.anim.delay[loc.animFrame]) {
+                    loc.animCycle -= loc.anim.delay[loc.animFrame] + 1;
+                    loc.animFrame++;
 
                     append = true;
 
-                    if (loc.seqFrame >= loc.seq.numFrames) {
-                        loc.seqFrame -= loc.seq.loops;
+                    if (loc.animFrame >= loc.anim.numFrames) {
+                        loc.animFrame -= loc.anim.loops;
 
-                        if (loc.seqFrame < 0 || loc.seqFrame >= loc.seq.numFrames) {
+                        if (loc.animFrame < 0 || loc.animFrame >= loc.anim.numFrames) {
                             loc.unlink();
                             append = false;
                             break;
@@ -4489,19 +4489,19 @@ export class Client extends GameShell {
             }
 
             if (append && this.scene) {
-                const level: number = loc.heightmapSW;
-                const x: number = loc.heightmapNE;
-                const z: number = loc.heightmapNW;
+                const level: number = loc.heightSW;
+                const x: number = loc.heightNE;
+                const z: number = loc.heightNW;
 
                 let typecode: number = 0;
-                if (loc.heightmapSE === 0) {
-                    typecode = this.scene.getWallTypecode(level, x, z);
-                } else if (loc.heightmapSE === 1) {
-                    typecode = this.scene.getDecorTypecode(level, z, x);
-                } else if (loc.heightmapSE === 2) {
-                    typecode = this.scene.getLocTypecode(level, x, z);
-                } else if (loc.heightmapSE === 3) {
-                    typecode = this.scene.getGroundDecorTypecode(level, x, z);
+                if (loc.heightSE === 0) {
+                    typecode = this.scene.wallType(level, x, z);
+                } else if (loc.heightSE === 1) {
+                    typecode = this.scene.decorType(level, z, x);
+                } else if (loc.heightSE === 2) {
+                    typecode = this.scene.sceneType(level, x, z);
+                } else if (loc.heightSE === 3) {
+                    typecode = this.scene.gdType(level, x, z);
                 }
 
                 if (this.levelHeightmap && typecode !== 0 && ((typecode >> 14) & 0x7fff) === loc.index) {
@@ -4512,43 +4512,43 @@ export class Client extends GameShell {
 
                     const type: LocType = LocType.list(loc.index);
                     let seqId: number = -1;
-                    if (loc.seqFrame !== -1 && loc.seq.frames) {
-                        seqId = loc.seq.frames[loc.seqFrame];
+                    if (loc.animFrame !== -1 && loc.anim.frames) {
+                        seqId = loc.anim.frames[loc.animFrame];
                     }
 
-                    if (loc.heightmapSE === 2) {
-                        const info: number = this.scene.getInfo(level, x, z, typecode);
+                    if (loc.heightSE === 2) {
+                        const info: number = this.scene.typeCode2(level, x, z, typecode);
                         let shape: number = info & 0x1f;
                         const rotation: number = info >> 6;
 
-                        if (shape === LocShape.CENTREPIECE_DIAGONAL.id) {
-                            shape = LocShape.CENTREPIECE_STRAIGHT.id;
+                        if (shape === LocShape.CENTREPIECE_DIAGONAL) {
+                            shape = LocShape.CENTREPIECE_STRAIGHT;
                         }
 
                         this.scene?.setLocModel(level, x, z, type.getModel(shape, rotation, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId));
-                    } else if (loc.heightmapSE === 1) {
-                        this.scene?.setWallDecorationModel(level, x, z, type.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET.id, 0, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId));
-                    } else if (loc.heightmapSE === 0) {
-                        const info: number = this.scene.getInfo(level, x, z, typecode);
+                    } else if (loc.heightSE === 1) {
+                        this.scene?.setWallDecorationModel(level, x, z, type.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, 0, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId));
+                    } else if (loc.heightSE === 0) {
+                        const info: number = this.scene.typeCode2(level, x, z, typecode);
                         const shape: number = info & 0x1f;
                         const rotation: number = info >> 6;
 
-                        if (shape === LocShape.WALL_L.id) {
+                        if (shape === LocShape.WALL_L) {
                             const nextRotation: number = (rotation + 1) & 0x3;
                             this.scene?.setWallModels(
                                 x,
                                 z,
                                 level,
-                                type.getModel(LocShape.WALL_L.id, rotation + 4, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId),
-                                type.getModel(LocShape.WALL_L.id, nextRotation, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId)
+                                type.getModel(LocShape.WALL_L, rotation + 4, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId),
+                                type.getModel(LocShape.WALL_L, nextRotation, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId)
                             );
                         } else {
                             this.scene?.setWallModel(level, x, z, type.getModel(shape, rotation, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId));
                         }
-                    } else if (loc.heightmapSE === 3) {
-                        const info: number = this.scene.getInfo(level, x, z, typecode);
+                    } else if (loc.heightSE === 3) {
+                        const info: number = this.scene.typeCode2(level, x, z, typecode);
                         const rotation: number = info >> 6;
-                        this.scene?.setGroundDecorationModel(level, x, z, type.getModel(LocShape.GROUND_DECOR.id, rotation, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId));
+                        this.scene?.setGroundDecorationModel(level, x, z, type.getModel(LocShape.GROUND_DECOR, rotation, heightmapSW, heightmapSE, heightmapNE, heightmapNW, seqId));
                     }
                 } else {
                     loc.unlink();
@@ -4711,7 +4711,7 @@ export class Client extends GameShell {
                 entity = this.npcs[this.npcIds[index - this.playerCount]];
             }
 
-            if (!entity || !entity.isVisible()) {
+            if (!entity || !entity.isReady()) {
                 continue;
             }
 
@@ -4795,8 +4795,8 @@ export class Client extends GameShell {
                 }
 
                 this.imageHitmarks[entity.damageType]?.plotSprite(this.projectX - 12, this.projectY - 12);
-                this.fontPlain11?.centreString(this.projectX, this.projectY + 4, entity.damage.toString(), Colour.BLACK);
-                this.fontPlain11?.centreString(this.projectX - 1, this.projectY + 3, entity.damage.toString(), Colour.WHITE);
+                this.fontPlain11?.centreString(this.projectX, this.projectY + 4, entity.damageValue.toString(), Colour.BLACK);
+                this.fontPlain11?.centreString(this.projectX - 1, this.projectY + 3, entity.damageValue.toString(), Colour.WHITE);
             }
         }
 
@@ -4930,8 +4930,8 @@ export class Client extends GameShell {
         dy = tmp;
 
         if (dz >= 50) {
-            this.projectX = Pix3D.centerX + (((dx << 9) / dz) | 0);
-            this.projectY = Pix3D.centerY + (((dy << 9) / dz) | 0);
+            this.projectX = Pix3D.originX + (((dx << 9) / dz) | 0);
+            this.projectY = Pix3D.originY + (((dy << 9) / dz) | 0);
         } else {
             this.projectX = -1;
             this.projectY = -1;
@@ -4964,7 +4964,7 @@ export class Client extends GameShell {
 
     private updateTextures(cycle: number): void {
         if (!Client.lowMemory) {
-            if (Pix3D.textureCycle[17] >= cycle) {
+            if (Pix3D.texCycle[17] >= cycle) {
                 const texture: Pix8 | null = Pix3D.textures[17];
                 if (!texture) {
                     return;
@@ -4984,7 +4984,7 @@ export class Client extends GameShell {
                 Pix3D.pushTexture(17);
             }
 
-            if (Pix3D.textureCycle[24] >= cycle) {
+            if (Pix3D.texCycle[24] >= cycle) {
                 const texture: Pix8 | null = Pix3D.textures[24];
                 if (!texture) {
                     return;
@@ -5250,9 +5250,9 @@ export class Client extends GameShell {
             return;
         }
 
-        let typecode: number = this.scene.getWallTypecode(level, tileX, tileZ);
+        let typecode: number = this.scene.wallType(level, tileX, tileZ);
         if (typecode !== 0) {
-            const info: number = this.scene.getInfo(level, tileX, tileZ, typecode);
+            const info: number = this.scene.typeCode2(level, tileX, tileZ, typecode);
             const angle: number = (info >> 6) & 0x3;
             const shape: number = info & 0x1f;
             let rgb: number = wallRgb;
@@ -5266,7 +5266,7 @@ export class Client extends GameShell {
 
             const loc: LocType = LocType.list(locId);
             if (loc.mapscene === -1) {
-                if (shape === LocShape.WALL_STRAIGHT.id || shape === LocShape.WALL_L.id) {
+                if (shape === LocShape.WALL_STRAIGHT || shape === LocShape.WALL_L) {
                     if (angle === LocAngle.WEST) {
                         dst[offset] = rgb;
                         dst[offset + 512] = rgb;
@@ -5290,7 +5290,7 @@ export class Client extends GameShell {
                     }
                 }
 
-                if (shape === LocShape.WALL_SQUARE_CORNER.id) {
+                if (shape === LocShape.WALL_SQUARE_CORNER) {
                     if (angle === LocAngle.WEST) {
                         dst[offset] = rgb;
                     } else if (angle === LocAngle.NORTH) {
@@ -5302,7 +5302,7 @@ export class Client extends GameShell {
                     }
                 }
 
-                if (shape === LocShape.WALL_L.id) {
+                if (shape === LocShape.WALL_L) {
                     if (angle === LocAngle.SOUTH) {
                         dst[offset] = rgb;
                         dst[offset + 512] = rgb;
@@ -5330,28 +5330,28 @@ export class Client extends GameShell {
                 if (scene) {
                     const offsetX: number = ((loc.width * 4 - scene.wi) / 2) | 0;
                     const offsetY: number = ((loc.length * 4 - scene.hi) / 2) | 0;
-                    scene.plotSprite(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
+                    scene.plotSprite(tileX * 4 + 48 + offsetX, (BuildArea.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
                 }
             }
         }
 
-        typecode = this.scene.getLocTypecode(level, tileX, tileZ);
+        typecode = this.scene.sceneType(level, tileX, tileZ);
         if (typecode !== 0) {
-            const info: number = this.scene.getInfo(level, tileX, tileZ, typecode);
+            const info: number = this.scene.typeCode2(level, tileX, tileZ, typecode);
             const angle: number = (info >> 6) & 0x3;
             const shape: number = info & 0x1f;
             const locId: number = (typecode >> 14) & 0x7fff;
 
             const loc: LocType = LocType.list(locId);
             if (loc.mapscene === -1) {
-                if (shape === LocShape.WALL_DIAGONAL.id) {
+                if (shape === LocShape.WALL_DIAGONAL) {
                     let rgb: number = 0xeeeeee;
                     if (typecode > 0) {
                         rgb = 0xee0000;
                     }
 
                     const dst: Int32Array = this.imageMinimap.data;
-                    const offset: number = tileX * 4 + (CollisionConstants.SIZE - 1 - tileZ) * 512 * 4 + 24624;
+                    const offset: number = tileX * 4 + (BuildArea.SIZE - 1 - tileZ) * 512 * 4 + 24624;
 
                     if (angle === LocAngle.WEST || angle === LocAngle.EAST) {
                         dst[offset + 1536] = rgb;
@@ -5370,12 +5370,12 @@ export class Client extends GameShell {
                 if (scene) {
                     const offsetX: number = ((loc.width * 4 - scene.wi) / 2) | 0;
                     const offsetY: number = ((loc.length * 4 - scene.hi) / 2) | 0;
-                    scene.plotSprite(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
+                    scene.plotSprite(tileX * 4 + 48 + offsetX, (BuildArea.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
                 }
             }
         }
 
-        typecode = this.scene.getGroundDecorTypecode(level, tileX, tileZ);
+        typecode = this.scene.gdType(level, tileX, tileZ);
         if (typecode !== 0) {
             const locId = (typecode >> 14) & 0x7fff;
 
@@ -5385,7 +5385,7 @@ export class Client extends GameShell {
                 if (scene) {
                     const offsetX: number = ((loc.width * 4 - scene.wi) / 2) | 0;
                     const offsetY: number = ((loc.length * 4 - scene.hi) / 2) | 0;
-                    scene.plotSprite(tileX * 4 + 48 + offsetX, (CollisionConstants.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
+                    scene.plotSprite(tileX * 4 + 48 + offsetX, (BuildArea.SIZE - tileZ - loc.length) * 4 + offsetY + 48);
                 }
             }
         }
@@ -5397,14 +5397,14 @@ export class Client extends GameShell {
         }
 
         const locId: number = (typecode >> 14) & 0x7fff;
-        const info: number = this.scene.getInfo(this.currentLevel, x, z, typecode);
+        const info: number = this.scene.typeCode2(this.currentLevel, x, z, typecode);
         if (info === -1) {
             return false;
         }
 
         const shape: number = info & 0x1f;
         const angle: number = (info >> 6) & 0x3;
-        if (shape === LocShape.CENTREPIECE_STRAIGHT.id || shape === LocShape.CENTREPIECE_DIAGONAL.id || shape === LocShape.GROUND_DECOR.id) {
+        if (shape === LocShape.CENTREPIECE_STRAIGHT || shape === LocShape.CENTREPIECE_DIAGONAL || shape === LocShape.GROUND_DECOR) {
             const loc: LocType = LocType.list(locId);
 
             let width: number;
@@ -5422,9 +5422,9 @@ export class Client extends GameShell {
                 forceapproach = ((forceapproach << angle) & 0xf) + (forceapproach >> (4 - angle));
             }
 
-            this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], x, z, 2, width, height, 0, 0, forceapproach, false);
+            this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], x, z, 2, width, height, 0, 0, forceapproach, false);
         } else {
-            this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], x, z, 2, 0, 0, angle, shape + 1, 0, false);
+            this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], x, z, 2, 0, 0, angle, shape + 1, 0, false);
         }
 
         this.crossX = this.mouseClickX;
@@ -5445,8 +5445,8 @@ export class Client extends GameShell {
             return false;
         }
 
-        const sceneWidth: number = CollisionConstants.SIZE;
-        const sceneLength: number = CollisionConstants.SIZE;
+        const sceneWidth: number = BuildArea.SIZE;
+        const sceneLength: number = BuildArea.SIZE;
 
         for (let x: number = 0; x < sceneWidth; x++) {
             for (let z: number = 0; z < sceneLength; z++) {
@@ -5483,26 +5483,26 @@ export class Client extends GameShell {
                 break;
             }
 
-            if (locShape !== LocShape.WALL_STRAIGHT.id) {
-                if ((locShape < LocShape.WALLDECOR_STRAIGHT_OFFSET.id || locShape === LocShape.CENTREPIECE_STRAIGHT.id) && collisionMap.reachedWall(x, z, dx, dz, locShape - 1, locAngle)) {
+            if (locShape !== LocShape.WALL_STRAIGHT) {
+                if ((locShape < LocShape.WALLDECOR_STRAIGHT_OFFSET || locShape === LocShape.CENTREPIECE_STRAIGHT) && collisionMap.testWall(x, z, dx, dz, locShape - 1, locAngle)) {
                     arrived = true;
                     break;
                 }
 
-                if (locShape < LocShape.CENTREPIECE_STRAIGHT.id && collisionMap.reachedWallDecoration(x, z, dx, dz, locShape - 1, locAngle)) {
+                if (locShape < LocShape.CENTREPIECE_STRAIGHT && collisionMap.testWDecor(x, z, dx, dz, locShape - 1, locAngle)) {
                     arrived = true;
                     break;
                 }
             }
 
-            if (locWidth !== 0 && locLength !== 0 && collisionMap.reachedLoc(x, z, dx, dz, locWidth, locLength, forceapproach)) {
+            if (locWidth !== 0 && locLength !== 0 && collisionMap.testLoc(x, z, dx, dz, locWidth, locLength, forceapproach)) {
                 arrived = true;
                 break;
             }
 
             const nextCost: number = this.bfsCost[CollisionMap.index(x, z)] + 1;
             let index: number = CollisionMap.index(x - 1, z);
-            if (x > 0 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.BLOCK_WEST) === CollisionFlag.OPEN) {
+            if (x > 0 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.PL_WALK_E) === CollisionFlag._OPEN) {
                 this.bfsStepX[steps] = x - 1;
                 this.bfsStepZ[steps] = z;
                 steps = (steps + 1) % bufferSize;
@@ -5511,7 +5511,7 @@ export class Client extends GameShell {
             }
 
             index = CollisionMap.index(x + 1, z);
-            if (x < sceneWidth - 1 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.BLOCK_EAST) === CollisionFlag.OPEN) {
+            if (x < sceneWidth - 1 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.PL_WALK_W) === CollisionFlag._OPEN) {
                 this.bfsStepX[steps] = x + 1;
                 this.bfsStepZ[steps] = z;
                 steps = (steps + 1) % bufferSize;
@@ -5520,7 +5520,7 @@ export class Client extends GameShell {
             }
 
             index = CollisionMap.index(x, z - 1);
-            if (z > 0 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.BLOCK_SOUTH) === CollisionFlag.OPEN) {
+            if (z > 0 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.PL_WALK_N) === CollisionFlag._OPEN) {
                 this.bfsStepX[steps] = x;
                 this.bfsStepZ[steps] = z - 1;
                 steps = (steps + 1) % bufferSize;
@@ -5529,7 +5529,7 @@ export class Client extends GameShell {
             }
 
             index = CollisionMap.index(x, z + 1);
-            if (z < sceneLength - 1 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.BLOCK_NORTH) === CollisionFlag.OPEN) {
+            if (z < sceneLength - 1 && this.bfsDirection[index] === 0 && (flags[index] & CollisionFlag.PL_WALK_S) === CollisionFlag._OPEN) {
                 this.bfsStepX[steps] = x;
                 this.bfsStepZ[steps] = z + 1;
                 steps = (steps + 1) % bufferSize;
@@ -5542,9 +5542,9 @@ export class Client extends GameShell {
                 x > 0 &&
                 z > 0 &&
                 this.bfsDirection[index] === 0 &&
-                (flags[index] & CollisionFlag.BLOCK_SOUTH_WEST) === 0 &&
-                (flags[CollisionMap.index(x - 1, z)] & CollisionFlag.BLOCK_WEST) === CollisionFlag.OPEN &&
-                (flags[CollisionMap.index(x, z - 1)] & CollisionFlag.BLOCK_SOUTH) === CollisionFlag.OPEN
+                (flags[index] & CollisionFlag.PL_WALK_NE) === 0 &&
+                (flags[CollisionMap.index(x - 1, z)] & CollisionFlag.PL_WALK_E) === CollisionFlag._OPEN &&
+                (flags[CollisionMap.index(x, z - 1)] & CollisionFlag.PL_WALK_N) === CollisionFlag._OPEN
             ) {
                 this.bfsStepX[steps] = x - 1;
                 this.bfsStepZ[steps] = z - 1;
@@ -5558,9 +5558,9 @@ export class Client extends GameShell {
                 x < sceneWidth - 1 &&
                 z > 0 &&
                 this.bfsDirection[index] === 0 &&
-                (flags[index] & CollisionFlag.BLOCK_SOUTH_EAST) === 0 &&
-                (flags[CollisionMap.index(x + 1, z)] & CollisionFlag.BLOCK_EAST) === CollisionFlag.OPEN &&
-                (flags[CollisionMap.index(x, z - 1)] & CollisionFlag.BLOCK_SOUTH) === CollisionFlag.OPEN
+                (flags[index] & CollisionFlag.PL_WALK_NW) === 0 &&
+                (flags[CollisionMap.index(x + 1, z)] & CollisionFlag.PL_WALK_W) === CollisionFlag._OPEN &&
+                (flags[CollisionMap.index(x, z - 1)] & CollisionFlag.PL_WALK_N) === CollisionFlag._OPEN
             ) {
                 this.bfsStepX[steps] = x + 1;
                 this.bfsStepZ[steps] = z - 1;
@@ -5574,9 +5574,9 @@ export class Client extends GameShell {
                 x > 0 &&
                 z < sceneLength - 1 &&
                 this.bfsDirection[index] === 0 &&
-                (flags[index] & CollisionFlag.BLOCK_NORTH_WEST) === 0 &&
-                (flags[CollisionMap.index(x - 1, z)] & CollisionFlag.BLOCK_WEST) === CollisionFlag.OPEN &&
-                (flags[CollisionMap.index(x, z + 1)] & CollisionFlag.BLOCK_NORTH) === CollisionFlag.OPEN
+                (flags[index] & CollisionFlag.PL_WALK_SE) === 0 &&
+                (flags[CollisionMap.index(x - 1, z)] & CollisionFlag.PL_WALK_E) === CollisionFlag._OPEN &&
+                (flags[CollisionMap.index(x, z + 1)] & CollisionFlag.PL_WALK_S) === CollisionFlag._OPEN
             ) {
                 this.bfsStepX[steps] = x - 1;
                 this.bfsStepZ[steps] = z + 1;
@@ -5590,9 +5590,9 @@ export class Client extends GameShell {
                 x < sceneWidth - 1 &&
                 z < sceneLength - 1 &&
                 this.bfsDirection[index] === 0 &&
-                (flags[index] & CollisionFlag.BLOCK_NORTH_EAST) === 0 &&
-                (flags[CollisionMap.index(x + 1, z)] & CollisionFlag.BLOCK_EAST) === CollisionFlag.OPEN &&
-                (flags[CollisionMap.index(x, z + 1)] & CollisionFlag.BLOCK_NORTH) === CollisionFlag.OPEN
+                (flags[index] & CollisionFlag.PL_WALK_SW) === 0 &&
+                (flags[CollisionMap.index(x + 1, z)] & CollisionFlag.PL_WALK_W) === CollisionFlag._OPEN &&
+                (flags[CollisionMap.index(x, z + 1)] & CollisionFlag.PL_WALK_S) === CollisionFlag._OPEN
             ) {
                 this.bfsStepX[steps] = x + 1;
                 this.bfsStepZ[steps] = z + 1;
@@ -5611,7 +5611,7 @@ export class Client extends GameShell {
                     for (let px: number = dx - padding; px <= dx + padding; px++) {
                         for (let pz: number = dz - padding; pz <= dz + padding; pz++) {
                             const index: number = CollisionMap.index(px, pz);
-                            if (px >= 0 && pz >= 0 && px < CollisionConstants.SIZE && pz < CollisionConstants.SIZE && this.bfsCost[index] < min) {
+                            if (px >= 0 && pz >= 0 && px < BuildArea.SIZE && pz < BuildArea.SIZE && this.bfsCost[index] < min) {
                                 min = this.bfsCost[index];
                                 x = px;
                                 z = pz;
@@ -5945,7 +5945,7 @@ export class Client extends GameShell {
                 const com: number = this.in.g2();
                 const model: number = this.in.g2();
 
-                Component.types[com].model = Model.get(model);
+                Component.types[com].model = Model.load(model);
 
                 this.ptype = -1;
                 return true;
@@ -6505,7 +6505,7 @@ export class Client extends GameShell {
                         continue;
                     }
 
-                    player.primarySeqId = -1;
+                    player.primaryAnim = -1;
                 }
 
                 for (let i: number = 0; i < this.npcs.length; i++) {
@@ -6514,7 +6514,7 @@ export class Client extends GameShell {
                         continue;
                     }
 
-                    npc.primarySeqId = -1;
+                    npc.primaryAnim = -1;
                 }
 
                 this.ptype = -1;
@@ -6786,8 +6786,8 @@ export class Client extends GameShell {
                     const npc: ClientNpc | null = this.npcs[i];
                     if (npc) {
                         for (let j: number = 0; j < 10; j++) {
-                            npc.routeTileX[j] -= dx;
-                            npc.routeTileZ[j] -= dz;
+                            npc.routeX[j] -= dx;
+                            npc.routeZ[j] -= dz;
                         }
 
                         npc.x -= dx * 128;
@@ -6799,8 +6799,8 @@ export class Client extends GameShell {
                     const player: ClientPlayer | null = this.players[i];
                     if (player) {
                         for (let j: number = 0; j < 10; j++) {
-                            player.routeTileX[j] -= dx;
-                            player.routeTileZ[j] -= dz;
+                            player.routeX[j] -= dx;
+                            player.routeZ[j] -= dz;
                         }
 
                         player.x -= dx * 128;
@@ -6811,19 +6811,19 @@ export class Client extends GameShell {
                 this.awaitingSync = true;
 
                 let startTileX: number = 0;
-                let endTileX: number = CollisionConstants.SIZE;
+                let endTileX: number = BuildArea.SIZE;
                 let dirX: number = 1;
                 if (dx < 0) {
-                    startTileX = CollisionConstants.SIZE - 1;
+                    startTileX = BuildArea.SIZE - 1;
                     endTileX = -1;
                     dirX = -1;
                 }
 
                 let startTileZ: number = 0;
-                let endTileZ: number = CollisionConstants.SIZE;
+                let endTileZ: number = BuildArea.SIZE;
                 let dirZ: number = 1;
                 if (dz < 0) {
-                    startTileZ = CollisionConstants.SIZE - 1;
+                    startTileZ = BuildArea.SIZE - 1;
                     endTileZ = -1;
                     dirZ = -1;
                 }
@@ -6833,8 +6833,8 @@ export class Client extends GameShell {
                         const lastX: number = x + dx;
                         const lastZ: number = z + dz;
 
-                        for (let level: number = 0; level < CollisionConstants.LEVELS; level++) {
-                            if (lastX >= 0 && lastZ >= 0 && lastX < CollisionConstants.SIZE && lastZ < CollisionConstants.SIZE) {
+                        for (let level: number = 0; level < BuildArea.LEVELS; level++) {
+                            if (lastX >= 0 && lastZ >= 0 && lastX < BuildArea.SIZE && lastZ < BuildArea.SIZE) {
                                 this.objStacks[level][x][z] = this.objStacks[level][lastX][lastZ];
                             } else {
                                 this.objStacks[level][x][z] = null;
@@ -6847,7 +6847,7 @@ export class Client extends GameShell {
                     loc.x -= dx;
                     loc.z -= dz;
 
-                    if (loc.x < 0 || loc.z < 0 || loc.x >= CollisionConstants.SIZE || loc.z >= CollisionConstants.SIZE) {
+                    if (loc.x < 0 || loc.z < 0 || loc.x >= BuildArea.SIZE || loc.z >= BuildArea.SIZE) {
                         loc.unlink();
                     }
                 }
@@ -7034,7 +7034,7 @@ export class Client extends GameShell {
             // todo: try reconnecting if there was an IO error
             console.error(e);
 
-            let str = `T2 - ${this.ptype},${this.psize} - ${this.ptype1},${this.ptype2} - ${this.psize},${(this.localPlayer?.routeTileX[0] ?? 0) + this.sceneBaseTileX},${(this.localPlayer?.routeTileZ[0] ?? 0) + this.sceneBaseTileZ} -`;
+            let str = `T2 - ${this.ptype},${this.psize} - ${this.ptype1},${this.ptype2} - ${this.psize},${(this.localPlayer?.routeX[0] ?? 0) + this.sceneBaseTileX},${(this.localPlayer?.routeZ[0] ?? 0) + this.sceneBaseTileZ} -`;
             for (let i = 0; i < this.psize && i < 50; i++) {
                 str += this.in.data[i] + ',';
             }
@@ -7055,11 +7055,11 @@ export class Client extends GameShell {
             const info: number = buf.g1();
             const shape: number = info >> 2;
             const angle: number = info & 0x3;
-            const layer: number = LocShape.of(shape).layer;
+            const layer: number = LOC_SHAPE_TO_LAYER[shape];
 
             const id: number = buf.g2();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE) {
                 this.appendLoc(-1, id, angle, layer, z, shape, this.currentLevel, x, 0);
             }
         } else if (opcode === ServerProt.LOC_DEL) {
@@ -7067,28 +7067,28 @@ export class Client extends GameShell {
 
             const shape: number = info >> 2;
             const angle: number = info & 0x3;
-            const layer: number = LocShape.of(shape).layer;
+            const layer: number = LOC_SHAPE_TO_LAYER[shape];
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE) {
                 this.appendLoc(-1, -1, angle, layer, z, shape, this.currentLevel, x, 0);
             }
         } else if (opcode === ServerProt.LOC_ANIM) {
             const info: number = buf.g1();
             const shape: number = info >> 2;
-            const layer: number = LocShape.of(shape).layer;
+            const layer: number = LOC_SHAPE_TO_LAYER[shape];
 
             const seqId: number = buf.g2();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE && this.scene) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE && this.scene) {
                 let typecode: number = 0;
                 if (layer === LocLayer.WALL) {
-                    typecode = this.scene.getWallTypecode(this.currentLevel, x, z);
+                    typecode = this.scene.wallType(this.currentLevel, x, z);
                 } else if (layer === LocLayer.WALL_DECOR) {
-                    typecode = this.scene.getDecorTypecode(this.currentLevel, z, x);
+                    typecode = this.scene.decorType(this.currentLevel, z, x);
                 } else if (layer === LocLayer.GROUND) {
-                    typecode = this.scene.getLocTypecode(this.currentLevel, x, z);
+                    typecode = this.scene.sceneType(this.currentLevel, x, z);
                 } else if (layer === LocLayer.GROUND_DECOR) {
-                    typecode = this.scene.getGroundDecorTypecode(this.currentLevel, x, z);
+                    typecode = this.scene.gdType(this.currentLevel, x, z);
                 }
 
                 if (typecode !== 0) {
@@ -7100,7 +7100,7 @@ export class Client extends GameShell {
             const id: number = buf.g2();
             const count: number = buf.g2();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE) {
                 const obj: ClientObj = new ClientObj(id, count);
                 if (!this.objStacks[this.currentLevel][x][z]) {
                     this.objStacks[this.currentLevel][x][z] = new LinkList();
@@ -7112,11 +7112,11 @@ export class Client extends GameShell {
         } else if (opcode === ServerProt.OBJ_DEL) {
             const id: number = buf.g2();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE) {
                 const list: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][x][z];
                 if (list) {
                     for (let obj: ClientObj | null = list.head() as ClientObj | null; obj; obj = list.next() as ClientObj | null) {
-                        if (obj.index === (id & 0x7fff)) {
+                        if (obj.id === (id & 0x7fff)) {
                             obj.unlink();
                             break;
                         }
@@ -7141,14 +7141,14 @@ export class Client extends GameShell {
             const peak: number = buf.g1();
             const arc: number = buf.g1();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE && dx >= 0 && dz >= 0 && dx < CollisionConstants.SIZE && dz < CollisionConstants.SIZE) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE && dx >= 0 && dz >= 0 && dx < BuildArea.SIZE && dz < BuildArea.SIZE) {
                 x = x * 128 + 64;
                 z = z * 128 + 64;
                 dx = dx * 128 + 64;
                 dz = dz * 128 + 64;
 
                 const proj: ClientProj = new ClientProj(spotanim, this.currentLevel, x, this.getHeightmapY(this.currentLevel, x, z) - srcHeight, z, startDelay + this.loopCycle, endDelay + this.loopCycle, peak, arc, target, dstHeight);
-                proj.updateVelocity(dx, this.getHeightmapY(this.currentLevel, dx, dz) - dstHeight, dz, startDelay + this.loopCycle);
+                proj.setTarget(dx, this.getHeightmapY(this.currentLevel, dx, dz) - dstHeight, dz, startDelay + this.loopCycle);
                 this.projectiles.push(proj);
             }
         } else if (opcode === ServerProt.MAP_ANIM) {
@@ -7156,7 +7156,7 @@ export class Client extends GameShell {
             const height: number = buf.g1();
             const delay: number = buf.g2();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE) {
                 x = x * 128 + 64;
                 z = z * 128 + 64;
 
@@ -7168,7 +7168,7 @@ export class Client extends GameShell {
             const count: number = buf.g2();
             const receiver: number = buf.g2();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE && receiver !== this.localPid) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE && receiver !== this.localPid) {
                 const obj: ClientObj = new ClientObj(id, count);
                 if (!this.objStacks[this.currentLevel][x][z]) {
                     this.objStacks[this.currentLevel][x][z] = new LinkList();
@@ -7181,7 +7181,7 @@ export class Client extends GameShell {
             const info: number = buf.g1();
             const shape: number = info >> 2;
             const angle: number = info & 0x3;
-            const layer: number = LocShape.of(shape).layer;
+            const layer: number = LOC_SHAPE_TO_LAYER[shape];
 
             const id: number = buf.g2();
             const start: number = buf.g2();
@@ -7247,11 +7247,11 @@ export class Client extends GameShell {
             const oldCount: number = buf.g2();
             const newCount: number = buf.g2();
 
-            if (x >= 0 && z >= 0 && x < CollisionConstants.SIZE && z < CollisionConstants.SIZE) {
+            if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE) {
                 const list: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][x][z];
                 if (list) {
                     for (let obj: ClientObj | null = list.head() as ClientObj | null; obj; obj = list.next() as ClientObj | null) {
-                        if (obj.index === (id & 0x7fff) && obj.count === oldCount) {
+                        if (obj.id === (id & 0x7fff) && obj.count === oldCount) {
                             obj.count = newCount;
                             break;
                         }
@@ -7300,17 +7300,17 @@ export class Client extends GameShell {
         let otherAngle: number = 0;
 
         if (loc.layer === LocLayer.WALL) {
-            typecode = this.scene.getWallTypecode(loc.level, loc.x, loc.z);
+            typecode = this.scene.wallType(loc.level, loc.x, loc.z);
         } else if (loc.layer === LocLayer.WALL_DECOR) {
-            typecode = this.scene.getDecorTypecode(loc.level, loc.z, loc.x);
+            typecode = this.scene.decorType(loc.level, loc.z, loc.x);
         } else if (loc.layer === LocLayer.GROUND) {
-            typecode = this.scene.getLocTypecode(loc.level, loc.x, loc.z);
+            typecode = this.scene.sceneType(loc.level, loc.x, loc.z);
         } else if (loc.layer === LocLayer.GROUND_DECOR) {
-            typecode = this.scene.getGroundDecorTypecode(loc.level, loc.x, loc.z);
+            typecode = this.scene.gdType(loc.level, loc.x, loc.z);
         }
 
         if (typecode !== 0) {
-            const otherInfo: number = this.scene.getInfo(loc.level, loc.x, loc.z, typecode);
+            const otherInfo: number = this.scene.typeCode2(loc.level, loc.x, loc.z, typecode);
             otherId = (typecode >> 14) & 0x7fff;
             otherShape = otherInfo & 0x1f;
             otherAngle = otherInfo >> 6;
@@ -7336,47 +7336,47 @@ export class Client extends GameShell {
 
         let typecode: number = 0;
         if (layer === LocLayer.WALL) {
-            typecode = this.scene.getWallTypecode(level, x, z);
+            typecode = this.scene.wallType(level, x, z);
         } else if (layer === LocLayer.WALL_DECOR) {
-            typecode = this.scene.getDecorTypecode(level, z, x);
+            typecode = this.scene.decorType(level, z, x);
         } else if (layer === LocLayer.GROUND) {
-            typecode = this.scene.getLocTypecode(level, x, z);
+            typecode = this.scene.sceneType(level, x, z);
         } else if (layer === LocLayer.GROUND_DECOR) {
-            typecode = this.scene.getGroundDecorTypecode(level, x, z);
+            typecode = this.scene.gdType(level, x, z);
         }
 
         if (typecode !== 0) {
-            const otherInfo: number = this.scene.getInfo(level, x, z, typecode);
+            const otherInfo: number = this.scene.typeCode2(level, x, z, typecode);
             const otherId: number = (typecode >> 14) & 0x7fff;
             const otherShape: number = otherInfo & 0x1f;
             const otherAngle: number = otherInfo >> 6;
 
             if (layer === LocLayer.WALL) {
-                this.scene?.removeWall(level, x, z, 1);
+                this.scene?.delWall(level, x, z, 1);
 
                 const type: LocType = LocType.list(otherId);
                 if (type.blockwalk) {
-                    this.levelCollisionMap[level]?.removeWall(x, z, otherShape, otherAngle, type.blockrange);
+                    this.levelCollisionMap[level]?.delWall(x, z, otherShape, otherAngle, type.blockrange);
                 }
             } else if (layer === LocLayer.WALL_DECOR) {
-                this.scene?.removeWallDecoration(level, x, z);
+                this.scene?.delDecor(level, x, z);
             } else if (layer === LocLayer.GROUND) {
-                this.scene.removeLoc(level, x, z);
+                this.scene.delLoc(level, x, z);
 
                 const type: LocType = LocType.list(otherId);
-                if (x + type.width > CollisionConstants.SIZE - 1 || z + type.width > CollisionConstants.SIZE - 1 || x + type.length > CollisionConstants.SIZE - 1 || z + type.length > CollisionConstants.SIZE - 1) {
+                if (x + type.width > BuildArea.SIZE - 1 || z + type.width > BuildArea.SIZE - 1 || x + type.length > BuildArea.SIZE - 1 || z + type.length > BuildArea.SIZE - 1) {
                     return;
                 }
 
                 if (type.blockwalk) {
-                    this.levelCollisionMap[level]?.removeLoc(x, z, type.width, type.length, otherAngle, type.blockrange);
+                    this.levelCollisionMap[level]?.delLoc(x, z, type.width, type.length, otherAngle, type.blockrange);
                 }
             } else if (layer === LocLayer.GROUND_DECOR) {
-                this.scene?.removeGroundDecoration(level, x, z);
+                this.scene?.delGroundDecor(level, x, z);
 
                 const type: LocType = LocType.list(otherId);
                 if (type.blockwalk && type.active) {
-                    this.levelCollisionMap[level]?.removeFloor(x, z);
+                    this.levelCollisionMap[level]?.unblockGround(x, z);
                 }
             }
         }
@@ -7388,7 +7388,7 @@ export class Client extends GameShell {
             }
 
             if (this.levelHeightmap) {
-                World.addLoc(level, x, z, this.scene, this.levelHeightmap, this.locList, this.levelCollisionMap[level], id, shape, angle, tileLevel);
+                ClientBuild.changeLocUnchecked(level, x, z, this.scene, this.levelHeightmap, this.locList, this.levelCollisionMap[level], id, shape, angle, tileLevel);
             }
         }
     }
@@ -7396,7 +7396,7 @@ export class Client extends GameShell {
     private sortObjStacks(x: number, z: number): void {
         const objStacks: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][x][z];
         if (!objStacks) {
-            this.scene?.removeGroundObject(this.currentLevel, x, z);
+            this.scene?.delObj(this.currentLevel, x, z);
             return;
         }
 
@@ -7404,7 +7404,7 @@ export class Client extends GameShell {
         let topObj: ClientObj | null = null;
 
         for (let obj: ClientObj | null = objStacks.head() as ClientObj | null; obj; obj = objStacks.next() as ClientObj | null) {
-            const type: ObjType = ObjType.list(obj.index);
+            const type: ObjType = ObjType.list(obj.id);
             let cost: number = type.cost;
 
             if (type.stackable) {
@@ -7428,13 +7428,13 @@ export class Client extends GameShell {
         let bottomObjCount: number = 0;
         let middleObjCount: number = 0;
         for (let obj: ClientObj | null = objStacks.head() as ClientObj | null; obj; obj = objStacks.next() as ClientObj | null) {
-            if (obj.index !== topObj.index && bottomObjId === -1) {
-                bottomObjId = obj.index;
+            if (obj.id !== topObj.id && bottomObjId === -1) {
+                bottomObjId = obj.id;
                 bottomObjCount = obj.count;
             }
 
-            if (obj.index !== topObj.index && obj.index !== bottomObjId && middleObjId === -1) {
-                middleObjId = obj.index;
+            if (obj.id !== topObj.id && obj.id !== bottomObjId && middleObjId === -1) {
+                middleObjId = obj.id;
                 middleObjCount = obj.count;
             }
         }
@@ -7450,8 +7450,8 @@ export class Client extends GameShell {
         }
 
         const typecode: number = (x + (z << 7) + 0x60000000) | 0;
-        const type: ObjType = ObjType.list(topObj.index);
-        this.scene?.addGroundObject(x, z, this.getHeightmapY(this.currentLevel, x * 128 + 64, z * 128 + 64), this.currentLevel, typecode, type.getModelLit(topObj.count), middleObj, bottomObj);
+        const type: ObjType = ObjType.list(topObj.id);
+        this.scene?.setObj(x, z, this.getHeightmapY(this.currentLevel, x * 128 + 64, z * 128 + 64), this.currentLevel, typecode, type.getModelLit(topObj.count), middleObj, bottomObj);
     }
 
     private getPlayerPos(buf: Packet, size: number): void {
@@ -7499,7 +7499,7 @@ export class Client extends GameShell {
                 this.entityUpdateIds[this.entityUpdateCount++] = Constants.LOCAL_PLAYER_INDEX;
             } else if (op === 1) {
                 const walkDir: number = buf.gBit(3);
-                this.localPlayer?.step(false, walkDir);
+                this.localPlayer?.moveCode(false, walkDir);
 
                 const extendedInfo: number = buf.gBit(1);
                 if (extendedInfo === 1) {
@@ -7507,10 +7507,10 @@ export class Client extends GameShell {
                 }
             } else if (op === 2) {
                 const walkDir: number = buf.gBit(3);
-                this.localPlayer?.step(true, walkDir);
+                this.localPlayer?.moveCode(true, walkDir);
 
                 const runDir: number = buf.gBit(3);
-                this.localPlayer?.step(true, runDir);
+                this.localPlayer?.moveCode(true, runDir);
 
                 const extendedInfo: number = buf.gBit(1);
                 if (extendedInfo === 1) {
@@ -7522,7 +7522,7 @@ export class Client extends GameShell {
                 const localZ: number = buf.gBit(7);
                 const jump: number = buf.gBit(1);
 
-                this.localPlayer?.move(jump === 1, localX, localZ);
+                this.localPlayer?.teleport(jump === 1, localX, localZ);
 
                 const extendedInfo: number = buf.gBit(1);
                 if (extendedInfo === 1) {
@@ -7573,7 +7573,7 @@ export class Client extends GameShell {
                     }
 
                     const walkDir: number = buf.gBit(3);
-                    player?.step(false, walkDir);
+                    player?.moveCode(false, walkDir);
 
                     const extendedInfo: number = buf.gBit(1);
                     if (extendedInfo === 1) {
@@ -7586,10 +7586,10 @@ export class Client extends GameShell {
                     }
 
                     const walkDir: number = buf.gBit(3);
-                    player?.step(true, walkDir);
+                    player?.moveCode(true, walkDir);
 
                     const runDir: number = buf.gBit(3);
-                    player?.step(true, runDir);
+                    player?.moveCode(true, runDir);
 
                     const extendedInfo: number = buf.gBit(1);
                     if (extendedInfo === 1) {
@@ -7614,7 +7614,7 @@ export class Client extends GameShell {
 
                 const appearance: Packet | null = this.playerAppearanceBuffer[index];
                 if (appearance) {
-                    this.players[index]?.read(appearance);
+                    this.players[index]?.setAppearance(appearance);
                 }
             }
 
@@ -7637,7 +7637,7 @@ export class Client extends GameShell {
             const jump: number = buf.gBit(1);
 
             if (this.localPlayer) {
-                player?.move(jump === 1, this.localPlayer.routeTileX[0] + dx, this.localPlayer.routeTileZ[0] + dz);
+                player?.teleport(jump === 1, this.localPlayer.routeX[0] + dx, this.localPlayer.routeZ[0] + dz);
             }
 
             const extendedInfo: number = buf.gBit(1);
@@ -7675,7 +7675,7 @@ export class Client extends GameShell {
             buf.gdata(length, 0, data);
 
             this.playerAppearanceBuffer[index] = appearance;
-            player.read(appearance);
+            player.setAppearance(appearance);
         }
 
         if ((mask & PlayerUpdate.ANIM) !== 0) {
@@ -7684,24 +7684,24 @@ export class Client extends GameShell {
                 seqId = -1;
             }
 
-            if (seqId === player.primarySeqId) {
-                player.primarySeqLoop = 0;
+            if (seqId === player.primaryAnim) {
+                player.primaryAnimLoop = 0;
             }
 
             const delay: number = buf.g1();
-            if (seqId === -1 || player.primarySeqId === -1 || SeqType.list[seqId].priority > SeqType.list[player.primarySeqId].priority || SeqType.list[player.primarySeqId].priority === 0) {
-                player.primarySeqId = seqId;
-                player.primarySeqFrame = 0;
-                player.primarySeqCycle = 0;
-                player.primarySeqDelay = delay;
-                player.primarySeqLoop = 0;
+            if (seqId === -1 || player.primaryAnim === -1 || SeqType.list[seqId].priority > SeqType.list[player.primaryAnim].priority || SeqType.list[player.primaryAnim].priority === 0) {
+                player.primaryAnim = seqId;
+                player.primaryAnimFrame = 0;
+                player.primaryAnimCycle = 0;
+                player.primaryAnimDelay = delay;
+                player.primaryAnimLoop = 0;
             }
         }
 
-        if ((mask & PlayerUpdate.FACE_ENTITY) !== 0) {
-            player.targetId = buf.g2();
-            if (player.targetId === 65535) {
-                player.targetId = -1;
+        if ((mask & PlayerUpdate.FACEENTITY) !== 0) {
+            player.faceEntity = buf.g2();
+            if (player.faceEntity === 65535) {
+                player.faceEntity = -1;
             }
         }
 
@@ -7716,17 +7716,17 @@ export class Client extends GameShell {
             }
         }
 
-        if ((mask & PlayerUpdate.DAMAGE) !== 0) {
-            player.damage = buf.g1();
+        if ((mask & PlayerUpdate.HITMARK) !== 0) {
+            player.damageValue = buf.g1();
             player.damageType = buf.g1();
             player.combatCycle = this.loopCycle + 400;
             player.health = buf.g1();
             player.totalHealth = buf.g1();
         }
 
-        if ((mask & PlayerUpdate.FACE_COORD) !== 0) {
-            player.targetTileX = buf.g2();
-            player.targetTileZ = buf.g2();
+        if ((mask & PlayerUpdate.FACESQUARE) !== 0) {
+            player.faceSquareX = buf.g2();
+            player.faceSquareZ = buf.g2();
         }
 
         if ((mask & PlayerUpdate.CHAT) !== 0) {
@@ -7789,17 +7789,17 @@ export class Client extends GameShell {
             }
         }
 
-        if ((mask & PlayerUpdate.EXACT_MOVE) !== 0) {
-            player.forceMoveStartSceneTileX = buf.g1();
-            player.forceMoveStartSceneTileZ = buf.g1();
-            player.forceMoveEndSceneTileX = buf.g1();
-            player.forceMoveEndSceneTileZ = buf.g1();
-            player.forceMoveEndCycle = buf.g2() + this.loopCycle;
-            player.forceMoveStartCycle = buf.g2() + this.loopCycle;
-            player.forceMoveFaceDirection = buf.g1();
+        if ((mask & PlayerUpdate.EXACTMOVE) !== 0) {
+            player.exactStartX = buf.g1();
+            player.exactStartZ = buf.g1();
+            player.exactEndX = buf.g1();
+            player.exactEndZ = buf.g1();
+            player.exactMoveEnd = buf.g2() + this.loopCycle;
+            player.exactMoveStart = buf.g2() + this.loopCycle;
+            player.exactMoveFacing = buf.g1();
             player.routeLength = 0;
-            player.routeTileX[0] = player.forceMoveEndSceneTileX;
-            player.routeTileZ[0] = player.forceMoveEndSceneTileZ;
+            player.routeX[0] = player.exactEndX;
+            player.routeZ[0] = player.exactEndZ;
         }
     }
 
@@ -7879,7 +7879,7 @@ export class Client extends GameShell {
                     }
 
                     const walkDir: number = buf.gBit(3);
-                    npc?.step(false, walkDir);
+                    npc?.moveCode(false, walkDir);
 
                     const extendedInfo: number = buf.gBit(1);
                     if (extendedInfo === 1) {
@@ -7892,10 +7892,10 @@ export class Client extends GameShell {
                     }
 
                     const walkDir: number = buf.gBit(3);
-                    npc?.step(true, walkDir);
+                    npc?.moveCode(true, walkDir);
 
                     const runDir: number = buf.gBit(3);
-                    npc?.step(true, runDir);
+                    npc?.moveCode(true, runDir);
 
                     const extendedInfo: number = buf.gBit(1);
                     if (extendedInfo === 1) {
@@ -7946,7 +7946,7 @@ export class Client extends GameShell {
             }
 
             if (this.localPlayer) {
-                npc?.move(false, this.localPlayer.routeTileX[0] + dx, this.localPlayer.routeTileZ[0] + dz);
+                npc?.teleport(false, this.localPlayer.routeX[0] + dx, this.localPlayer.routeZ[0] + dz);
             }
 
             const extendedInfo: number = buf.gBit(1);
@@ -7974,24 +7974,24 @@ export class Client extends GameShell {
                     seqId = -1;
                 }
 
-                if (seqId === npc.primarySeqId) {
-                    npc.primarySeqLoop = 0;
+                if (seqId === npc.primaryAnim) {
+                    npc.primaryAnimLoop = 0;
                 }
 
                 const delay: number = buf.g1();
-                if (seqId === -1 || npc.primarySeqId === -1 || SeqType.list[seqId].priority > SeqType.list[npc.primarySeqId].priority || SeqType.list[npc.primarySeqId].priority === 0) {
-                    npc.primarySeqId = seqId;
-                    npc.primarySeqFrame = 0;
-                    npc.primarySeqCycle = 0;
-                    npc.primarySeqDelay = delay;
-                    npc.primarySeqLoop = 0;
+                if (seqId === -1 || npc.primaryAnim === -1 || SeqType.list[seqId].priority > SeqType.list[npc.primaryAnim].priority || SeqType.list[npc.primaryAnim].priority === 0) {
+                    npc.primaryAnim = seqId;
+                    npc.primaryAnimFrame = 0;
+                    npc.primaryAnimCycle = 0;
+                    npc.primaryAnimDelay = delay;
+                    npc.primaryAnimLoop = 0;
                 }
             }
 
-            if ((mask & NpcUpdate.FACE_ENTITY) !== 0) {
-                npc.targetId = buf.g2();
-                if (npc.targetId === 65535) {
-                    npc.targetId = -1;
+            if ((mask & NpcUpdate.FACEENTITY) !== 0) {
+                npc.faceEntity = buf.g2();
+                if (npc.faceEntity === 65535) {
+                    npc.faceEntity = -1;
                 }
             }
 
@@ -8000,14 +8000,14 @@ export class Client extends GameShell {
                 npc.chatTimer = 100;
             }
 
-            if ((mask & NpcUpdate.DAMAGE) !== 0) {
-                npc.damage = buf.g1();
+            if ((mask & NpcUpdate.HITMARK) !== 0) {
+                npc.damageValue = buf.g1();
                 npc.damageType = buf.g1();
                 npc.combatCycle = this.loopCycle + 400;
                 npc.health = buf.g1();
                 npc.totalHealth = buf.g1();
             }
-            if ((mask & NpcUpdate.CHANGE_TYPE) !== 0) {
+            if ((mask & NpcUpdate.CHANGETYPE) !== 0) {
                 npc.type = NpcType.list(buf.g2());
 
                 npc.walkanim = npc.type.walkanim;
@@ -8034,9 +8034,9 @@ export class Client extends GameShell {
                 }
             }
 
-            if ((mask & NpcUpdate.FACE_COORD) !== 0) {
-                npc.targetTileX = buf.g2();
-                npc.targetTileZ = buf.g2();
+            if ((mask & NpcUpdate.FACESQUARE) !== 0) {
+                npc.faceSquareX = buf.g2();
+                npc.faceSquareZ = buf.g2();
             }
         }
     }
@@ -8169,9 +8169,9 @@ export class Client extends GameShell {
 
         if (action === 224 || action === 993 || action === 99 || action === 746 || action === 877) {
             if (this.localPlayer) {
-                const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
+                const success: boolean = this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
                 if (!success) {
-                    this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
+                    this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
                 }
 
                 this.crossX = this.mouseClickX;
@@ -8221,9 +8221,9 @@ export class Client extends GameShell {
 
         if (action === 965) {
             if (this.localPlayer) {
-                const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
+                const success: boolean = this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
                 if (!success) {
-                    this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
+                    this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
                 }
 
                 this.crossX = this.mouseClickX;
@@ -8241,9 +8241,9 @@ export class Client extends GameShell {
 
         if (action === 217) {
             if (this.localPlayer) {
-                const success: boolean = this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
+                const success: boolean = this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], b, c, 2, 0, 0, 0, 0, 0, false);
                 if (!success) {
-                    this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
+                    this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], b, c, 2, 1, 1, 0, 0, 0, false);
                 }
 
                 this.crossX = this.mouseClickX;
@@ -8264,7 +8264,7 @@ export class Client extends GameShell {
         if (action === 728 || action === 542 || action === 6 || action === 963 || action === 245) {
             const npc: ClientNpc | null = this.npcs[a];
             if (npc && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], npc.routeTileX[0], npc.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], npc.routeX[0], npc.routeZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8332,7 +8332,7 @@ export class Client extends GameShell {
         if (action === 265) {
             const npc: ClientNpc | null = this.npcs[a];
             if (npc && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], npc.routeTileX[0], npc.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], npc.routeX[0], npc.routeZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8349,7 +8349,7 @@ export class Client extends GameShell {
             const npc: ClientNpc | null = this.npcs[a];
 
             if (npc && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], npc.routeTileX[0], npc.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], npc.routeX[0], npc.routeZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8431,7 +8431,7 @@ export class Client extends GameShell {
         if (action === 1373 || action === 1544 || action === 151 || action === 1101) {
             const player: ClientPlayer | null = this.players[a];
             if (player && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], player.routeX[0], player.routeZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8477,7 +8477,7 @@ export class Client extends GameShell {
                     const player: ClientPlayer | null = this.players[this.playerIds[i]];
 
                     if (player && player.name && player.name.toLowerCase() === name.toLowerCase() && this.localPlayer) {
-                        this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+                        this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], player.routeX[0], player.routeZ[0], 2, 1, 1, 0, 0, 0, false);
 
                         if (action === 363) {
                             this.out.p1Enc(ClientProt.OPPLAYER1);
@@ -8503,7 +8503,7 @@ export class Client extends GameShell {
             const player: ClientPlayer | null = this.players[a];
 
             if (player && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], player.routeX[0], player.routeZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8519,7 +8519,7 @@ export class Client extends GameShell {
         if (action === 367) {
             const player: ClientPlayer | null = this.players[a];
             if (player && this.localPlayer) {
-                this.tryMove(this.localPlayer.routeTileX[0], this.localPlayer.routeTileZ[0], player.routeTileX[0], player.routeTileZ[0], 2, 1, 1, 0, 0, 0, false);
+                this.tryMove(this.localPlayer.routeX[0], this.localPlayer.routeZ[0], player.routeX[0], player.routeZ[0], 2, 1, 1, 0, 0, 0, false);
 
                 this.crossX = this.mouseClickX;
                 this.crossY = this.mouseClickY;
@@ -8819,9 +8819,9 @@ export class Client extends GameShell {
 
         if (action === 660) {
             if (this.menuVisible) {
-                this.scene?.click(b - 8, c - 11);
+                this.scene?.updateMousePicking(b - 8, c - 11);
             } else {
-                this.scene?.click(this.mouseClickX - 8, this.mouseClickY - 11);
+                this.scene?.updateMousePicking(this.mouseClickX - 8, this.mouseClickY - 11);
             }
         }
 
@@ -9284,11 +9284,11 @@ export class Client extends GameShell {
 
                 image?.plotSprite(childX, childY);
             } else if (child.type === ComponentType.TYPE_MODEL) {
-                const tmpX: number = Pix3D.centerX;
-                const tmpY: number = Pix3D.centerY;
+                const tmpX: number = Pix3D.originX;
+                const tmpY: number = Pix3D.originY;
 
-                Pix3D.centerX = childX + ((child.width / 2) | 0);
-                Pix3D.centerY = childY + ((child.height / 2) | 0);
+                Pix3D.originX = childX + ((child.width / 2) | 0);
+                Pix3D.originY = childY + ((child.height / 2) | 0);
 
                 const eyeY: number = (Pix3D.sinTable[child.xan] * child.zoom) >> 16;
                 const eyeZ: number = (Pix3D.cosTable[child.xan] * child.zoom) >> 16;
@@ -9313,11 +9313,11 @@ export class Client extends GameShell {
                 }
 
                 if (model) {
-                    model.drawSimple(0, child.yan, 0, child.xan, 0, eyeY, eyeZ);
+                    model.objRender(0, child.yan, 0, child.xan, 0, eyeY, eyeZ);
                 }
 
-                Pix3D.centerX = tmpX;
-                Pix3D.centerY = tmpY;
+                Pix3D.originX = tmpX;
+                Pix3D.originY = tmpY;
             } else if (child.type === ComponentType.TYPE_INV_TEXT) {
                 const font: PixFont | null = child.font;
                 if (!font || !child.invSlotObjId || !child.invSlotObjCount) {
@@ -10041,13 +10041,13 @@ export class Client extends GameShell {
                     }
                 }
 
-                const model: Model = Model.modelFromModels(models, modelCount);
+                const model: Model = Model.combineForAnim(models, modelCount);
                 for (let part: number = 0; part < 5; part++) {
                     if (this.designColours[part] !== 0) {
-                        model.recolour(ClientPlayer.DESIGN_IDK_COLORS[part][0], ClientPlayer.DESIGN_IDK_COLORS[part][this.designColours[part]]);
+                        model.recolour(ClientPlayer.recol1d[part][0], ClientPlayer.recol1d[part][this.designColours[part]]);
 
                         if (part === 1) {
-                            model.recolour(ClientPlayer.TORSO_RECOLORS[0], ClientPlayer.TORSO_RECOLORS[this.designColours[part]]);
+                            model.recolour(ClientPlayer.recol2d[0], ClientPlayer.recol2d[this.designColours[part]]);
                         }
                     }
                 }
@@ -10055,8 +10055,8 @@ export class Client extends GameShell {
                 if (this.localPlayer) {
                     const frames: Int16Array | null = SeqType.list[this.localPlayer.readyanim].frames;
                     if (frames) {
-                        model.createLabelReferences();
-                        model.applyTransform(frames[0]);
+                        model.prepareAnim();
+                        model.animate(frames[0]);
                         model.calculateNormals(64, 850, -30, -50, -30, true);
                         com.model = model;
                     }
@@ -10237,13 +10237,13 @@ export class Client extends GameShell {
             if (direction === 0) {
                 color--;
                 if (color < 0) {
-                    color = ClientPlayer.DESIGN_IDK_COLORS[part].length - 1;
+                    color = ClientPlayer.recol1d[part].length - 1;
                 }
             }
 
             if (direction === 1) {
                 color++;
-                if (color >= ClientPlayer.DESIGN_IDK_COLORS[part].length) {
+                if (color >= ClientPlayer.recol1d[part].length) {
                     color = 0;
                 }
             }
@@ -10303,7 +10303,7 @@ export class Client extends GameShell {
     private drawSidebar(): void {
         this.areaSidebar?.setPixels();
         if (this.areaSidebarOffsets) {
-            Pix3D.lineOffset = this.areaSidebarOffsets;
+            Pix3D.scanline = this.areaSidebarOffsets;
         }
 
         this.imageInvback?.plotSprite(0, 0);
@@ -10322,14 +10322,14 @@ export class Client extends GameShell {
 
         this.areaViewport?.setPixels();
         if (this.areaViewportOffsets) {
-            Pix3D.lineOffset = this.areaViewportOffsets;
+            Pix3D.scanline = this.areaViewportOffsets;
         }
     }
 
     private drawChat(): void {
         this.areaChatback?.setPixels();
         if (this.areaChatbackOffsets) {
-            Pix3D.lineOffset = this.areaChatbackOffsets;
+            Pix3D.scanline = this.areaChatbackOffsets;
         }
 
         this.imageChatback?.plotSprite(0, 0);
@@ -10432,7 +10432,7 @@ export class Client extends GameShell {
 
         this.areaViewport?.setPixels();
         if (this.areaViewportOffsets) {
-            Pix3D.lineOffset = this.areaViewportOffsets;
+            Pix3D.scanline = this.areaViewportOffsets;
         }
     }
 
@@ -10456,8 +10456,8 @@ export class Client extends GameShell {
             this.drawOnMinimap(anchorY, this.activeMapFunctions[i], anchorX);
         }
 
-        for (let ltx: number = 0; ltx < CollisionConstants.SIZE; ltx++) {
-            for (let ltz: number = 0; ltz < CollisionConstants.SIZE; ltz++) {
+        for (let ltx: number = 0; ltx < BuildArea.SIZE; ltx++) {
+            for (let ltz: number = 0; ltz < BuildArea.SIZE; ltz++) {
                 const stack: LinkList<ClientObj> | null = this.objStacks[this.currentLevel][ltx][ltz];
                 if (stack) {
                     anchorX = ltx * 4 + 2 - ((this.localPlayer.x / 32) | 0);
@@ -10469,7 +10469,7 @@ export class Client extends GameShell {
 
         for (let i: number = 0; i < this.npcCount; i++) {
             const npc: ClientNpc | null = this.npcs[this.npcIds[i]];
-            if (npc && npc.isVisible() && npc.type && npc.type.minimap) {
+            if (npc && npc.isReady() && npc.type && npc.type.minimap) {
                 anchorX = ((npc.x / 32) | 0) - ((this.localPlayer.x / 32) | 0);
                 anchorY = ((npc.z / 32) | 0) - ((this.localPlayer.z / 32) | 0);
                 this.drawOnMinimap(anchorY, this.imageMapdot1, anchorX);
@@ -10478,7 +10478,7 @@ export class Client extends GameShell {
 
         for (let i: number = 0; i < this.playerCount; i++) {
             const player: ClientPlayer | null = this.players[this.playerIds[i]];
-            if (player && player.isVisible() && player.name) {
+            if (player && player.isReady() && player.name) {
                 anchorX = ((player.x / 32) | 0) - ((this.localPlayer.x / 32) | 0);
                 anchorY = ((player.z / 32) | 0) - ((this.localPlayer.z / 32) | 0);
 

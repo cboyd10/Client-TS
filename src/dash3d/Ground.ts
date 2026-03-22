@@ -1,12 +1,12 @@
 export default class Ground {
-    static readonly tmpScreenX: Int32Array = new Int32Array(6);
-    static readonly tmpScreenY: Int32Array = new Int32Array(6);
-    static readonly tmpViewspaceX: Int32Array = new Int32Array(6);
-    static readonly tmpViewspaceY: Int32Array = new Int32Array(6);
-    static readonly tmpViewspaceZ: Int32Array = new Int32Array(6);
+    static readonly drawVertexX: Int32Array = new Int32Array(6);
+    static readonly drawVertexY: Int32Array = new Int32Array(6);
+    static readonly drawTextureVertexX: Int32Array = new Int32Array(6);
+    static readonly drawTextureVertexY: Int32Array = new Int32Array(6);
+    static readonly drawTextureVertexZ: Int32Array = new Int32Array(6);
 
     // prettier-ignore
-    private static readonly SHAPE_POINTS: Int8Array[] = [
+    private static readonly defShapeP: Int8Array[] = [
         Int8Array.of(1, 3, 5, 7),
         Int8Array.of(1, 3, 5, 7),
         Int8Array.of(1, 3, 5, 7),
@@ -23,7 +23,7 @@ export default class Ground {
     ];
 
     // prettier-ignore
-    private static readonly SHAPE_PATHS: Int8Array[] = [
+    private static readonly defShapeF: Int8Array[] = [
         Int8Array.of(0, 1, 2, 3, 0, 0, 1, 3),
         Int8Array.of(1, 1, 2, 3, 1, 0, 1, 3),
         Int8Array.of(0, 1, 2, 3, 1, 0, 1, 3),
@@ -46,51 +46,50 @@ export default class Ground {
 
     // ----
 
-    // constructor
     readonly vertexX: Int32Array;
     readonly vertexY: Int32Array;
     readonly vertexZ: Int32Array;
-    readonly triangleColorA: Int32Array;
-    readonly triangleColorB: Int32Array;
-    readonly triangleColorC: Int32Array;
-    readonly triangleVertexA: Int32Array;
-    readonly triangleVertexB: Int32Array;
-    readonly triangleVertexC: Int32Array;
-    readonly triangleTextureIds: Int32Array | null;
+    readonly faceColourA: Int32Array;
+    readonly faceColourB: Int32Array;
+    readonly faceColourC: Int32Array;
+    readonly faceVertexA: Int32Array;
+    readonly faceVertexB: Int32Array;
+    readonly faceVertexC: Int32Array;
+    readonly faceTexture: Int32Array | null;
     readonly flat: boolean;
-    readonly shape: number;
-    readonly shapeAngle: number;
-    readonly backgroundRgb: number;
-    readonly foregroundRgb: number;
+    readonly minimapUnderlay: number;
+    readonly minimapOverlay: number;
+    readonly overlayShape: number;
+    readonly overlayRotation: number;
 
     constructor(
         tileX: number,
         shape: number,
         southeastColor2: number,
-        southeastY: number,
+        heightSE: number,
         northeastColor1: number,
-        angle: number,
+        rotation: number,
         southwestColor1: number,
-        northwestY: number,
-        foregroundRgb: number,
+        heightNW: number,
+        underlay: number,
         southwestColor2: number,
         textureId: number,
         northwestColor2: number,
-        backgroundRgb: number,
-        northeastY: number,
+        overlay: number,
+        heightNE: number,
         northeastColor2: number,
         northwestColor1: number,
-        southwestY: number,
+        heightSW: number,
         tileZ: number,
         southeastColor1: number
     ) {
-        this.flat = !(southwestY !== southeastY || southwestY !== northeastY || southwestY !== northwestY);
-        this.shape = shape;
-        this.shapeAngle = angle;
-        this.backgroundRgb = backgroundRgb;
-        this.foregroundRgb = foregroundRgb;
+        this.flat = !(heightSW !== heightSE || heightSW !== heightNE || heightSW !== heightNW);
+        this.overlayShape = shape;
+        this.overlayRotation = rotation;
+        this.minimapOverlay = overlay;
+        this.minimapUnderlay = underlay;
 
-        const points: Int8Array = Ground.SHAPE_POINTS[shape];
+        const points: Int8Array = Ground.defShapeP[shape];
         const vertexCount: number = points.length;
         this.vertexX = new Int32Array(vertexCount);
         this.vertexY = new Int32Array(vertexCount);
@@ -105,15 +104,15 @@ export default class Ground {
             let type: number = points[v];
 
             if ((type & 0x1) === 0 && type <= 8) {
-                type = ((type - angle - angle - 1) & 0x7) + 1;
+                type = ((type - rotation - rotation - 1) & 0x7) + 1;
             }
 
             if (type > 8 && type <= 12) {
-                type = ((type - angle - 9) & 0x3) + 9;
+                type = ((type - rotation - 9) & 0x3) + 9;
             }
 
             if (type > 12 && type <= 16) {
-                type = ((type - angle - 13) & 0x3) + 13;
+                type = ((type - rotation - 13) & 0x3) + 13;
             }
 
             let x: number;
@@ -125,97 +124,97 @@ export default class Ground {
             if (type === 1) {
                 x = sceneX;
                 z = sceneZ;
-                y = southwestY;
+                y = heightSW;
                 color1 = southwestColor1;
                 color2 = southwestColor2;
             } else if (type === 2) {
                 x = sceneX + Ground.HALF_SQUARE;
                 z = sceneZ;
-                y = (southwestY + southeastY) >> 1;
+                y = (heightSW + heightSE) >> 1;
                 color1 = (southwestColor1 + southeastColor1) >> 1;
                 color2 = (southwestColor2 + southeastColor2) >> 1;
             } else if (type === 3) {
                 x = sceneX + Ground.FULL_SQUARE;
                 z = sceneZ;
-                y = southeastY;
+                y = heightSE;
                 color1 = southeastColor1;
                 color2 = southeastColor2;
             } else if (type === 4) {
                 x = sceneX + Ground.FULL_SQUARE;
                 z = sceneZ + Ground.HALF_SQUARE;
-                y = (southeastY + northeastY) >> 1;
+                y = (heightSE + heightNE) >> 1;
                 color1 = (southeastColor1 + northeastColor1) >> 1;
                 color2 = (southeastColor2 + northeastColor2) >> 1;
             } else if (type === 5) {
                 x = sceneX + Ground.FULL_SQUARE;
                 z = sceneZ + Ground.FULL_SQUARE;
-                y = northeastY;
+                y = heightNE;
                 color1 = northeastColor1;
                 color2 = northeastColor2;
             } else if (type === 6) {
                 x = sceneX + Ground.HALF_SQUARE;
                 z = sceneZ + Ground.FULL_SQUARE;
-                y = (northeastY + northwestY) >> 1;
+                y = (heightNE + heightNW) >> 1;
                 color1 = (northeastColor1 + northwestColor1) >> 1;
                 color2 = (northeastColor2 + northwestColor2) >> 1;
             } else if (type === 7) {
                 x = sceneX;
                 z = sceneZ + Ground.FULL_SQUARE;
-                y = northwestY;
+                y = heightNW;
                 color1 = northwestColor1;
                 color2 = northwestColor2;
             } else if (type === 8) {
                 x = sceneX;
                 z = sceneZ + Ground.HALF_SQUARE;
-                y = (northwestY + southwestY) >> 1;
+                y = (heightNW + heightSW) >> 1;
                 color1 = (northwestColor1 + southwestColor1) >> 1;
                 color2 = (northwestColor2 + southwestColor2) >> 1;
             } else if (type === 9) {
                 x = sceneX + Ground.HALF_SQUARE;
                 z = sceneZ + Ground.CORNER_SMALL;
-                y = (southwestY + southeastY) >> 1;
+                y = (heightSW + heightSE) >> 1;
                 color1 = (southwestColor1 + southeastColor1) >> 1;
                 color2 = (southwestColor2 + southeastColor2) >> 1;
             } else if (type === 10) {
                 x = sceneX + Ground.CORNER_BIG;
                 z = sceneZ + Ground.HALF_SQUARE;
-                y = (southeastY + northeastY) >> 1;
+                y = (heightSE + heightNE) >> 1;
                 color1 = (southeastColor1 + northeastColor1) >> 1;
                 color2 = (southeastColor2 + northeastColor2) >> 1;
             } else if (type === 11) {
                 x = sceneX + Ground.HALF_SQUARE;
                 z = sceneZ + Ground.CORNER_BIG;
-                y = (northeastY + northwestY) >> 1;
+                y = (heightNE + heightNW) >> 1;
                 color1 = (northeastColor1 + northwestColor1) >> 1;
                 color2 = (northeastColor2 + northwestColor2) >> 1;
             } else if (type === 12) {
                 x = sceneX + Ground.CORNER_SMALL;
                 z = sceneZ + Ground.HALF_SQUARE;
-                y = (northwestY + southwestY) >> 1;
+                y = (heightNW + heightSW) >> 1;
                 color1 = (northwestColor1 + southwestColor1) >> 1;
                 color2 = (northwestColor2 + southwestColor2) >> 1;
             } else if (type === 13) {
                 x = sceneX + Ground.CORNER_SMALL;
                 z = sceneZ + Ground.CORNER_SMALL;
-                y = southwestY;
+                y = heightSW;
                 color1 = southwestColor1;
                 color2 = southwestColor2;
             } else if (type === 14) {
                 x = sceneX + Ground.CORNER_BIG;
                 z = sceneZ + Ground.CORNER_SMALL;
-                y = southeastY;
+                y = heightSE;
                 color1 = southeastColor1;
                 color2 = southeastColor2;
             } else if (type === 15) {
                 x = sceneX + Ground.CORNER_BIG;
                 z = sceneZ + Ground.CORNER_BIG;
-                y = northeastY;
+                y = heightNE;
                 color1 = northeastColor1;
                 color2 = northeastColor2;
             } else {
                 x = sceneX + Ground.CORNER_SMALL;
                 z = sceneZ + Ground.CORNER_BIG;
-                y = northwestY;
+                y = heightNW;
                 color1 = northwestColor1;
                 color2 = northwestColor2;
             }
@@ -227,19 +226,19 @@ export default class Ground {
             secondaryColors[v] = color2;
         }
 
-        const paths: Int8Array = Ground.SHAPE_PATHS[shape];
+        const paths: Int8Array = Ground.defShapeF[shape];
         const triangleCount: number = (paths.length / 4) | 0;
-        this.triangleVertexA = new Int32Array(triangleCount);
-        this.triangleVertexB = new Int32Array(triangleCount);
-        this.triangleVertexC = new Int32Array(triangleCount);
-        this.triangleColorA = new Int32Array(triangleCount);
-        this.triangleColorB = new Int32Array(triangleCount);
-        this.triangleColorC = new Int32Array(triangleCount);
+        this.faceVertexA = new Int32Array(triangleCount);
+        this.faceVertexB = new Int32Array(triangleCount);
+        this.faceVertexC = new Int32Array(triangleCount);
+        this.faceColourA = new Int32Array(triangleCount);
+        this.faceColourB = new Int32Array(triangleCount);
+        this.faceColourC = new Int32Array(triangleCount);
 
         if (textureId !== -1) {
-            this.triangleTextureIds = new Int32Array(triangleCount);
+            this.faceTexture = new Int32Array(triangleCount);
         } else {
-            this.triangleTextureIds = null;
+            this.faceTexture = null;
         }
 
         let index: number = 0;
@@ -251,36 +250,36 @@ export default class Ground {
             index += 4;
 
             if (a < 4) {
-                a = (a - angle) & 0x3;
+                a = (a - rotation) & 0x3;
             }
 
             if (b < 4) {
-                b = (b - angle) & 0x3;
+                b = (b - rotation) & 0x3;
             }
 
             if (c < 4) {
-                c = (c - angle) & 0x3;
+                c = (c - rotation) & 0x3;
             }
 
-            this.triangleVertexA[t] = a;
-            this.triangleVertexB[t] = b;
-            this.triangleVertexC[t] = c;
+            this.faceVertexA[t] = a;
+            this.faceVertexB[t] = b;
+            this.faceVertexC[t] = c;
 
             if (color === 0) {
-                this.triangleColorA[t] = primaryColors[a];
-                this.triangleColorB[t] = primaryColors[b];
-                this.triangleColorC[t] = primaryColors[c];
+                this.faceColourA[t] = primaryColors[a];
+                this.faceColourB[t] = primaryColors[b];
+                this.faceColourC[t] = primaryColors[c];
 
-                if (this.triangleTextureIds) {
-                    this.triangleTextureIds[t] = -1;
+                if (this.faceTexture) {
+                    this.faceTexture[t] = -1;
                 }
             } else {
-                this.triangleColorA[t] = secondaryColors[a];
-                this.triangleColorB[t] = secondaryColors[b];
-                this.triangleColorC[t] = secondaryColors[c];
+                this.faceColourA[t] = secondaryColors[a];
+                this.faceColourB[t] = secondaryColors[b];
+                this.faceColourC[t] = secondaryColors[c];
 
-                if (this.triangleTextureIds) {
-                    this.triangleTextureIds[t] = textureId;
+                if (this.faceTexture) {
+                    this.faceTexture[t] = textureId;
                 }
             }
         }

@@ -159,13 +159,13 @@ export default class NpcType {
             if (!model && this.model) {
                 const models: (Model | null)[] = new TypedArray1d(this.model.length, null);
                 for (let i: number = 0; i < this.model.length; i++) {
-                    models[i] = Model.get(this.model[i]);
+                    models[i] = Model.load(this.model[i]);
                 }
 
                 if (models.length === 1) {
                     model = models[0];
                 } else {
-                    model = Model.modelFromModels(models, models.length);
+                    model = Model.combineForAnim(models, models.length);
                 }
 
                 if (this.recol_s && this.recol_d) {
@@ -174,7 +174,7 @@ export default class NpcType {
                     }
                 }
 
-                model?.createLabelReferences();
+                model?.prepareAnim();
                 model?.calculateNormals(64, 850, -30, -50, -30, true);
                 if (model) {
                     NpcType.modelCache.put(BigInt(this.id), model);
@@ -185,23 +185,23 @@ export default class NpcType {
         let tmp: Model | null = null;
 
         if (model) {
-            tmp = Model.modelShareAlpha(model, !this.animateTransparencies);
+            tmp = Model.set(model, !this.animateTransparencies);
             if (primaryTransformId !== -1 && secondaryTransformId !== -1) {
-                tmp.applyTransforms(primaryTransformId, secondaryTransformId, seqMask);
+                tmp.maskAnimate(primaryTransformId, secondaryTransformId, seqMask);
             } else if (primaryTransformId !== -1) {
-                tmp.applyTransform(primaryTransformId);
+                tmp.animate(primaryTransformId);
             }
 
             if (this.resizeh !== 128 || this.resizev !== 128) {
-                tmp.scale(this.resizeh, this.resizev, this.resizeh);
+                tmp.resize(this.resizeh, this.resizev, this.resizeh);
             }
 
-            tmp.calculateBoundsCylinder();
+            tmp.calcBoundingCylinder();
             tmp.labelFaces = null;
             tmp.labelVertices = null;
 
             if (this.size === 1) {
-                tmp.picking = true;
+                tmp.useAABBMouseCheck = true;
             }
             return tmp;
         }
@@ -216,14 +216,14 @@ export default class NpcType {
 
         const models: (Model | null)[] = new TypedArray1d(this.head.length, null);
         for (let i: number = 0; i < this.head.length; i++) {
-            models[i] = Model.get(this.head[i]);
+            models[i] = Model.load(this.head[i]);
         }
 
         let model: Model | null;
         if (models.length === 1) {
             model = models[0];
         } else {
-            model = Model.modelFromModels(models, models.length);
+            model = Model.combineForAnim(models, models.length);
         }
 
         if (this.recol_s && this.recol_d) {

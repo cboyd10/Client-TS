@@ -5,7 +5,7 @@ import Packet from '#/io/Packet.js';
 
 import { Colour } from '#/graphics/Colour.js';
 import Pix2D from '#/graphics/Pix2D.js';
-import Pix3D from '#/graphics/Pix3D.js';
+import Pix3D from '#/dash3d/Pix3D.js';
 import Model from '#/dash3d/Model.js';
 import Pix32 from '#/graphics/Pix32.js';
 
@@ -296,7 +296,7 @@ export default class ObjType {
             }
         }
 
-        const model: Model = Model.get(this.model);
+        const model: Model = Model.load(this.model);
         if (this.recol_s && this.recol_d) {
             for (let i: number = 0; i < this.recol_s.length; i++) {
                 model.recolour(this.recol_s[i], this.recol_d[i]);
@@ -304,7 +304,7 @@ export default class ObjType {
         }
 
         model.calculateNormals(64, 768, -50, -10, -50, true);
-        model.picking = true;
+        model.useAABBMouseCheck = true;
         ObjType.modelCache?.put(BigInt(this.id), model);
         return model;
     }
@@ -344,9 +344,9 @@ export default class ObjType {
 
         const icon: Pix32 = new Pix32(32, 32);
 
-        const _cx: number = Pix3D.centerX;
-        const _cy: number = Pix3D.centerY;
-        const _loff: Int32Array = Pix3D.lineOffset;
+        const _cx: number = Pix3D.originX;
+        const _cy: number = Pix3D.originY;
+        const _loff: Int32Array = Pix3D.scanline;
         const _data: Int32Array = Pix2D.pixels;
         const _w: number = Pix2D.width;
         const _h: number = Pix2D.height;
@@ -355,15 +355,15 @@ export default class ObjType {
         const _t: number = Pix2D.clipMinX;
         const _b: number = Pix2D.clipMaxX;
 
-        Pix3D.jagged = false;
+        Pix3D.lowDetail = false;
         Pix2D.setPixels(icon.data, 32, 32);
         Pix2D.fillRect(0, 0, 32, 32, Colour.BLACK);
-        Pix3D.init2D();
+        Pix3D.setRenderClipping();
 
         const iModel: Model = obj.getModelLit(1);
         const sinPitch: number = (Pix3D.sinTable[obj.xan2d] * obj.zoom2d) >> 16;
         const cosPitch: number = (Pix3D.cosTable[obj.xan2d] * obj.zoom2d) >> 16;
-        iModel.drawSimple(0, obj.yan2d, obj.zan2d, obj.xan2d, obj.xof2d, sinPitch + ((iModel.minY / 2) | 0) + obj.yof2d, cosPitch + obj.yof2d);
+        iModel.objRender(0, obj.yan2d, obj.zan2d, obj.xan2d, obj.xof2d, sinPitch + ((iModel.minY / 2) | 0) + obj.yof2d, cosPitch + obj.yof2d);
 
         // draw outline
         for (let x: number = 31; x >= 0; x--) {
@@ -407,10 +407,10 @@ export default class ObjType {
         ObjType.spriteCache?.put(BigInt(id), icon);
         Pix2D.setPixels(_data, _w, _h);
         Pix2D.setClipping(_l, _t, _r, _b);
-        Pix3D.centerX = _cx;
-        Pix3D.centerY = _cy;
-        Pix3D.lineOffset = _loff;
-        Pix3D.jagged = true;
+        Pix3D.originX = _cx;
+        Pix3D.originY = _cy;
+        Pix3D.scanline = _loff;
+        Pix3D.lowDetail = true;
         if (obj.stackable) {
             icon.owi = 33;
         } else {
@@ -437,17 +437,17 @@ export default class ObjType {
             id3 = this.womanwear3;
         }
 
-        let model: Model = Model.get(id1);
+        let model: Model = Model.load(id1);
         if (id2 !== -1) {
-            const model2: Model = Model.get(id2);
+            const model2: Model = Model.load(id2);
 
             if (id3 === -1) {
                 const models: Model[] = [model, model2];
-                model = Model.modelFromModels(models, 2);
+                model = Model.combineForAnim(models, 2);
             } else {
-                const model3: Model = Model.get(id3);
+                const model3: Model = Model.load(id3);
                 const models: Model[] = [model, model2, model3];
-                model = Model.modelFromModels(models, 3);
+                model = Model.combineForAnim(models, 3);
             }
         }
 
@@ -482,11 +482,11 @@ export default class ObjType {
             head2 = this.womanhead2;
         }
 
-        let model: Model = Model.get(head1);
+        let model: Model = Model.load(head1);
         if (head2 !== -1) {
-            const model2: Model = Model.get(head2);
+            const model2: Model = Model.load(head2);
             const models: Model[] = [model, model2];
-            model = Model.modelFromModels(models, 2);
+            model = Model.combineForAnim(models, 2);
         }
 
         if (this.recol_s && this.recol_d) {

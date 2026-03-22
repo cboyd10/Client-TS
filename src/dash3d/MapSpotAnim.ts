@@ -5,22 +5,21 @@ import ModelSource from '#/dash3d/ModelSource.js';
 import Model from '#/dash3d/Model.js';
 
 export default class MapSpotAnim extends ModelSource {
-    readonly spotType: SpotType;
-    readonly spotLevel: number;
+    readonly type: SpotType;
+    readonly level: number;
     readonly x: number;
     readonly z: number;
     readonly y: number;
     readonly startCycle: number;
 
-    // runtime
-    seqComplete: boolean = false;
-    seqFrame: number = 0;
-    seqCycle: number = 0;
+    animComplete: boolean = false;
+    animFrame: number = 0;
+    animCycle: number = 0;
 
     constructor(id: number, level: number, x: number, z: number, y: number, cycle: number, delay: number) {
         super();
-        this.spotType = SpotType.list[id];
-        this.spotLevel = level;
+        this.type = SpotType.list[id];
+        this.level = level;
         this.x = x;
         this.z = z;
         this.y = y;
@@ -28,49 +27,49 @@ export default class MapSpotAnim extends ModelSource {
     }
 
     update(delta: number): void {
-        if (!this.spotType.seq || !this.spotType.seq.delay) {
+        if (!this.type.seq || !this.type.seq.delay) {
             return;
         }
 
-        for (this.seqCycle += delta; this.seqCycle > this.spotType.seq.delay[this.seqFrame]; ) {
-            this.seqCycle -= this.spotType.seq.delay[this.seqFrame] + 1;
-            this.seqFrame++;
+        for (this.animCycle += delta; this.animCycle > this.type.seq.delay[this.animFrame]; ) {
+            this.animCycle -= this.type.seq.delay[this.animFrame] + 1;
+            this.animFrame++;
 
-            if (this.seqFrame >= this.spotType.seq.numFrames) {
-                this.seqFrame = 0;
-                this.seqComplete = true;
+            if (this.animFrame >= this.type.seq.numFrames) {
+                this.animFrame = 0;
+                this.animComplete = true;
             }
         }
     }
 
-    override getModel(): Model {
-        const tmp: Model = this.spotType.getTempModel2();
-        const model: Model = Model.modelShareColored(tmp, true, !this.spotType.animateTransparencies, false);
-        if (!this.seqComplete && this.spotType.seq && this.spotType.seq.frames) {
-            model.createLabelReferences();
-            model.applyTransform(this.spotType.seq.frames[this.seqFrame]);
+    override getTempModel(): Model {
+        const tmp: Model = this.type.getTempModel2();
+        const model: Model = Model.copyForAnim(tmp, true, !this.type.animateTransparencies, false);
+        if (!this.animComplete && this.type.seq && this.type.seq.frames) {
+            model.prepareAnim();
+            model.animate(this.type.seq.frames[this.animFrame]);
             model.labelFaces = null;
             model.labelVertices = null;
         }
 
-        if (this.spotType.resizeh !== 128 || this.spotType.resizev !== 128) {
-            model.scale(this.spotType.resizeh, this.spotType.resizev, this.spotType.resizeh);
+        if (this.type.resizeh !== 128 || this.type.resizev !== 128) {
+            model.resize(this.type.resizeh, this.type.resizev, this.type.resizeh);
         }
 
-        if (this.spotType.angle !== 0) {
-            if (this.spotType.angle === 90) {
-                model.rotateY90();
-            } else if (this.spotType.angle === 180) {
-                model.rotateY90();
-                model.rotateY90();
-            } else if (this.spotType.angle === 270) {
-                model.rotateY90();
-                model.rotateY90();
-                model.rotateY90();
+        if (this.type.angle !== 0) {
+            if (this.type.angle === 90) {
+                model.rotate90();
+            } else if (this.type.angle === 180) {
+                model.rotate90();
+                model.rotate90();
+            } else if (this.type.angle === 270) {
+                model.rotate90();
+                model.rotate90();
+                model.rotate90();
             }
         }
 
-        model.calculateNormals(64 + this.spotType.ambient, 850 + this.spotType.contrast, -30, -50, -30, true);
+        model.calculateNormals(64 + this.type.ambient, 850 + this.type.contrast, -30, -50, -30, true);
         return model;
     }
 }

@@ -1,4 +1,4 @@
-export const enum OverlayShape {
+export const enum TerrainOverlayShape {
     PLAIN = 0,
     DIAGONAL = 1,
     LEFT_SEMI_DIAGONAL_SMALL = 2,

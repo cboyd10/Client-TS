@@ -3,38 +3,36 @@ import ModelSource from '#/dash3d/ModelSource.js';
 import Model from '#/dash3d/Model.js';
 
 export default class Sprite {
-    // constructor
-    readonly locLevel: number;
+    readonly level: number;
     readonly y: number;
     readonly x: number;
     readonly z: number;
     model: Model | null;
     readonly entity: ModelSource | null;
     readonly yaw: number;
-    readonly minSceneTileX: number;
-    readonly maxSceneTileX: number;
-    readonly minSceneTileZ: number;
-    readonly maxSceneTileZ: number;
+    readonly minTileX: number;
+    readonly maxTileX: number;
+    readonly minTileZ: number;
+    readonly maxTileZ: number;
     readonly typecode: number;
-    readonly info: number; // byte
+    readonly typecode2: number;
 
-    // runtime
     distance: number = 0;
     cycle: number = 0;
 
     constructor(level: number, y: number, x: number, z: number, model: Model | null, entity: ModelSource | null, yaw: number, minSceneTileX: number, maxSceneTileX: number, minSceneTileZ: number, maxSceneTileZ: number, typecode: number, info: number) {
-        this.locLevel = level;
+        this.level = level;
         this.y = y;
         this.x = x;
         this.z = z;
         this.model = model;
         this.entity = entity;
         this.yaw = yaw;
-        this.minSceneTileX = minSceneTileX;
-        this.maxSceneTileX = maxSceneTileX;
-        this.minSceneTileZ = minSceneTileZ;
-        this.maxSceneTileZ = maxSceneTileZ;
+        this.minTileX = minSceneTileX;
+        this.maxTileX = maxSceneTileX;
+        this.minTileZ = minSceneTileZ;
+        this.maxTileZ = maxSceneTileZ;
         this.typecode = typecode;
-        this.info = info;
+        this.typecode2 = info;
     }
 }

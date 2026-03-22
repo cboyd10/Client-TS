@@ -1,0 +1,1231 @@
+import FloType from '#/config/FloType.js';
+import LocType from '#/config/LocType.js';
+import SeqType from '#/config/SeqType.js';
+
+import LinkList from '#/datastruct/LinkList.js';
+
+import CollisionMap, { BuildArea } from '#/dash3d/CollisionMap.js';
+import { LocAngle } from '#/dash3d/LocAngle.js';
+import { LocShape } from '#/dash3d/LocShape.js';
+import World from '#/dash3d/World.js';
+
+import ClientLocAnim from '#/dash3d/ClientLocAnim.js';
+
+import { TerrainOverlayShape } from '#/dash3d/TerrainOverlayShape.js';
+
+import { Colour } from '#/graphics/Colour.js';
+import Pix3D from '#/dash3d/Pix3D.js';
+import Model from '#/dash3d/Model.js';
+
+import Packet from '#/io/Packet.js';
+
+import { Int32Array2d, Int32Array3d, Uint8Array3d } from '#/util/Arrays.js';
+
+// noinspection JSSuspiciousNameCombination,DuplicatedCode
+export default class ClientBuild {
+    static readonly WSHAPE0: Int8Array = Int8Array.of(1, 2, 4, 8);
+    static readonly WSHAPE1: Uint8Array = Uint8Array.of(16, 32, 64, 128);
+    static readonly DECORXOF: Int8Array = Int8Array.of(1, 0, -1, 0);
+    static readonly DECORZOF: Int8Array = Int8Array.of(0, -1, 0, 1);
+
+    static hueOff: number = ((Math.random() * 17.0) | 0) - 8;
+    static ligOff: number = ((Math.random() * 33.0) | 0) - 16;
+
+    static lowMem: boolean = true;
+    static minusedlevel: number = 0;
+    static fullbright: boolean = false;
+
+    private readonly maxTileX: number;
+    private readonly maxTileZ: number;
+    private readonly groundh: Int32Array[][];
+    private readonly mapl: Uint8Array[][];
+    private readonly floort1: Uint8Array[][];
+    private readonly floort2: Uint8Array[][];
+    private readonly floors: Uint8Array[][];
+    private readonly floorr: Uint8Array[][];
+    private readonly shadow: Uint8Array[][];
+    private readonly lightmap: Int32Array[];
+    private readonly huetot: Int32Array;
+    private readonly sattot: Int32Array;
+    private readonly ligtot: Int32Array;
+    private readonly comtot: Int32Array;
+    private readonly tot: Int32Array;
+    private readonly mapo: Int32Array[][];
+
+    public constructor(maxTileX: number, maxTileZ: number, levelHeightmap: Int32Array[][], levelTileFlags: Uint8Array[][]) {
+        this.maxTileX = maxTileX;
+        this.maxTileZ = maxTileZ;
+        this.groundh = levelHeightmap;
+        this.mapl = levelTileFlags;
+
+        this.floort1 = new Uint8Array3d(BuildArea.LEVELS, maxTileX, maxTileZ);
+        this.floort2 = new Uint8Array3d(BuildArea.LEVELS, maxTileX, maxTileZ);
+        this.floors = new Uint8Array3d(BuildArea.LEVELS, maxTileX, maxTileZ);
+        this.floorr = new Uint8Array3d(BuildArea.LEVELS, maxTileX, maxTileZ);
+
+        this.mapo = new Int32Array3d(BuildArea.LEVELS, maxTileX + 1, maxTileZ + 1);
+        this.shadow = new Uint8Array3d(BuildArea.LEVELS, maxTileX + 1, maxTileZ + 1);
+        this.lightmap = new Int32Array2d(maxTileX + 1, maxTileZ + 1);
+
+        this.huetot = new Int32Array(maxTileZ);
+        this.sattot = new Int32Array(maxTileZ);
+        this.ligtot = new Int32Array(maxTileZ);
+        this.comtot = new Int32Array(maxTileZ);
+        this.tot = new Int32Array(maxTileZ);
+    }
+
+    finishBuild(scene: World | null, collision: (CollisionMap | null)[]): void {
+        for (let level: number = 0; level < BuildArea.LEVELS; level++) {
+            for (let x: number = 0; x < BuildArea.SIZE; x++) {
+                for (let z: number = 0; z < BuildArea.SIZE; z++) {
+                    // block_map_square
+                    if ((this.mapl[level][x][z] & 0x1) === 1) {
+                        let trueLevel: number = level;
+
+                        // linkbelow
+                        if ((this.mapl[1][x][z] & 0x2) === 2) {
+                            trueLevel--;
+                        }
+
+                        if (trueLevel >= 0) {
+                            collision[trueLevel]?.blockGround(x, z);
+                        }
+                    }
+                }
+            }
+        }
+
+        ClientBuild.hueOff += ((Math.random() * 5.0) | 0) - 2;
+        if (ClientBuild.hueOff < -8) {
+            ClientBuild.hueOff = -8;
+        } else if (ClientBuild.hueOff > 8) {
+            ClientBuild.hueOff = 8;
+        }
+
+        ClientBuild.ligOff += ((Math.random() * 5.0) | 0) - 2;
+        if (ClientBuild.ligOff < -16) {
+            ClientBuild.ligOff = -16;
+        } else if (ClientBuild.ligOff > 16) {
+            ClientBuild.ligOff = 16;
+        }
+
+        for (let level: number = 0; level < BuildArea.LEVELS; level++) {
+            const shademap: Uint8Array[] = this.shadow[level];
+            const lightAmbient: number = 96;
+            const lightAttenuation: number = 768;
+            const lightX: number = -50;
+            const lightY: number = -10;
+            const lightZ: number = -50;
+            const lightMag: number = Math.sqrt(lightX * lightX + lightY * lightY + lightZ * lightZ) | 0;
+            const lightMagnitude: number = (lightAttenuation * lightMag) >> 8;
+
+            for (let z: number = 1; z < this.maxTileZ - 1; z++) {
+                for (let x: number = 1; x < this.maxTileX - 1; x++) {
+                    const dx: number = this.groundh[level][x + 1][z] - this.groundh[level][x - 1][z];
+                    const dz: number = this.groundh[level][x][z + 1] - this.groundh[level][x][z - 1];
+
+                    const len: number = Math.sqrt(dx * dx + 65536 + dz * dz) | 0;
+                    const normalX: number = ((dx << 8) / len) | 0;
+                    const normalY: number = (65536 / len) | 0;
+                    const normalZ: number = ((dz << 8) / len) | 0;
+
+                    const light: number = lightAmbient + (((lightX * normalX + lightY * normalY + lightZ * normalZ) / lightMagnitude) | 0);
+                    const shade: number = (shademap[x - 1][z] >> 2) + (shademap[x + 1][z] >> 3) + (shademap[x][z - 1] >> 2) + (shademap[x][z + 1] >> 3) + (shademap[x][z] >> 1);
+
+                    this.lightmap[x][z] = light - shade;
+                }
+            }
+
+            for (let z: number = 0; z < this.maxTileZ; z++) {
+                this.huetot[z] = 0;
+                this.sattot[z] = 0;
+                this.ligtot[z] = 0;
+                this.comtot[z] = 0;
+                this.tot[z] = 0;
+            }
+
+            for (let x0: number = -5; x0 < this.maxTileX + 5; x0++) {
+                for (let z0: number = 0; z0 < this.maxTileZ; z0++) {
+                    const x1: number = x0 + 5;
+
+                    if (x1 >= 0 && x1 < this.maxTileX) {
+                        const underlayId: number = this.floort1[level][x1][z0] & 0xff;
+
+                        if (underlayId > 0) {
+                            const flu: FloType = FloType.list[underlayId - 1];
+                            this.huetot[z0] += flu.underlayHue;
+                            this.sattot[z0] += flu.saturation;
+                            this.ligtot[z0] += flu.lightness;
+                            this.comtot[z0] += flu.chroma;
+                            this.tot[z0]++;
+                        }
+                    }
+
+                    const x2: number = x0 - 5;
+                    if (x2 >= 0 && x2 < this.maxTileX) {
+                        const underlayId: number = this.floort1[level][x2][z0] & 0xff;
+
+                        if (underlayId > 0) {
+                            const flu: FloType = FloType.list[underlayId - 1];
+                            this.huetot[z0] -= flu.underlayHue;
+                            this.sattot[z0] -= flu.saturation;
+                            this.ligtot[z0] -= flu.lightness;
+                            this.comtot[z0] -= flu.chroma;
+                            this.tot[z0]--;
+                        }
+                    }
+                }
+
+                if (x0 >= 1 && x0 < this.maxTileX - 1) {
+                    let hueAccumulator: number = 0;
+                    let saturationAccumulator: number = 0;
+                    let lightnessAccumulator: number = 0;
+                    let luminanceAccumulator: number = 0;
+                    let magnitudeAccumulator: number = 0;
+
+                    for (let z0: number = -5; z0 < this.maxTileZ + 5; z0++) {
+                        const dz1: number = z0 + 5;
+                        if (dz1 >= 0 && dz1 < this.maxTileZ) {
+                            hueAccumulator += this.huetot[dz1];
+                            saturationAccumulator += this.sattot[dz1];
+                            lightnessAccumulator += this.ligtot[dz1];
+                            luminanceAccumulator += this.comtot[dz1];
+                            magnitudeAccumulator += this.tot[dz1];
+                        }
+
+                        const dz2: number = z0 - 5;
+                        if (dz2 >= 0 && dz2 < this.maxTileZ) {
+                            hueAccumulator -= this.huetot[dz2];
+                            saturationAccumulator -= this.sattot[dz2];
+                            lightnessAccumulator -= this.ligtot[dz2];
+                            luminanceAccumulator -= this.comtot[dz2];
+                            magnitudeAccumulator -= this.tot[dz2];
+                        }
+
+                        if (z0 >= 1 && z0 < this.maxTileZ - 1 && (!ClientBuild.lowMem || ((this.mapl[level][x0][z0] & 0x10) === 0 && this.getVisBelowLevel(level, x0, z0) === ClientBuild.minusedlevel))) {
+                            const underlayId: number = this.floort1[level][x0][z0] & 0xff;
+                            const overlayId: number = this.floort2[level][x0][z0] & 0xff;
+
+                            if (underlayId > 0 || overlayId > 0) {
+                                const heightSW: number = this.groundh[level][x0][z0];
+                                const heightSE: number = this.groundh[level][x0 + 1][z0];
+                                const heightNE: number = this.groundh[level][x0 + 1][z0 + 1];
+                                const heightNW: number = this.groundh[level][x0][z0 + 1];
+
+                                const lightSW: number = this.lightmap[x0][z0];
+                                const lightSE: number = this.lightmap[x0 + 1][z0];
+                                const lightNE: number = this.lightmap[x0 + 1][z0 + 1];
+                                const lightNW: number = this.lightmap[x0][z0 + 1];
+
+                                let baseColor: number = -1;
+                                let tintColor: number = -1;
+
+                                if (underlayId > 0) {
+                                    const hue: number = ((hueAccumulator * 256) / luminanceAccumulator) | 0;
+                                    const saturation: number = (saturationAccumulator / magnitudeAccumulator) | 0;
+                                    let lightness: number = (lightnessAccumulator / magnitudeAccumulator) | 0;
+                                    baseColor = this.getTable(hue, saturation, lightness);
+
+                                    const randomHue: number = (hue + ClientBuild.hueOff) & 0xff;
+
+                                    lightness += ClientBuild.ligOff;
+                                    if (lightness < 0) {
+                                        lightness = 0;
+                                    } else if (lightness > 255) {
+                                        lightness = 255;
+                                    }
+
+                                    tintColor = this.getTable(randomHue, saturation, lightness);
+                                }
+
+                                if (level > 0) {
+                                    let occludes: boolean = underlayId !== 0 || this.floors[level][x0][z0] === TerrainOverlayShape.PLAIN;
+
+                                    if (overlayId > 0 && !FloType.list[overlayId - 1].occlude) {
+                                        occludes = false;
+                                    }
+
+                                    // occludes && flat
+                                    if (occludes && heightSW === heightSE && heightSW === heightNE && heightSW === heightNW) {
+                                        this.mapo[level][x0][z0] |= 0x924;
+                                    }
+                                }
+
+                                let shadeColor: number = 0;
+                                if (baseColor !== -1) {
+                                    shadeColor = Pix3D.colourTable[ClientBuild.getUCol(tintColor, 96)];
+                                }
+
+                                if (overlayId === 0) {
+                                    scene?.setGround(
+                                        level,
+                                        x0,
+                                        z0,
+                                        TerrainOverlayShape.PLAIN,
+                                        LocAngle.WEST,
+                                        -1,
+                                        heightSW,
+                                        heightSE,
+                                        heightNE,
+                                        heightNW,
+                                        ClientBuild.getUCol(baseColor, lightSW),
+                                        ClientBuild.getUCol(baseColor, lightSE),
+                                        ClientBuild.getUCol(baseColor, lightNE),
+                                        ClientBuild.getUCol(baseColor, lightNW),
+                                        Colour.BLACK,
+                                        Colour.BLACK,
+                                        Colour.BLACK,
+                                        Colour.BLACK,
+                                        shadeColor,
+                                        Colour.BLACK
+                                    );
+                                } else {
+                                    const shape: number = this.floors[level][x0][z0] + 1;
+                                    const rotation: number = this.floorr[level][x0][z0];
+                                    const flo: FloType = FloType.list[overlayId - 1];
+                                    let textureId: number = flo.texture;
+                                    let hsl: number;
+                                    let rgb: number;
+
+                                    if (textureId >= 0) {
+                                        rgb = Pix3D.getAverageTextureRgb(textureId);
+                                        hsl = -1;
+                                    } else if (flo.colour === Colour.MAGENTA) {
+                                        rgb = 0;
+                                        hsl = -2;
+                                        textureId = -1;
+                                    } else {
+                                        hsl = this.getTable(flo.hue, flo.saturation, flo.lightness);
+                                        rgb = Pix3D.colourTable[this.getOCol(flo.overlayHsl, 96)];
+                                    }
+
+                                    scene?.setGround(
+                                        level,
+                                        x0,
+                                        z0,
+                                        shape,
+                                        rotation,
+                                        textureId,
+                                        heightSW,
+                                        heightSE,
+                                        heightNE,
+                                        heightNW,
+                                        ClientBuild.getUCol(baseColor, lightSW),
+                                        ClientBuild.getUCol(baseColor, lightSE),
+                                        ClientBuild.getUCol(baseColor, lightNE),
+                                        ClientBuild.getUCol(baseColor, lightNW),
+                                        this.getOCol(hsl, lightSW),
+                                        this.getOCol(hsl, lightSE),
+                                        this.getOCol(hsl, lightNE),
+                                        this.getOCol(hsl, lightNW),
+                                        shadeColor,
+                                        rgb
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (let stz: number = 1; stz < this.maxTileZ - 1; stz++) {
+                for (let stx: number = 1; stx < this.maxTileX - 1; stx++) {
+                    scene?.setLayer(level, stx, stz, this.getVisBelowLevel(level, stx, stz));
+                }
+            }
+        }
+
+        if (!ClientBuild.fullbright) {
+            scene?.shareLight(64, 768, -50, -10, -50);
+        }
+
+        for (let x: number = 0; x < this.maxTileX; x++) {
+            for (let z: number = 0; z < this.maxTileZ; z++) {
+                if ((this.mapl[1][x][z] & 0x2) === 2) {
+                    scene?.pushDown(x, z);
+                }
+            }
+        }
+
+        if (!ClientBuild.fullbright) {
+            let wall0: number = 0x1; // this flag is set by walls with rotation 0 or 2
+            let wall1: number = 0x2; // this flag is set by walls with rotation 1 or 3
+            let floor: number = 0x4; // this flag is set by floors which are flat
+
+            for (let topLevel: number = 0; topLevel < BuildArea.LEVELS; topLevel++) {
+                if (topLevel > 0) {
+                    wall0 <<= 0x3;
+                    wall1 <<= 0x3;
+                    floor <<= 0x3;
+                }
+
+                for (let level: number = 0; level <= topLevel; level++) {
+                    for (let tileZ: number = 0; tileZ <= this.maxTileZ; tileZ++) {
+                        for (let tileX: number = 0; tileX <= this.maxTileX; tileX++) {
+                            if ((this.mapo[level][tileX][tileZ] & wall0) !== 0) {
+                                let minTileZ: number = tileZ;
+                                let maxTileZ: number = tileZ;
+                                let minLevel: number = level;
+                                let maxLevel: number = level;
+
+                                while (minTileZ > 0 && (this.mapo[level][tileX][minTileZ - 1] & wall0) !== 0) {
+                                    minTileZ--;
+                                }
+
+                                while (maxTileZ < this.maxTileZ && (this.mapo[level][tileX][maxTileZ + 1] & wall0) !== 0) {
+                                    maxTileZ++;
+                                }
+
+                                find_min_level: while (minLevel > 0) {
+                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                        if ((this.mapo[minLevel - 1][tileX][z] & wall0) === 0) {
+                                            break find_min_level;
+                                        }
+                                    }
+                                    minLevel--;
+                                }
+
+                                find_max_level: while (maxLevel < topLevel) {
+                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                        if ((this.mapo[maxLevel + 1][tileX][z] & wall0) === 0) {
+                                            break find_max_level;
+                                        }
+                                    }
+                                    maxLevel++;
+                                }
+
+                                const area: number = (maxLevel + 1 - minLevel) * (maxTileZ + 1 - minTileZ);
+                                if (area >= 8) {
+                                    const minY: number = this.groundh[maxLevel][tileX][minTileZ] - 240;
+                                    const maxX: number = this.groundh[minLevel][tileX][minTileZ];
+
+                                    World.setOcclude(topLevel, 1, tileX * 128, minY, minTileZ * 128, tileX * 128, maxX, maxTileZ * 128 + 128);
+
+                                    for (let l: number = minLevel; l <= maxLevel; l++) {
+                                        for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                            this.mapo[l][tileX][z] &= ~wall0;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if ((this.mapo[level][tileX][tileZ] & wall1) !== 0) {
+                                let minTileX: number = tileX;
+                                let maxTileX: number = tileX;
+                                let minLevel: number = level;
+                                let maxLevel: number = level;
+
+                                while (minTileX > 0 && (this.mapo[level][minTileX - 1][tileZ] & wall1) !== 0) {
+                                    minTileX--;
+                                }
+
+                                while (maxTileX < this.maxTileX && (this.mapo[level][maxTileX + 1][tileZ] & wall1) !== 0) {
+                                    maxTileX++;
+                                }
+
+                                find_min_level2: while (minLevel > 0) {
+                                    for (let x: number = minTileX; x <= maxTileX; x++) {
+                                        if ((this.mapo[minLevel - 1][x][tileZ] & wall1) === 0) {
+                                            break find_min_level2;
+                                        }
+                                    }
+                                    minLevel--;
+                                }
+
+                                find_max_level2: while (maxLevel < topLevel) {
+                                    for (let x: number = minTileX; x <= maxTileX; x++) {
+                                        if ((this.mapo[maxLevel + 1][x][tileZ] & wall1) === 0) {
+                                            break find_max_level2;
+                                        }
+                                    }
+                                    maxLevel++;
+                                }
+
+                                const area: number = (maxLevel + 1 - minLevel) * (maxTileX + 1 - minTileX);
+
+                                if (area >= 8) {
+                                    const minY: number = this.groundh[maxLevel][minTileX][tileZ] - 240;
+                                    const maxY: number = this.groundh[minLevel][minTileX][tileZ];
+
+                                    World.setOcclude(topLevel, 2, minTileX * 128, minY, tileZ * 128, maxTileX * 128 + 128, maxY, tileZ * 128);
+
+                                    for (let l: number = minLevel; l <= maxLevel; l++) {
+                                        for (let x: number = minTileX; x <= maxTileX; x++) {
+                                            this.mapo[l][x][tileZ] &= ~wall1;
+                                        }
+                                    }
+                                }
+                            }
+                            if ((this.mapo[level][tileX][tileZ] & floor) !== 0) {
+                                let minTileX: number = tileX;
+                                let maxTileX: number = tileX;
+                                let minTileZ: number = tileZ;
+                                let maxTileZ: number = tileZ;
+
+                                while (minTileZ > 0 && (this.mapo[level][tileX][minTileZ - 1] & floor) !== 0) {
+                                    minTileZ--;
+                                }
+
+                                while (maxTileZ < this.maxTileZ && (this.mapo[level][tileX][maxTileZ + 1] & floor) !== 0) {
+                                    maxTileZ++;
+                                }
+
+                                find_min_tile_xz: while (minTileX > 0) {
+                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                        if ((this.mapo[level][minTileX - 1][z] & floor) === 0) {
+                                            break find_min_tile_xz;
+                                        }
+                                    }
+                                    minTileX--;
+                                }
+
+                                find_max_tile_xz: while (maxTileX < this.maxTileX) {
+                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                        if ((this.mapo[level][maxTileX + 1][z] & floor) === 0) {
+                                            break find_max_tile_xz;
+                                        }
+                                    }
+                                    maxTileX++;
+                                }
+
+                                if ((maxTileX + 1 - minTileX) * (maxTileZ + 1 - minTileZ) >= 4) {
+                                    const y: number = this.groundh[level][minTileX][minTileZ];
+
+                                    World.setOcclude(topLevel, 4, minTileX * 128, y, minTileZ * 128, maxTileX * 128 + 128, y, maxTileZ * 128 + 128);
+
+                                    for (let x: number = minTileX; x <= maxTileX; x++) {
+                                        for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                            this.mapo[level][x][z] &= ~floor;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    static perlinNoise(x: number, z: number): number {
+        let value: number = this.interpolatedNoise(x + 45365, z + 91923, 4) + ((this.interpolatedNoise(x + 10294, z + 37821, 2) - 128) >> 1) + ((this.interpolatedNoise(x, z, 1) - 128) >> 2) - 128;
+        value = ((value * 0.3) | 0) + 35;
+        if (value < 10) {
+            value = 10;
+        } else if (value > 60) {
+            value = 60;
+        }
+        return value;
+    }
+
+    static interpolatedNoise(x: number, z: number, scale: number): number {
+        const intX: number = (x / scale) | 0;
+        const fracX: number = x & (scale - 1);
+        const intZ: number = (z / scale) | 0;
+        const fracZ: number = z & (scale - 1);
+        const v1: number = this.smoothNoise(intX, intZ);
+        const v2: number = this.smoothNoise(intX + 1, intZ);
+        const v3: number = this.smoothNoise(intX, intZ + 1);
+        const v4: number = this.smoothNoise(intX + 1, intZ + 1);
+        const i1: number = this.interpolate(v1, v2, fracX, scale);
+        const i2: number = this.interpolate(v3, v4, fracX, scale);
+        return this.interpolate(i1, i2, fracZ, scale);
+    }
+
+    static interpolate(a: number, b: number, x: number, scale: number): number {
+        const f: number = (65536 - Pix3D.cosTable[((x * 1024) / scale) | 0]) >> 1;
+        return ((a * (65536 - f)) >> 16) + ((b * f) >> 16);
+    }
+
+    static smoothNoise(x: number, y: number): number {
+        const corners: number = this.noise(x - 1, y - 1) + this.noise(x + 1, y - 1) + this.noise(x - 1, y + 1) + this.noise(x + 1, y + 1);
+        const sides: number = this.noise(x - 1, y) + this.noise(x + 1, y) + this.noise(x, y - 1) + this.noise(x, y + 1);
+        const center: number = this.noise(x, y);
+        return ((corners / 16) | 0) + ((sides / 8) | 0) + ((center / 4) | 0);
+    }
+
+    static noise(x: number, y: number): number {
+        const n: number = x + y * 57;
+        const n1: bigint = BigInt((n << 13) ^ n);
+        return Number(((n1 * (n1 * n1 * 15731n + 789221n) + 1376312589n) & 0x7fffffffn) >> 19n) & 0xff;
+    }
+
+    clearLandscape(startX: number, startZ: number, endX: number, endZ: number): void {
+        let waterOverlay: number = 0;
+        for (let i: number = 0; i < FloType.numDefinitions; i++) {
+            if (FloType.list[i].debugname?.toLowerCase() === 'water') {
+                waterOverlay = ((i + 1) << 24) >> 24;
+                break;
+            }
+        }
+
+        for (let z: number = startX; z < startX + endX; z++) {
+            for (let x: number = startZ; x < startZ + endZ; x++) {
+                if (x >= 0 && x < this.maxTileX && z >= 0 && z < this.maxTileZ) {
+                    this.floort2[0][x][z] = waterOverlay;
+
+                    for (let level: number = 0; level < BuildArea.LEVELS; level++) {
+                        this.groundh[level][x][z] = 0;
+                        this.mapl[level][x][z] = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    loadGround(originX: number, originZ: number, xOffset: number, zOffset: number, src: Uint8Array): void {
+        const buf: Packet = new Packet(src);
+
+        for (let level: number = 0; level < BuildArea.LEVELS; level++) {
+            for (let x: number = 0; x < 64; x++) {
+                for (let z: number = 0; z < 64; z++) {
+                    const stx: number = x + xOffset;
+                    const stz: number = z + zOffset;
+                    let opcode: number;
+
+                    if (stx >= 0 && stx < BuildArea.SIZE && stz >= 0 && stz < BuildArea.SIZE) {
+                        this.mapl[level][stx][stz] = 0;
+
+                        // eslint-disable-next-line no-constant-condition
+                        while (true) {
+                            opcode = buf.g1();
+                            if (opcode === 0) {
+                                if (level === 0) {
+                                    this.groundh[0][stx][stz] = -ClientBuild.perlinNoise(stx + originX + 932731, stz + 556238 + originZ) * 8;
+                                } else {
+                                    this.groundh[level][stx][stz] = this.groundh[level - 1][stx][stz] - 240;
+                                }
+                                break;
+                            }
+
+                            if (opcode === 1) {
+                                let height: number = buf.g1();
+                                if (height === 1) {
+                                    height = 0;
+                                }
+                                if (level === 0) {
+                                    this.groundh[0][stx][stz] = -height * 8;
+                                } else {
+                                    this.groundh[level][stx][stz] = this.groundh[level - 1][stx][stz] - height * 8;
+                                }
+                                break;
+                            }
+
+                            if (opcode <= 49) {
+                                this.floort2[level][stx][stz] = buf.g1b();
+                                this.floors[level][stx][stz] = ((((opcode - 2) / 4) | 0) << 24) >> 24;
+                                this.floorr[level][stx][stz] = (((opcode - 2) & 0x3) << 24) >> 24;
+                            } else if (opcode <= 81) {
+                                this.mapl[level][stx][stz] = ((opcode - 49) << 24) >> 24;
+                            } else {
+                                this.floort1[level][stx][stz] = ((opcode - 81) << 24) >> 24;
+                            }
+                        }
+                    } else {
+                        // eslint-disable-next-line no-constant-condition
+                        while (true) {
+                            opcode = buf.g1();
+                            if (opcode === 0) {
+                                break;
+                            }
+
+                            if (opcode === 1) {
+                                buf.g1();
+                                break;
+                            }
+
+                            if (opcode <= 49) {
+                                buf.g1();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    loadLocations(scene: World | null, locs: LinkList<ClientLocAnim>, collision: (CollisionMap | null)[], src: Uint8Array, xOffset: number, zOffset: number): void {
+        const buf: Packet = new Packet(src);
+        let locId: number = -1;
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const deltaId: number = buf.gsmart();
+            if (deltaId === 0) {
+                return;
+            }
+
+            locId += deltaId;
+
+            let locPos: number = 0;
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                const deltaPos: number = buf.gsmart();
+                if (deltaPos === 0) {
+                    break;
+                }
+
+                locPos += deltaPos - 1;
+                const z: number = locPos & 0x3f;
+                const x: number = (locPos >> 6) & 0x3f;
+                const level: number = locPos >> 12;
+
+                const info: number = buf.g1();
+                const shape: number = info >> 2;
+                const rotation: number = info & 0x3;
+                const stx: number = x + xOffset;
+                const stz: number = z + zOffset;
+
+                if (stx > 0 && stz > 0 && stx < BuildArea.SIZE - 1 && stz < BuildArea.SIZE - 1) {
+                    let currentLevel: number = level;
+                    if ((this.mapl[1][stx][stz] & 0x2) === 2) {
+                        currentLevel = level - 1;
+                    }
+
+                    let collisionMap: CollisionMap | null = null;
+                    if (currentLevel >= 0) {
+                        collisionMap = collision[currentLevel];
+                    }
+
+                    this.addLoc(level, stx, stz, scene, locs, collisionMap, locId, shape, rotation);
+                }
+            }
+        }
+    }
+
+    private addLoc(level: number, x: number, z: number, scene: World | null, locs: LinkList<ClientLocAnim>, collision: CollisionMap | null, locId: number, shape: number, angle: number): void {
+        if (ClientBuild.lowMem) {
+            if ((this.mapl[level][x][z] & 0x10) !== 0) {
+                return;
+            }
+
+            if (this.getVisBelowLevel(level, x, z) !== ClientBuild.minusedlevel) {
+                return;
+            }
+        }
+
+        const heightSW: number = this.groundh[level][x][z];
+        const heightSE: number = this.groundh[level][x + 1][z];
+        const heightNE: number = this.groundh[level][x + 1][z + 1];
+        const heightNW: number = this.groundh[level][x][z + 1];
+        const y: number = (heightSW + heightSE + heightNE + heightNW) >> 2;
+
+        const loc: LocType = LocType.list(locId);
+
+        let typecode1: number = (x + (z << 7) + (locId << 14) + 0x40000000) | 0;
+        if (!loc.active) {
+            typecode1 += -0x80000000; // int.min
+        }
+        typecode1 |= 0;
+
+        const typecode2: number = ((((angle << 6) + shape) | 0) << 24) >> 24;
+
+        if (shape === LocShape.GROUND_DECOR) {
+            if (!ClientBuild.lowMem || loc.active || loc.forcedecor) {
+                scene?.setGroundDecor(loc.getModel(LocShape.GROUND_DECOR, angle, heightSW, heightSE, heightNE, heightNW, -1), level, x, z, y, typecode1, typecode2);
+
+                if (loc.blockwalk && loc.active) {
+                    collision?.blockGround(x, z);
+                }
+
+                if (loc.anim !== -1) {
+                    locs.push(new ClientLocAnim(locId, level, 3, x, z, SeqType.list[loc.anim], true));
+                }
+            }
+        } else if (shape === LocShape.CENTREPIECE_STRAIGHT || shape === LocShape.CENTREPIECE_DIAGONAL) {
+            const model: Model | null = loc.getModel(LocShape.CENTREPIECE_STRAIGHT, angle, heightSW, heightSE, heightNE, heightNW, -1);
+            if (model) {
+                let yaw: number = 0;
+                if (shape === LocShape.CENTREPIECE_DIAGONAL) {
+                    yaw += 256;
+                }
+
+                let width: number;
+                let height: number;
+                if (angle === LocAngle.NORTH || angle === LocAngle.SOUTH) {
+                    width = loc.length;
+                    height = loc.width;
+                } else {
+                    width = loc.width;
+                    height = loc.length;
+                }
+
+                if (scene?.addScenery(level, x, z, y, model, null, typecode1, typecode2, width, height, yaw) && loc.shadow) {
+                    for (let dx: number = 0; dx <= width; dx++) {
+                        for (let dz: number = 0; dz <= height; dz++) {
+                            let shade: number = (model.radius / 4) | 0;
+                            if (shade > 30) {
+                                shade = 30;
+                            }
+
+                            if (shade > this.shadow[level][x + dx][z + dz]) {
+                                this.shadow[level][x + dx][z + dz] = (shade << 24) >> 24;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (loc.blockwalk) {
+                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape >= LocShape.ROOF_STRAIGHT) {
+            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2, 1, 1, 0);
+
+            if (shape >= LocShape.ROOF_STRAIGHT && shape <= LocShape.ROOF_FLAT && shape !== LocShape.ROOF_DIAGONAL_WITH_ROOFEDGE && level > 0) {
+                this.mapo[level][x][z] |= 0x924;
+            }
+
+            if (loc.blockwalk) {
+                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_STRAIGHT) {
+            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE0[angle], 0, loc.getModel(LocShape.WALL_STRAIGHT, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2);
+
+            if (angle === LocAngle.WEST) {
+                if (loc.shadow) {
+                    this.shadow[level][x][z] = 50;
+                    this.shadow[level][x][z + 1] = 50;
+                }
+
+                if (loc.occlude) {
+                    this.mapo[level][x][z] |= 0x249;
+                }
+            } else if (angle === LocAngle.NORTH) {
+                if (loc.shadow) {
+                    this.shadow[level][x][z + 1] = 50;
+                    this.shadow[level][x + 1][z + 1] = 50;
+                }
+
+                if (loc.occlude) {
+                    this.mapo[level][x][z + 1] |= 0x492;
+                }
+            } else if (angle === LocAngle.EAST) {
+                if (loc.shadow) {
+                    this.shadow[level][x + 1][z] = 50;
+                    this.shadow[level][x + 1][z + 1] = 50;
+                }
+
+                if (loc.occlude) {
+                    this.mapo[level][x + 1][z] |= 0x249;
+                }
+            } else if (angle === LocAngle.SOUTH) {
+                if (loc.shadow) {
+                    this.shadow[level][x][z] = 50;
+                    this.shadow[level][x + 1][z] = 50;
+                }
+
+                if (loc.occlude) {
+                    this.mapo[level][x][z] |= 0x492;
+                }
+            }
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+
+            if (loc.wallwidth !== 16) {
+                scene?.moveDecor(level, x, z, loc.wallwidth);
+            }
+        } else if (shape === LocShape.WALL_DIAGONAL_CORNER) {
+            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_DIAGONAL_CORNER, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2);
+
+            if (loc.shadow) {
+                if (angle === LocAngle.WEST) {
+                    this.shadow[level][x][z + 1] = 50;
+                } else if (angle === LocAngle.NORTH) {
+                    this.shadow[level][x + 1][z + 1] = 50;
+                } else if (angle === LocAngle.EAST) {
+                    this.shadow[level][x + 1][z] = 50;
+                } else if (angle === LocAngle.SOUTH) {
+                    this.shadow[level][x][z] = 50;
+                }
+            }
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_L) {
+            const offset: number = (angle + 1) & 0x3;
+
+            scene?.setWall(
+                level,
+                x,
+                z,
+                y,
+                ClientBuild.WSHAPE0[angle],
+                ClientBuild.WSHAPE0[offset],
+                loc.getModel(LocShape.WALL_L, angle + 4, heightSW, heightSE, heightNE, heightNW, -1),
+                loc.getModel(LocShape.WALL_L, offset, heightSW, heightSE, heightNE, heightNW, -1),
+                typecode1,
+                typecode2
+            );
+
+            if (loc.occlude) {
+                if (angle === LocAngle.WEST) {
+                    this.mapo[level][x][z] |= 0x109;
+                    this.mapo[level][x][z + 1] |= 0x492;
+                } else if (angle === LocAngle.NORTH) {
+                    this.mapo[level][x][z + 1] |= 0x492;
+                    this.mapo[level][x + 1][z] |= 0x249;
+                } else if (angle === LocAngle.EAST) {
+                    this.mapo[level][x + 1][z] |= 0x249;
+                    this.mapo[level][x][z] |= 0x492;
+                } else if (angle === LocAngle.SOUTH) {
+                    this.mapo[level][x][z] |= 0x492;
+                    this.mapo[level][x][z] |= 0x249;
+                }
+            }
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+
+            if (loc.wallwidth !== 16) {
+                scene?.moveDecor(level, x, z, loc.wallwidth);
+            }
+        } else if (shape === LocShape.WALL_SQUARE_CORNER) {
+            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_SQUARE_CORNER, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2);
+
+            if (loc.shadow) {
+                if (angle === LocAngle.WEST) {
+                    this.shadow[level][x][z + 1] = 50;
+                } else if (angle === LocAngle.NORTH) {
+                    this.shadow[level][x + 1][z + 1] = 50;
+                } else if (angle === LocAngle.EAST) {
+                    this.shadow[level][x + 1][z] = 50;
+                } else if (angle === LocAngle.SOUTH) {
+                    this.shadow[level][x][z] = 50;
+                }
+            }
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_DIAGONAL) {
+            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNE, heightNW, -1), null, typecode1, typecode2, 1, 1, 0);
+
+            if (loc.blockwalk) {
+                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_STRAIGHT_NOOFFSET) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle * 512, ClientBuild.WSHAPE0[angle]);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_STRAIGHT_OFFSET) {
+            let wallwidth: number = 16;
+            if (scene) {
+                const typecode: number = scene.wallType(level, x, z);
+                if (typecode > 0) {
+                    wallwidth = LocType.list((typecode >> 14) & 0x7fff).wallwidth;
+                }
+            }
+
+            scene?.setDecor(
+                level,
+                x,
+                z,
+                y,
+                ClientBuild.DECORXOF[angle] * wallwidth,
+                ClientBuild.DECORZOF[angle] * wallwidth,
+                typecode1,
+                loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1),
+                typecode2,
+                angle * 512,
+                ClientBuild.WSHAPE0[angle]
+            );
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_DIAGONAL_OFFSET) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 256);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_DIAGONAL_NOOFFSET) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 512);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_DIAGONAL_BOTH) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode1, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNE, heightNW, -1), typecode2, angle, 768);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        }
+    }
+
+    private getVisBelowLevel(level: number, stx: number, stz: number): number {
+        if ((this.mapl[level][stx][stz] & 0x8) === 0) {
+            return level <= 0 || (this.mapl[1][stx][stz] & 0x2) === 0 ? level : level - 1;
+        }
+        return 0;
+    }
+
+    getTable(hue: number, saturation: number, lightness: number): number {
+        if (lightness > 179) {
+            saturation = (saturation / 2) | 0;
+        }
+        if (lightness > 192) {
+            saturation = (saturation / 2) | 0;
+        }
+        if (lightness > 217) {
+            saturation = (saturation / 2) | 0;
+        }
+        if (lightness > 243) {
+            saturation = (saturation / 2) | 0;
+        }
+        return (((hue / 4) | 0) << 10) + (((saturation / 32) | 0) << 7) + ((lightness / 2) | 0);
+    }
+
+    static changeLocUnchecked(level: number, x: number, z: number, scene: World | null, levelHeightmap: Int32Array[][], locs: LinkList<ClientLocAnim>, collision: CollisionMap | null, locId: number, shape: number, angle: number, trueLevel: number): void {
+        const heightSW: number = levelHeightmap[trueLevel][x][z];
+        const heightSE: number = levelHeightmap[trueLevel][x + 1][z];
+        const heightNW: number = levelHeightmap[trueLevel][x + 1][z + 1];
+        const heightNE: number = levelHeightmap[trueLevel][x][z + 1];
+        const y: number = (heightSW + heightSE + heightNW + heightNE) >> 2;
+
+        const loc: LocType = LocType.list(locId);
+
+        let typecode: number = (x + (z << 7) + (locId << 14) + 0x40000000) | 0;
+        if (!loc.active) {
+            typecode += -0x80000000; // int.min
+        }
+        typecode |= 0;
+
+        const info: number = ((((angle << 6) + shape) | 0) << 24) >> 24;
+
+        if (shape === LocShape.GROUND_DECOR) {
+            scene?.setGroundDecor(loc.getModel(LocShape.GROUND_DECOR, angle, heightSW, heightSE, heightNW, heightNE, -1), level, x, z, y, typecode, info);
+
+            if (loc.blockwalk && loc.active) {
+                collision?.blockGround(x, z);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 3, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.CENTREPIECE_STRAIGHT || shape === LocShape.CENTREPIECE_DIAGONAL) {
+            const model: Model | null = loc.getModel(LocShape.CENTREPIECE_STRAIGHT, angle, heightSW, heightSE, heightNW, heightNE, -1);
+            if (model) {
+                let yaw: number = 0;
+                if (shape === LocShape.CENTREPIECE_DIAGONAL) {
+                    yaw += 256;
+                }
+
+                let width: number;
+                let height: number;
+                if (angle === LocAngle.NORTH || angle === LocAngle.SOUTH) {
+                    width = loc.length;
+                    height = loc.width;
+                } else {
+                    width = loc.width;
+                    height = loc.length;
+                }
+
+                scene?.addScenery(level, x, z, y, model, null, typecode, info, width, height, yaw);
+            }
+
+            if (loc.blockwalk) {
+                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape >= LocShape.ROOF_STRAIGHT) {
+            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info, 1, 1, 0);
+
+            if (loc.blockwalk) {
+                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_STRAIGHT) {
+            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE0[angle], 0, loc.getModel(LocShape.WALL_STRAIGHT, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info);
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_DIAGONAL_CORNER) {
+            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_DIAGONAL_CORNER, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info);
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_L) {
+            const offset: number = (angle + 1) & 0x3;
+
+            scene?.setWall(
+                level,
+                x,
+                z,
+                y,
+                ClientBuild.WSHAPE0[angle],
+                ClientBuild.WSHAPE0[offset],
+                loc.getModel(LocShape.WALL_L, angle + 4, heightSW, heightSE, heightNW, heightNE, -1),
+                loc.getModel(LocShape.WALL_L, offset, heightSW, heightSE, heightNW, heightNE, -1),
+                typecode,
+                info
+            );
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_SQUARE_CORNER) {
+            scene?.setWall(level, x, z, y, ClientBuild.WSHAPE1[angle], 0, loc.getModel(LocShape.WALL_SQUARE_CORNER, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info);
+
+            if (loc.blockwalk) {
+                collision?.addWall(x, z, shape, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 0, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALL_DIAGONAL) {
+            scene?.addScenery(level, x, z, y, loc.getModel(shape, angle, heightSW, heightSE, heightNW, heightNE, -1), null, typecode, info, 1, 1, 0);
+
+            if (loc.blockwalk) {
+                collision?.addLoc(x, z, loc.width, loc.length, angle, loc.blockrange);
+            }
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 2, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_STRAIGHT_NOOFFSET) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle * 512, ClientBuild.WSHAPE0[angle]);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_STRAIGHT_OFFSET) {
+            let wallwidth: number = 16;
+            if (scene) {
+                const typecode: number = scene.wallType(level, x, z);
+                if (typecode > 0) {
+                    wallwidth = LocType.list((typecode >> 14) & 0x7fff).wallwidth;
+                }
+            }
+
+            scene?.setDecor(
+                level,
+                x,
+                z,
+                y,
+                ClientBuild.DECORXOF[angle] * wallwidth,
+                ClientBuild.DECORZOF[angle] * wallwidth,
+                typecode,
+                loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1),
+                info,
+                angle * 512,
+                ClientBuild.WSHAPE0[angle]
+            );
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_DIAGONAL_OFFSET) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle, 256);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_DIAGONAL_NOOFFSET) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle, 512);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        } else if (shape === LocShape.WALLDECOR_DIAGONAL_BOTH) {
+            scene?.setDecor(level, x, z, y, 0, 0, typecode, loc.getModel(LocShape.WALLDECOR_STRAIGHT_NOOFFSET, LocAngle.WEST, heightSW, heightSE, heightNW, heightNE, -1), info, angle, 768);
+
+            if (loc.anim !== -1) {
+                locs.push(new ClientLocAnim(locId, level, 1, x, z, SeqType.list[loc.anim], true));
+            }
+        }
+    }
+
+    static getUCol(hsl: number, lightness: number): number {
+        if (hsl === -1) {
+            return 12345678;
+        }
+        lightness = ((lightness * (hsl & 0x7f)) / 128) | 0;
+        if (lightness < 2) {
+            lightness = 2;
+        } else if (lightness > 126) {
+            lightness = 126;
+        }
+        return (hsl & 0xff80) + lightness;
+    }
+
+    getOCol(hsl: number, scalar: number): number {
+        if (hsl === -2) {
+            return 12345678;
+        }
+
+        if (hsl === -1) {
+            if (scalar < 0) {
+                scalar = 0;
+            } else if (scalar > 127) {
+                scalar = 127;
+            }
+            return 127 - scalar;
+        } else {
+            scalar = ((scalar * (hsl & 0x7f)) / 128) | 0;
+            if (scalar < 2) {
+                scalar = 2;
+            } else if (scalar > 126) {
+                scalar = 126;
+            }
+            return (hsl & 0xff80) + scalar;
+        }
+    }
+}

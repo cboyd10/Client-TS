@@ -353,7 +353,7 @@ export default class Component {
                 return model;
             }
         }
-        const model: Model = Model.get(id);
+        const model: Model = Model.load(id);
         this.modelCache?.put(BigInt(id), model);
         return model;
     }
@@ -372,17 +372,17 @@ export default class Component {
             return model;
         }
 
-        const tmp: Model = Model.modelShareColored(model, true, true, false);
+        const tmp: Model = Model.copyForAnim(model, true, true, false);
         if (primaryFrame !== -1 || secondaryFrame !== -1) {
-            tmp.createLabelReferences();
+            tmp.prepareAnim();
         }
 
         if (primaryFrame !== -1) {
-            tmp.applyTransform(primaryFrame);
+            tmp.animate(primaryFrame);
         }
 
         if (secondaryFrame !== -1) {
-            tmp.applyTransform(secondaryFrame);
+            tmp.animate(secondaryFrame);
         }
 
         tmp.calculateNormals(64, 768, -50, -10, -50, true);
