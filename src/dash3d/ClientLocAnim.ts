@@ -12,14 +12,14 @@ export default class ClientLocAnim extends Linkable {
     animFrame: number;
     animCycle: number;
 
-    constructor(index: number, heightmapSW: number, heightmapSE: number, heightmapNE: number, heightmapNW: number, seq: SeqType, randomFrame: boolean) {
+    constructor(index: number, heightSW: number, heightSE: number, heightNE: number, heightNW: number, seq: SeqType, randomFrame: boolean) {
         super();
 
         this.index = index;
-        this.heightSW = heightmapSW;
-        this.heightSE = heightmapSE;
-        this.heightNE = heightmapNE;
-        this.heightNW = heightmapNW;
+        this.heightSW = heightSW;
+        this.heightSE = heightSE;
+        this.heightNE = heightNE;
+        this.heightNW = heightNW;
         this.anim = seq;
 
         if (randomFrame && seq.loops !== -1 && this.anim.delay) {

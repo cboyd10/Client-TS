@@ -32,8 +32,8 @@ export const enum ButtonType {
     BUTTON_CONTINUE = 6,
 };
 
-export default class Component {
-    static types: Component[] = [];
+export default class IfType {
+    static types: IfType[] = [];
     invSlotObjId: Int32Array | null = null;
     invSlotObjCount: Int32Array | null = null;
     seqFrame: number = 0;
@@ -52,7 +52,7 @@ export default class Component {
     scriptOperand: Uint16Array | null = null;
     overlayer: number = -1;
     scroll: number = 0;
-    scrollPosition: number = 0;
+    scrollPos: number = 0;
     hide: boolean = false;
     children: number[] | null = null;
     activeModel: Model | null = null;
@@ -91,7 +91,7 @@ export default class Component {
     invSlotGraphic: (Pix32 | null)[] | null = null;
     iop: (string | null)[] | null = null;
 
-    static unpack(interfaces: JagFile, media: JagFile, fonts: PixFont[]): void {
+    static init(interfaces: JagFile, media: JagFile, fonts: PixFont[]): void {
         this.imageCache = new LruCache(50000);
         this.modelCache = new LruCache(50000);
 
@@ -108,7 +108,7 @@ export default class Component {
                 id = data.g2();
             }
 
-            const com: Component = (this.types[id] = new Component());
+            const com: IfType = (this.types[id] = new IfType());
             com.id = id;
             com.layer = layer;
             com.type = data.g1();
@@ -394,7 +394,7 @@ export default class Component {
             return this.x;
         }
 
-        let parent: Component = Component.types[this.layer];
+        let parent: IfType = IfType.types[this.layer];
         if (!parent.children || !parent.childX || !parent.childY) {
             return this.x;
         }
@@ -406,7 +406,7 @@ export default class Component {
 
         let x: number = parent.childX[childIndex];
         while (parent.layer !== parent.id) {
-            const grandParent: Component = Component.types[parent.layer];
+            const grandParent: IfType = IfType.types[parent.layer];
             if (grandParent.children && grandParent.childX && grandParent.childY) {
                 childIndex = grandParent.children.indexOf(parent.id);
                 if (childIndex !== -1) {
@@ -424,7 +424,7 @@ export default class Component {
             return this.y;
         }
 
-        let parent: Component = Component.types[this.layer];
+        let parent: IfType = IfType.types[this.layer];
         if (!parent.children || !parent.childX || !parent.childY) {
             return this.y;
         }
@@ -436,7 +436,7 @@ export default class Component {
 
         let y: number = parent.childY[childIndex];
         while (parent.layer !== parent.id) {
-            const grandParent: Component = Component.types[parent.layer];
+            const grandParent: IfType = IfType.types[parent.layer];
             if (grandParent.children && grandParent.childX && grandParent.childY) {
                 childIndex = grandParent.children.indexOf(parent.id);
                 if (childIndex !== -1) {
@@ -463,7 +463,7 @@ export default class Component {
         this.x = 0;
         this.y = 0;
 
-        const parent: Component = Component.types[this.layer];
+        const parent: IfType = IfType.types[this.layer];
 
         if (parent.children && parent.childX && parent.childY) {
             const childIndex: number = parent.children.indexOf(this.id);
@@ -480,7 +480,7 @@ export default class Component {
             return;
         }
 
-        const parent: Component = Component.types[this.layer];
+        const parent: IfType = IfType.types[this.layer];
 
         if (parent.children && parent.childX && parent.childY) {
             const childIndex: number = parent.children.indexOf(this.id);

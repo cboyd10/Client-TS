@@ -178,39 +178,6 @@ export default class Pix2D extends Linkable2 {
         }
     }
 
-    static drawLine(x1: number, y1: number, x2: number, y2: number, color: number): void {
-        const dx: number = Math.abs(x2 - x1);
-        const dy: number = Math.abs(y2 - y1);
-
-        const sx: number = x1 < x2 ? 1 : -1;
-        const sy: number = y1 < y2 ? 1 : -1;
-
-        let err: number = dx - dy;
-
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-            if (x1 >= this.clipMinY && x1 < this.right && y1 >= this.clipMinX && y1 < this.clipMaxX) {
-                this.pixels[x1 + y1 * this.width] = color;
-            }
-
-            if (x1 === x2 && y1 === y2) {
-                break;
-            }
-
-            const e2: number = 2 * err;
-
-            if (e2 > -dy) {
-                err = err - dy;
-                x1 = x1 + sx;
-            }
-
-            if (e2 < dx) {
-                err = err + dx;
-                y1 = y1 + sy;
-            }
-        }
-    }
-
     static fillCircle(xCenter: number, yCenter: number, yRadius: number, rgb: number, alpha: number): void {
         const invAlpha: number = 256 - alpha;
         const r0: number = ((rgb >> 16) & 0xff) * alpha;

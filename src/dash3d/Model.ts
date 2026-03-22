@@ -1867,7 +1867,7 @@ export default class Model extends Linkable2 {
         }
     }
 
-    private render2(clipped: boolean, picking: boolean, typecode: number, wireframe: boolean = false): void {
+    private render2(clipped: boolean, picking: boolean, typecode: number): void {
         for (let depth: number = 0; depth < this.maxDepth; depth++) {
             if (Model.tmpDepthFaceCount) {
                 Model.tmpDepthFaceCount[depth] = 0;
@@ -1946,7 +1946,7 @@ export default class Model extends Linkable2 {
                     const faces: Int32Array = Model.tmpDepthFaces[depth];
                     for (let f: number = 0; f < count; f++) {
                         try {
-                            this.render3(faces[f], wireframe);
+                            this.render3(faces[f]);
                         } catch (e) {
                             // chrome's V8 optimizer hates us
                         }
@@ -2030,7 +2030,7 @@ export default class Model extends Linkable2 {
             for (let priority: number = 0; priority < 10; priority++) {
                 while (priority === 0 && priorityDepth > averagePriorityDepthSum1_2) {
                     try {
-                        this.render3(priorityFaces[priorityFace++], wireframe);
+                        this.render3(priorityFaces[priorityFace++]);
 
                         if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
                             priorityFace = 0;
@@ -2051,7 +2051,7 @@ export default class Model extends Linkable2 {
 
                 while (priority === 3 && priorityDepth > averagePriorityDepthSum3_4) {
                     try {
-                        this.render3(priorityFaces[priorityFace++], wireframe);
+                        this.render3(priorityFaces[priorityFace++]);
 
                         if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
                             priorityFace = 0;
@@ -2072,7 +2072,7 @@ export default class Model extends Linkable2 {
 
                 while (priority === 5 && priorityDepth > averagePriorityDepthSum6_8) {
                     try {
-                        this.render3(priorityFaces[priorityFace++], wireframe);
+                        this.render3(priorityFaces[priorityFace++]);
 
                         if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
                             priorityFace = 0;
@@ -2096,7 +2096,7 @@ export default class Model extends Linkable2 {
 
                 for (let i: number = 0; i < count; i++) {
                     try {
-                        this.render3(faces[i], wireframe);
+                        this.render3(faces[i]);
                     } catch (e) {
                         // chrome's V8 optimizer hates us
                     }
@@ -2105,7 +2105,7 @@ export default class Model extends Linkable2 {
 
             while (priorityDepth !== -1000) {
                 try {
-                    this.render3(priorityFaces[priorityFace++], wireframe);
+                    this.render3(priorityFaces[priorityFace++]);
 
                     if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
                         priorityFace = 0;
@@ -2126,9 +2126,9 @@ export default class Model extends Linkable2 {
         }
     }
 
-    private render3(face: number, wireframe: boolean = false): void {
+    private render3(face: number): void {
         if (Model.faceNearClipped && Model.faceNearClipped[face]) {
-            this.render3ZClip(face, wireframe);
+            this.render3ZClip(face);
             return;
         }
 
@@ -2153,11 +2153,7 @@ export default class Model extends Linkable2 {
             type = this.faceRenderType[face] & 0x3;
         }
 
-        if (wireframe && Model.vertexScreenX && Model.vertexScreenY && this.faceColourA && this.faceColourB && this.faceColourC) {
-            Pix3D.drawLine(Model.vertexScreenX[a], Model.vertexScreenY[a], Model.vertexScreenX[b], Model.vertexScreenY[b], Pix3D.colourTable[this.faceColourA[face]]);
-            Pix3D.drawLine(Model.vertexScreenX[b], Model.vertexScreenY[b], Model.vertexScreenX[c], Model.vertexScreenY[c], Pix3D.colourTable[this.faceColourB[face]]);
-            Pix3D.drawLine(Model.vertexScreenX[c], Model.vertexScreenY[c], Model.vertexScreenX[a], Model.vertexScreenY[a], Pix3D.colourTable[this.faceColourC[face]]);
-        } else if (type === 0 && this.faceColourA && this.faceColourB && this.faceColourC && Model.vertexScreenX && Model.vertexScreenY) {
+        if (type === 0 && this.faceColourA && this.faceColourB && this.faceColourC && Model.vertexScreenX && Model.vertexScreenY) {
             Pix3D.gouraudTriangle(
                 Model.vertexScreenX[a],
                 Model.vertexScreenX[b],
@@ -2226,7 +2222,7 @@ export default class Model extends Linkable2 {
         }
     }
 
-    private render3ZClip(face: number, wireframe: boolean = false): void {
+    private render3ZClip(face: number): void {
         let elements: number = 0;
 
         if (Model.vertexViewSpaceZ) {
@@ -2339,11 +2335,7 @@ export default class Model extends Linkable2 {
                 type = this.faceRenderType[face] & 0x3;
             }
 
-            if (wireframe) {
-                Pix3D.drawLine(x0, x1, y0, y1, Model.clippedColour[0]);
-                Pix3D.drawLine(x1, x2, y1, y2, Model.clippedColour[1]);
-                Pix3D.drawLine(x2, x0, y2, y0, Model.clippedColour[2]);
-            } else if (type === 0) {
+            if (type === 0) {
                 Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]);
             } else if (type === 1 && this.faceColourA) {
                 Pix3D.flatTriangle(x0, x1, x2, y0, y1, y2, Pix3D.colourTable[this.faceColourA[face]]);
@@ -2412,12 +2404,7 @@ export default class Model extends Linkable2 {
                 type = this.faceRenderType[face] & 0x3;
             }
 
-            if (wireframe) {
-                Pix3D.drawLine(x0, x1, y0, y1, Model.clippedColour[0]);
-                Pix3D.drawLine(x1, x2, y1, y2, Model.clippedColour[1]);
-                Pix3D.drawLine(x2, Model.clippedX[3], y2, Model.clippedY[3], Model.clippedColour[2]);
-                Pix3D.drawLine(Model.clippedX[3], x0, Model.clippedY[3], y0, Model.clippedColour[3]);
-            } else if (type === 0) {
+            if (type === 0) {
                 Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]);
                 Pix3D.gouraudTriangle(x0, x2, Model.clippedX[3], y0, y2, Model.clippedY[3], Model.clippedColour[0], Model.clippedColour[2], Model.clippedColour[3]);
             } else if (type === 1) {
