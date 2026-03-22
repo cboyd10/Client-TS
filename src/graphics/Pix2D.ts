@@ -9,7 +9,7 @@ export default class Pix2D extends Linkable2 {
     static clipMinX: number = 0;
     static clipMaxX: number = 0;
     static clipMinY: number = 0;
-    static right: number = 0;
+    static clipMaxY: number = 0;
 
     static sizeX: number = 0;
     static maxX: number = 0;
@@ -23,12 +23,12 @@ export default class Pix2D extends Linkable2 {
     }
 
     static resetClipping(): void {
-        this.clipMinY = 0;
         this.clipMinX = 0;
-        this.right = this.width;
-        this.clipMaxX = this.height;
-        this.sizeX = this.right - 1;
-        this.maxX = (this.right / 2) | 0;
+        this.clipMinY = 0;
+        this.clipMaxX = this.width;
+        this.clipMaxY = this.height;
+        this.sizeX = this.clipMaxX - 1;
+        this.maxX = (this.clipMaxX / 2) | 0;
     }
 
     static setClipping(left: number, top: number, right: number, bottom: number): void {
@@ -48,13 +48,13 @@ export default class Pix2D extends Linkable2 {
             bottom = this.height;
         }
 
-        this.clipMinX = top;
-        this.clipMaxX = bottom;
-        this.clipMinY = left;
-        this.right = right;
-        this.sizeX = this.right - 1;
-        this.maxX = (this.right / 2) | 0;
-        this.maxY = (this.clipMaxX / 2) | 0;
+        this.clipMinY = top;
+        this.clipMaxY = bottom;
+        this.clipMinX = left;
+        this.clipMaxX = right;
+        this.sizeX = this.clipMaxX - 1;
+        this.maxX = (this.clipMaxX / 2) | 0;
+        this.maxY = (this.clipMaxY / 2) | 0;
     }
 
     static cls(): void {
@@ -65,22 +65,22 @@ export default class Pix2D extends Linkable2 {
     }
 
     static fillRectTrans(x: number, y: number, width: number, height: number, rgb: number, alpha: number): void {
-        if (x < this.clipMinY) {
-            width -= this.clipMinY - x;
-            x = this.clipMinY;
+        if (x < this.clipMinX) {
+            width -= this.clipMinX - x;
+            x = this.clipMinX;
         }
 
-        if (y < this.clipMinX) {
-            height -= this.clipMinX - y;
-            y = this.clipMinX;
+        if (y < this.clipMinY) {
+            height -= this.clipMinY - y;
+            y = this.clipMinY;
         }
 
-        if (x + width > this.right) {
-            width = this.right - x;
+        if (x + width > this.clipMaxX) {
+            width = this.clipMaxX - x;
         }
 
-        if (y + height > this.clipMaxX) {
-            height = this.clipMaxX - y;
+        if (y + height > this.clipMaxY) {
+            height = this.clipMaxY - y;
         }
 
         const invAlpha: number = 256 - alpha;
@@ -102,22 +102,22 @@ export default class Pix2D extends Linkable2 {
     }
 
     static fillRect(x: number, y: number, width: number, height: number, color: number): void {
-        if (x < this.clipMinY) {
-            width -= this.clipMinY - x;
-            x = this.clipMinY;
+        if (x < this.clipMinX) {
+            width -= this.clipMinX - x;
+            x = this.clipMinX;
         }
 
-        if (y < this.clipMinX) {
-            height -= this.clipMinX - y;
-            y = this.clipMinX;
+        if (y < this.clipMinY) {
+            height -= this.clipMinY - y;
+            y = this.clipMinY;
         }
 
-        if (x + width > this.right) {
-            width = this.right - x;
+        if (x + width > this.clipMaxX) {
+            width = this.clipMaxX - x;
         }
 
-        if (y + height > this.clipMaxX) {
-            height = this.clipMaxX - y;
+        if (y + height > this.clipMaxY) {
+            height = this.clipMaxY - y;
         }
 
         const step: number = this.width - width;
@@ -139,17 +139,17 @@ export default class Pix2D extends Linkable2 {
     }
 
     static hline(x: number, y: number, color: number, width: number): void {
-        if (y < this.clipMinX || y >= this.clipMaxX) {
+        if (y < this.clipMinY || y >= this.clipMaxY) {
             return;
         }
 
-        if (x < this.clipMinY) {
-            width -= this.clipMinY - x;
-            x = this.clipMinY;
+        if (x < this.clipMinX) {
+            width -= this.clipMinX - x;
+            x = this.clipMinX;
         }
 
-        if (x + width > this.right) {
-            width = this.right - x;
+        if (x + width > this.clipMaxX) {
+            width = this.clipMaxX - x;
         }
 
         const off: number = x + y * this.width;
@@ -159,17 +159,17 @@ export default class Pix2D extends Linkable2 {
     }
 
     static vline(x: number, y: number, color: number, height: number): void {
-        if (x < this.clipMinY || x >= this.right) {
+        if (x < this.clipMinX || x >= this.clipMaxX) {
             return;
         }
 
-        if (y < this.clipMinX) {
-            height -= this.clipMinX - y;
-            y = this.clipMinX;
+        if (y < this.clipMinY) {
+            height -= this.clipMinY - y;
+            y = this.clipMinY;
         }
 
-        if (y + height > this.clipMaxX) {
-            height = this.clipMaxX - y;
+        if (y + height > this.clipMaxY) {
+            height = this.clipMaxY - y;
         }
 
         const off: number = x + y * this.width;

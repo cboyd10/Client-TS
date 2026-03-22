@@ -330,12 +330,12 @@ export default class Pix3D extends Pix2D {
         }
 
         if (yA <= yB && yA <= yC) {
-            if (yA < Pix2D.clipMaxX) {
-                if (yB > Pix2D.clipMaxX) {
-                    yB = Pix2D.clipMaxX;
+            if (yA < Pix2D.clipMaxY) {
+                if (yB > Pix2D.clipMaxY) {
+                    yB = Pix2D.clipMaxY;
                 }
-                if (yC > Pix2D.clipMaxX) {
-                    yC = Pix2D.clipMaxX;
+                if (yC > Pix2D.clipMaxY) {
+                    yC = Pix2D.clipMaxY;
                 }
                 if (yB < yC) {
                     xC = xA <<= 0x10;
@@ -492,12 +492,12 @@ export default class Pix3D extends Pix2D {
                 }
             }
         } else if (yB <= yC) {
-            if (yB < Pix2D.clipMaxX) {
-                if (yC > Pix2D.clipMaxX) {
-                    yC = Pix2D.clipMaxX;
+            if (yB < Pix2D.clipMaxY) {
+                if (yC > Pix2D.clipMaxY) {
+                    yC = Pix2D.clipMaxY;
                 }
-                if (yA > Pix2D.clipMaxX) {
-                    yA = Pix2D.clipMaxX;
+                if (yA > Pix2D.clipMaxY) {
+                    yA = Pix2D.clipMaxY;
                 }
                 if (yC < yA) {
                     xA = xB <<= 0x10;
@@ -650,12 +650,12 @@ export default class Pix3D extends Pix2D {
                     }
                 }
             }
-        } else if (yC < Pix2D.clipMaxX) {
-            if (yA > Pix2D.clipMaxX) {
-                yA = Pix2D.clipMaxX;
+        } else if (yC < Pix2D.clipMaxY) {
+            if (yA > Pix2D.clipMaxY) {
+                yA = Pix2D.clipMaxY;
             }
-            if (yB > Pix2D.clipMaxX) {
-                yB = Pix2D.clipMaxX;
+            if (yB > Pix2D.clipMaxY) {
+                yB = Pix2D.clipMaxY;
             }
             if (yA < yB) {
                 xB = xC <<= 0x10;
@@ -944,12 +944,12 @@ export default class Pix3D extends Pix2D {
             xStepAC = (((x0 - x2) << 16) / (y0 - y2)) | 0;
         }
         if (y0 <= y1 && y0 <= y2) {
-            if (y0 < Pix2D.clipMaxX) {
-                if (y1 > Pix2D.clipMaxX) {
-                    y1 = Pix2D.clipMaxX;
+            if (y0 < Pix2D.clipMaxY) {
+                if (y1 > Pix2D.clipMaxY) {
+                    y1 = Pix2D.clipMaxY;
                 }
-                if (y2 > Pix2D.clipMaxX) {
-                    y2 = Pix2D.clipMaxX;
+                if (y2 > Pix2D.clipMaxY) {
+                    y2 = Pix2D.clipMaxY;
                 }
                 if (y1 < y2) {
                     x2 = x0 <<= 0x10;
@@ -1080,12 +1080,12 @@ export default class Pix3D extends Pix2D {
                 }
             }
         } else if (y1 <= y2) {
-            if (y1 < Pix2D.clipMaxX) {
-                if (y2 > Pix2D.clipMaxX) {
-                    y2 = Pix2D.clipMaxX;
+            if (y1 < Pix2D.clipMaxY) {
+                if (y2 > Pix2D.clipMaxY) {
+                    y2 = Pix2D.clipMaxY;
                 }
-                if (y0 > Pix2D.clipMaxX) {
-                    y0 = Pix2D.clipMaxX;
+                if (y0 > Pix2D.clipMaxY) {
+                    y0 = Pix2D.clipMaxY;
                 }
                 if (y2 < y0) {
                     x0 = x1 <<= 0x10;
@@ -1215,12 +1215,12 @@ export default class Pix3D extends Pix2D {
                     }
                 }
             }
-        } else if (y2 < Pix2D.clipMaxX) {
-            if (y0 > Pix2D.clipMaxX) {
-                y0 = Pix2D.clipMaxX;
+        } else if (y2 < Pix2D.clipMaxY) {
+            if (y0 > Pix2D.clipMaxY) {
+                y0 = Pix2D.clipMaxY;
             }
-            if (y1 > Pix2D.clipMaxX) {
-                y1 = Pix2D.clipMaxX;
+            if (y1 > Pix2D.clipMaxY) {
+                y1 = Pix2D.clipMaxY;
             }
             if (y0 < y1) {
                 x1 = x2 <<= 0x10;
@@ -1483,13 +1483,13 @@ export default class Pix3D extends Pix2D {
         }
 
         if (yA <= yB && yA <= yC) {
-            if (yA < Pix2D.clipMaxX) {
-                if (yB > Pix2D.clipMaxX) {
-                    yB = Pix2D.clipMaxX;
+            if (yA < Pix2D.clipMaxY) {
+                if (yB > Pix2D.clipMaxY) {
+                    yB = Pix2D.clipMaxY;
                 }
 
-                if (yC > Pix2D.clipMaxX) {
-                    yC = Pix2D.clipMaxX;
+                if (yC > Pix2D.clipMaxY) {
+                    yC = Pix2D.clipMaxY;
                 }
 
                 if (yB < yC) {
@@ -1709,12 +1709,12 @@ export default class Pix3D extends Pix2D {
                 }
             }
         } else if (yB <= yC) {
-            if (yB < Pix2D.clipMaxX) {
-                if (yC > Pix2D.clipMaxX) {
-                    yC = Pix2D.clipMaxX;
+            if (yB < Pix2D.clipMaxY) {
+                if (yC > Pix2D.clipMaxY) {
+                    yC = Pix2D.clipMaxY;
                 }
-                if (yA > Pix2D.clipMaxX) {
-                    yA = Pix2D.clipMaxX;
+                if (yA > Pix2D.clipMaxY) {
+                    yA = Pix2D.clipMaxY;
                 }
                 if (yC < yA) {
                     xA = xB <<= 0x10;
@@ -1929,12 +1929,12 @@ export default class Pix3D extends Pix2D {
                     }
                 }
             }
-        } else if (yC < Pix2D.clipMaxX) {
-            if (yA > Pix2D.clipMaxX) {
-                yA = Pix2D.clipMaxX;
+        } else if (yC < Pix2D.clipMaxY) {
+            if (yA > Pix2D.clipMaxY) {
+                yA = Pix2D.clipMaxY;
             }
-            if (yB > Pix2D.clipMaxX) {
-                yB = Pix2D.clipMaxX;
+            if (yB > Pix2D.clipMaxY) {
+                yB = Pix2D.clipMaxY;
             }
             if (yA < yB) {
                 xB = xC <<= 0x10;

@@ -71,7 +71,7 @@ const TEXTURE_AVERAGE: Int32Array = Int32Array.of(
 );
 
 export default class World {
-    static lowMemory: boolean = true;
+    static lowMem: boolean = true;
 
     private static cameraSinX: number = 0;
     private static cameraCosX: number = 0;
@@ -2063,7 +2063,7 @@ export default class World {
                 if (quick.colourNE !== 12345678) {
                     Pix3D.gouraudTriangle(py1, px3, pz0, pz1, py3, px1, quick.colourNE, quick.colourNW, quick.colourSE);
                 }
-            } else if (World.lowMemory) {
+            } else if (World.lowMem) {
                 const averageColor: number = TEXTURE_AVERAGE[quick.texture];
                 Pix3D.gouraudTriangle(py1, px3, pz0, pz1, py3, px1, this.getTable(averageColor, quick.colourNE), this.getTable(averageColor, quick.colourNW), this.getTable(averageColor, quick.colourSE));
             } else if (quick.flat) {
@@ -2084,7 +2084,7 @@ export default class World {
         }
 
         if (quick.texture !== -1) {
-            if (!World.lowMemory) {
+            if (!World.lowMem) {
                 Pix3D.textureTriangle(px0, pz0, px3, py0, px1, py3, quick.colourSW, quick.colourSE, quick.colourNW, x0, y0, z0, x1, x3, y1, y3, z1, z3, quick.texture);
             } else {
                 const averageColor: number = TEXTURE_AVERAGE[quick.texture];
@@ -2151,7 +2151,7 @@ export default class World {
                     if (ground.faceColourA[v] !== 12345678) {
                         Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, ground.faceColourA[v], ground.faceColourB[v], ground.faceColourC[v]);
                     }
-                } else if (World.lowMemory) {
+                } else if (World.lowMem) {
                     const textureColor: number = TEXTURE_AVERAGE[ground.faceTexture[v]];
                     Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, this.getTable(textureColor, ground.faceColourA[v]), this.getTable(textureColor, ground.faceColourB[v]), this.getTable(textureColor, ground.faceColourC[v]));
                 } else if (ground.flat) {

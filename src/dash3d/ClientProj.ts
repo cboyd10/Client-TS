@@ -5,7 +5,7 @@ import ModelSource from '#/dash3d/ModelSource.js';
 
 export default class ClientProj extends ModelSource {
     readonly spotanim: SpotType;
-    readonly projLevel: number;
+    readonly level: number;
     readonly srcX: number;
     readonly srcZ: number;
     readonly h1: number;
@@ -34,7 +34,7 @@ export default class ClientProj extends ModelSource {
         super();
 
         this.spotanim = SpotType.list[spotanim];
-        this.projLevel = level;
+        this.level = level;
         this.srcX = srcX;
         this.srcZ = srcZ;
         this.h1 = srcY;

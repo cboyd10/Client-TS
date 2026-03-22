@@ -1,4 +1,3 @@
-import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 
 import Tone from '#/sound/Tone.js';
@@ -16,22 +15,21 @@ export default class JagFX {
     private loopBegin: number = 0;
     private loopEnd: number = 0;
 
-    static init(sounds: JagFile): void {
-        const dat: Packet = new Packet(sounds.read('sounds.dat'));
+    static init(buf: Packet): void {
         this.waveBytes = new Uint8Array(44100 * 10); // 44100 KHz * 10s
         this.waveBuffer = new Packet(this.waveBytes);
         Tone.init();
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
-            const id: number = dat.g2();
+            const id = buf.g2();
             if (id === 65535) {
                 break;
             }
 
             this.synth[id] = new JagFX();
-            this.synth[id]!.load(dat);
-            this.delays[id] = this.synth[id]!.optimiseStart();
+            this.synth[id].load(buf);
+            this.delays[id] = this.synth[id].optimiseStart();
         }
     }
 

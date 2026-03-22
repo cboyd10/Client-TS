@@ -33,13 +33,13 @@ export const enum ButtonType {
 };
 
 export default class IfType {
-    static types: IfType[] = [];
-    invSlotObjId: Int32Array | null = null;
-    invSlotObjCount: Int32Array | null = null;
-    seqFrame: number = 0;
-    seqCycle: number = 0;
+    static list: IfType[] = [];
+    linkObjType: Int32Array | null = null;
+    linkObjNumber: Int32Array | null = null;
+    animFrame: number = 0;
+    animCycle: number = 0;
     id: number = -1;
-    layer: number = -1;
+    layerId: number = -1;
     type: number = -1;
     buttonType: number = -1;
     clientCode: number = 0;
@@ -50,45 +50,45 @@ export default class IfType {
     scripts: (Uint16Array | null)[] | null = null;
     scriptComparator: Uint8Array | null = null;
     scriptOperand: Uint16Array | null = null;
-    overlayer: number = -1;
-    scroll: number = 0;
+    overLayerId: number = -1;
+    scrollHeight: number = 0;
     scrollPos: number = 0;
     hide: boolean = false;
     children: number[] | null = null;
     activeModel: Model | null = null;
-    anim: number = -1;
-    activeAnim: number = -1;
-    zoom: number = 0;
-    xan: number = 0;
-    yan: number = 0;
+    modelAnim: number = -1;
+    modelAnim2: number = -1;
+    modelZoom: number = 0;
+    modelXAn: number = 0;
+    modelYAn: number = 0;
     targetVerb: string | null = null;
-    targetText: string | null = null;
+    targetBase: string | null = null;
     targetMask: number = -1;
-    option: string | null = null;
+    buttonText: string | null = null;
     static imageCache: LruCache<Pix32> | null = null;
     static modelCache: LruCache<Model> | null = null;
     marginX: number = 0;
     marginY: number = 0;
     colour: number = 0;
-    activeColour: number = 0;
-    overColour: number = 0;
-    model: Model | null = null;
+    colour2: number = 0;
+    colourOver: number = 0;
+    model1: Model | null = null;
     graphic: Pix32 | null = null;
-    activeGraphic: Pix32 | null = null;
+    graphic2: Pix32 | null = null;
     font: PixFont | null = null;
     text: string | null = null;
-    activeText: string | null = null;
-    draggable: boolean = false;
-    interactable: boolean = false;
-    usable: boolean = false;
+    text2: string | null = null;
+    objSwap: boolean = false;
+    objOps: boolean = false;
+    objUse: boolean = false;
     fill: boolean = false;
-    center: boolean = false;
+    centre: boolean = false;
     shadowed: boolean = false;
-    invSlotOffsetX: Int16Array | null = null;
-    invSlotOffsetY: Int16Array | null = null;
+    invBackgroundX: Int16Array | null = null;
+    invBackgroundY: Int16Array | null = null;
     childX: number[] | null = null;
     childY: number[] | null = null;
-    invSlotGraphic: (Pix32 | null)[] | null = null;
+    invBackground: (Pix32 | null)[] | null = null;
     iop: (string | null)[] | null = null;
 
     static init(interfaces: JagFile, media: JagFile, fonts: PixFont[]): void {
@@ -99,7 +99,7 @@ export default class IfType {
         let layer: number = -1;
 
         const count = data.g2();
-        this.types = new Array(count);
+        this.list = new Array(count);
 
         while (data.pos < data.length) {
             let id: number = data.g2();
@@ -108,20 +108,20 @@ export default class IfType {
                 id = data.g2();
             }
 
-            const com: IfType = (this.types[id] = new IfType());
+            const com: IfType = (this.list[id] = new IfType());
             com.id = id;
-            com.layer = layer;
+            com.layerId = layer;
             com.type = data.g1();
             com.buttonType = data.g1();
             com.clientCode = data.g2();
             com.width = data.g2();
             com.height = data.g2();
 
-            com.overlayer = data.g1();
-            if (com.overlayer === 0) {
-                com.overlayer = -1;
+            com.overLayerId = data.g1();
+            if (com.overLayerId === 0) {
+                com.overLayerId = -1;
             } else {
-                com.overlayer = ((com.overlayer - 1) << 8) + data.g1();
+                com.overLayerId = ((com.overLayerId - 1) << 8) + data.g1();
             }
 
             const comparatorCount: number = data.g1();
@@ -151,7 +151,7 @@ export default class IfType {
             }
 
             if (com.type === ComponentType.TYPE_LAYER) {
-                com.scroll = data.g2();
+                com.scrollHeight = data.g2();
                 com.hide = data.g1() === 1;
 
                 const childCount: number = data.g1();
@@ -171,28 +171,28 @@ export default class IfType {
             }
 
             if (com.type === ComponentType.TYPE_INV) {
-                com.invSlotObjId = new Int32Array(com.width * com.height);
-                com.invSlotObjCount = new Int32Array(com.width * com.height);
+                com.linkObjType = new Int32Array(com.width * com.height);
+                com.linkObjNumber = new Int32Array(com.width * com.height);
 
-                com.draggable = data.g1() === 1;
-                com.interactable = data.g1() === 1;
-                com.usable = data.g1() === 1;
+                com.objSwap = data.g1() === 1;
+                com.objOps = data.g1() === 1;
+                com.objUse = data.g1() === 1;
                 com.marginX = data.g1();
                 com.marginY = data.g1();
 
-                com.invSlotOffsetX = new Int16Array(20);
-                com.invSlotOffsetY = new Int16Array(20);
-                com.invSlotGraphic = new TypedArray1d(20, null);
+                com.invBackgroundX = new Int16Array(20);
+                com.invBackgroundY = new Int16Array(20);
+                com.invBackground = new TypedArray1d(20, null);
 
                 for (let i: number = 0; i < 20; i++) {
                     if (data.g1() === 1) {
-                        com.invSlotOffsetX[i] = data.g2b();
-                        com.invSlotOffsetY[i] = data.g2b();
+                        com.invBackgroundX[i] = data.g2b();
+                        com.invBackgroundY[i] = data.g2b();
 
                         const graphic: string = data.gjstr();
                         if (graphic.length > 0) {
                             const spriteIndex: number = graphic.lastIndexOf(',');
-                            com.invSlotGraphic[i] = this.getImage(media, graphic.substring(0, spriteIndex), parseInt(graphic.substring(spriteIndex + 1)));
+                            com.invBackground[i] = this.getImage(media, graphic.substring(0, spriteIndex), parseInt(graphic.substring(spriteIndex + 1)));
                         }
                     }
                 }
@@ -211,7 +211,7 @@ export default class IfType {
             }
 
             if (com.type === ComponentType.TYPE_TEXT || com.type === ComponentType.TYPE_UNUSED) {
-                com.center = data.g1() === 1;
+                com.centre = data.g1() === 1;
                 const font: number = data.g1();
                 if (fonts) {
                     com.font = fonts[font];
@@ -221,7 +221,7 @@ export default class IfType {
 
             if (com.type === ComponentType.TYPE_TEXT) {
                 com.text = data.gjstr();
-                com.activeText = data.gjstr();
+                com.text2 = data.gjstr();
             }
 
             if (com.type === ComponentType.TYPE_UNUSED || com.type === ComponentType.TYPE_RECT || com.type === ComponentType.TYPE_TEXT) {
@@ -229,8 +229,8 @@ export default class IfType {
             }
 
             if (com.type === ComponentType.TYPE_RECT || com.type === ComponentType.TYPE_TEXT) {
-                com.activeColour = data.g4();
-                com.overColour = data.g4();
+                com.colour2 = data.g4();
+                com.colourOver = data.g4();
             }
 
             if (com.type === ComponentType.TYPE_GRAPHIC) {
@@ -242,14 +242,14 @@ export default class IfType {
                 const activeGraphic: string = data.gjstr();
                 if (activeGraphic.length > 0) {
                     const index: number = activeGraphic.lastIndexOf(',');
-                    com.activeGraphic = this.getImage(media, activeGraphic.substring(0, index), parseInt(activeGraphic.substring(index + 1), 10));
+                    com.graphic2 = this.getImage(media, activeGraphic.substring(0, index), parseInt(activeGraphic.substring(index + 1), 10));
                 }
             }
 
             if (com.type === ComponentType.TYPE_MODEL) {
                 const model: number = data.g1();
                 if (model !== 0) {
-                    com.model = this.getModel(((model - 1) << 8) + data.g1());
+                    com.model1 = this.getModel(((model - 1) << 8) + data.g1());
                 }
 
                 const activeModel: number = data.g1();
@@ -257,30 +257,30 @@ export default class IfType {
                     com.activeModel = this.getModel(((activeModel - 1) << 8) + data.g1());
                 }
 
-                com.anim = data.g1();
-                if (com.anim === 0) {
-                    com.anim = -1;
+                com.modelAnim = data.g1();
+                if (com.modelAnim === 0) {
+                    com.modelAnim = -1;
                 } else {
-                    com.anim = ((com.anim - 1) << 8) + data.g1();
+                    com.modelAnim = ((com.modelAnim - 1) << 8) + data.g1();
                 }
 
-                com.activeAnim = data.g1();
-                if (com.activeAnim === 0) {
-                    com.activeAnim = -1;
+                com.modelAnim2 = data.g1();
+                if (com.modelAnim2 === 0) {
+                    com.modelAnim2 = -1;
                 } else {
-                    com.activeAnim = ((com.activeAnim - 1) << 8) + data.g1();
+                    com.modelAnim2 = ((com.modelAnim2 - 1) << 8) + data.g1();
                 }
 
-                com.zoom = data.g2();
-                com.xan = data.g2();
-                com.yan = data.g2();
+                com.modelZoom = data.g2();
+                com.modelXAn = data.g2();
+                com.modelYAn = data.g2();
             }
 
             if (com.type === ComponentType.TYPE_INV_TEXT) {
-                com.invSlotObjId = new Int32Array(com.width * com.height);
-                com.invSlotObjCount = new Int32Array(com.width * com.height);
+                com.linkObjType = new Int32Array(com.width * com.height);
+                com.linkObjNumber = new Int32Array(com.width * com.height);
 
-                com.center = data.g1() === 1;
+                com.centre = data.g1() === 1;
                 const font: number = data.g1();
                 if (fonts) {
                     com.font = fonts[font];
@@ -289,7 +289,7 @@ export default class IfType {
                 com.colour = data.g4();
                 com.marginX = data.g2b();
                 com.marginY = data.g2b();
-                com.interactable = data.g1() === 1;
+                com.objOps = data.g1() === 1;
 
                 com.iop = new TypedArray1d(5, null);
                 for (let i: number = 0; i < 5; i++) {
@@ -302,22 +302,22 @@ export default class IfType {
 
             if (com.buttonType === ButtonType.BUTTON_TARGET || com.type === ComponentType.TYPE_INV) {
                 com.targetVerb = data.gjstr();
-                com.targetText = data.gjstr();
+                com.targetBase = data.gjstr();
                 com.targetMask = data.g2();
             }
 
             if (com.buttonType === ButtonType.BUTTON_OK || com.buttonType === ButtonType.BUTTON_TOGGLE || com.buttonType === ButtonType.BUTTON_SELECT || com.buttonType === ButtonType.BUTTON_CONTINUE) {
-                com.option = data.gjstr();
+                com.buttonText = data.gjstr();
 
-                if (com.option.length === 0) {
+                if (com.buttonText.length === 0) {
                     if (com.buttonType === ButtonType.BUTTON_OK) {
-                        com.option = 'Ok';
+                        com.buttonText = 'Ok';
                     } else if (com.buttonType === ButtonType.BUTTON_TOGGLE) {
-                        com.option = 'Select';
+                        com.buttonText = 'Select';
                     } else if (com.buttonType === ButtonType.BUTTON_SELECT) {
-                        com.option = 'Select';
+                        com.buttonText = 'Select';
                     } else if (com.buttonType === ButtonType.BUTTON_CONTINUE) {
-                        com.option = 'Continue';
+                        com.buttonText = 'Continue';
                     }
                 }
             }
@@ -358,8 +358,8 @@ export default class IfType {
         return model;
     }
 
-    getModel(primaryFrame: number, secondaryFrame: number, active: boolean): Model | null {
-        let model: Model | null = this.model;
+    getTempModel(primaryFrame: number, secondaryFrame: number, active: boolean): Model | null {
+        let model: Model | null = this.model1;
         if (active) {
             model = this.activeModel;
         }
@@ -390,11 +390,11 @@ export default class IfType {
     }
 
     getAbsoluteX(): number {
-        if (this.layer === this.id) {
+        if (this.layerId === this.id) {
             return this.x;
         }
 
-        let parent: IfType = IfType.types[this.layer];
+        let parent: IfType = IfType.list[this.layerId];
         if (!parent.children || !parent.childX || !parent.childY) {
             return this.x;
         }
@@ -405,8 +405,8 @@ export default class IfType {
         }
 
         let x: number = parent.childX[childIndex];
-        while (parent.layer !== parent.id) {
-            const grandParent: IfType = IfType.types[parent.layer];
+        while (parent.layerId !== parent.id) {
+            const grandParent: IfType = IfType.list[parent.layerId];
             if (grandParent.children && grandParent.childX && grandParent.childY) {
                 childIndex = grandParent.children.indexOf(parent.id);
                 if (childIndex !== -1) {
@@ -420,11 +420,11 @@ export default class IfType {
     }
 
     getAbsoluteY(): number {
-        if (this.layer === this.id) {
+        if (this.layerId === this.id) {
             return this.y;
         }
 
-        let parent: IfType = IfType.types[this.layer];
+        let parent: IfType = IfType.list[this.layerId];
         if (!parent.children || !parent.childX || !parent.childY) {
             return this.y;
         }
@@ -435,8 +435,8 @@ export default class IfType {
         }
 
         let y: number = parent.childY[childIndex];
-        while (parent.layer !== parent.id) {
-            const grandParent: IfType = IfType.types[parent.layer];
+        while (parent.layerId !== parent.id) {
+            const grandParent: IfType = IfType.list[parent.layerId];
             if (grandParent.children && grandParent.childX && grandParent.childY) {
                 childIndex = grandParent.children.indexOf(parent.id);
                 if (childIndex !== -1) {
@@ -456,14 +456,14 @@ export default class IfType {
     }
 
     move(x: number, y: number): void {
-        if (this.layer === this.id) {
+        if (this.layerId === this.id) {
             return;
         }
 
         this.x = 0;
         this.y = 0;
 
-        const parent: IfType = IfType.types[this.layer];
+        const parent: IfType = IfType.list[this.layerId];
 
         if (parent.children && parent.childX && parent.childY) {
             const childIndex: number = parent.children.indexOf(this.id);
@@ -476,11 +476,11 @@ export default class IfType {
     }
 
     delete(): void {
-        if (this.layer === this.id) {
+        if (this.layerId === this.id) {
             return;
         }
 
-        const parent: IfType = IfType.types[this.layer];
+        const parent: IfType = IfType.list[this.layerId];
 
         if (parent.children && parent.childX && parent.childY) {
             const childIndex: number = parent.children.indexOf(this.id);

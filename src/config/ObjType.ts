@@ -350,10 +350,10 @@ export default class ObjType {
         const _data: Int32Array = Pix2D.pixels;
         const _w: number = Pix2D.width;
         const _h: number = Pix2D.height;
-        const _l: number = Pix2D.clipMinY;
-        const _r: number = Pix2D.right;
-        const _t: number = Pix2D.clipMinX;
-        const _b: number = Pix2D.clipMaxX;
+        const _l: number = Pix2D.clipMinX;
+        const _r: number = Pix2D.clipMaxX;
+        const _t: number = Pix2D.clipMinY;
+        const _b: number = Pix2D.clipMaxY;
 
         Pix3D.lowDetail = false;
         Pix2D.setPixels(icon.data, 32, 32);
