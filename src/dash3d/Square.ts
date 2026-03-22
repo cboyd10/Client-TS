@@ -15,8 +15,8 @@ export default class Square extends Linkable {
     readonly x: number;
     readonly z: number;
     readonly originalLevel: number;
-    readonly sprites: (Sprite | null)[];
-    readonly spriteSpan: Int32Array;
+    readonly sprites: (Sprite | null)[] = new TypedArray1d(5, null);
+    readonly spriteSpan: Int32Array = new Int32Array(5);
 
     quickGround: QuickGround | null = null;
     ground: Ground | null = null;
@@ -41,7 +41,5 @@ export default class Square extends Linkable {
         this.originalLevel = this.level = level;
         this.x = x;
         this.z = z;
-        this.sprites = new TypedArray1d(5, null);
-        this.spriteSpan = new Int32Array(5);
     }
 }

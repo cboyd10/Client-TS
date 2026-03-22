@@ -4,9 +4,9 @@ export default class ClientObj extends Linkable {
     readonly id: number;
     count: number;
 
-    constructor(index: number, count: number) {
+    constructor(id: number, count: number) {
         super();
-        this.id = index;
+        this.id = id;
         this.count = count;
     }
 }

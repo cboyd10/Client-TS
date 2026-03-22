@@ -4,7 +4,6 @@ import Pix8 from '#/graphics/Pix8.js';
 import JagFile from '#/io/JagFile.js';
 import { Int32Array2d, TypedArray1d } from '#/util/Arrays.js';
 
-// noinspection JSSuspiciousNameCombination,DuplicatedCode
 export default class Pix3D extends Pix2D {
     static lowMem: boolean = false;
     static lowDetail: boolean = true;
@@ -77,12 +76,15 @@ export default class Pix3D extends Pix2D {
         if (this.texelPool) {
             return;
         }
+
         this.poolSize = size;
+
         if (this.lowMem) {
             this.texelPool = new Int32Array2d(size, 16384);
         } else {
             this.texelPool = new Int32Array2d(size, 65536);
         }
+
         this.activeTexels.fill(null);
     }
 
@@ -92,14 +94,16 @@ export default class Pix3D extends Pix2D {
         for (let i: number = 0; i < 50; i++) {
             try {
                 this.textures[i] = Pix8.depack(textures, i.toString());
+
                 if (this.lowMem && this.textures[i]?.owi === 128) {
                     this.textures[i]?.halveSize();
                 } else {
                     this.textures[i]?.trim();
                 }
+
                 this.numTextures++;
-            } catch (err) {
-                /* empty */
+            } catch (_e) {
+                // empty
             }
         }
     }
@@ -213,15 +217,18 @@ export default class Pix3D extends Pix2D {
 
     static initColourTable(brightness: number): void {
         const randomBrightness: number = brightness + Math.random() * 0.03 - 0.015;
+
         let offset: number = 0;
         for (let y: number = 0; y < 512; y++) {
             const hue: number = ((y / 8) | 0) / 64.0 + 0.0078125;
             const saturation: number = (y & 0x7) / 8.0 + 0.0625;
+
             for (let x: number = 0; x < 128; x++) {
                 const lightness: number = x / 128.0;
                 let r: number = lightness;
                 let g: number = lightness;
                 let b: number = lightness;
+
                 if (saturation !== 0.0) {
                     let q: number;
                     if (lightness < 0.5) {
@@ -229,15 +236,18 @@ export default class Pix3D extends Pix2D {
                     } else {
                         q = lightness + saturation - lightness * saturation;
                     }
+
                     const p: number = lightness * 2.0 - q;
                     let t: number = hue + 0.3333333333333333;
                     if (t > 1.0) {
                         t--;
                     }
+
                     let d11: number = hue - 0.3333333333333333;
                     if (d11 < 0.0) {
                         d11++;
                     }
+
                     if (t * 6.0 < 1.0) {
                         r = p + (q - p) * 6.0 * t;
                     } else if (t * 2.0 < 1.0) {
@@ -247,6 +257,7 @@ export default class Pix3D extends Pix2D {
                     } else {
                         r = p;
                     }
+
                     if (hue * 6.0 < 1.0) {
                         g = p + (q - p) * 6.0 * hue;
                     } else if (hue * 2.0 < 1.0) {
@@ -256,6 +267,7 @@ export default class Pix3D extends Pix2D {
                     } else {
                         g = p;
                     }
+
                     if (d11 * 6.0 < 1.0) {
                         b = p + (q - p) * 6.0 * d11;
                     } else if (d11 * 2.0 < 1.0) {
@@ -266,6 +278,7 @@ export default class Pix3D extends Pix2D {
                         b = p;
                     }
                 }
+
                 const intR: number = (r * 256.0) | 0;
                 const intG: number = (g * 256.0) | 0;
                 const intB: number = (b * 256.0) | 0;
@@ -273,11 +286,13 @@ export default class Pix3D extends Pix2D {
                 this.colourTable[offset++] = this.gammaCorrect(rgb, randomBrightness);
             }
         }
+
         for (let id: number = 0; id < 50; id++) {
             const texture: Pix8 | null = this.textures[id];
             if (!texture) {
                 continue;
             }
+
             const palette: Int32Array = texture.bpal;
             this.texPal[id] = new Int32Array(palette.length);
             for (let i: number = 0; i < palette.length; i++) {
@@ -285,6 +300,7 @@ export default class Pix3D extends Pix2D {
                 if (!texturePalette) {
                     continue;
                 }
+
                 texturePalette[i] = this.gammaCorrect(palette[i], randomBrightness);
             }
         }
@@ -298,508 +314,585 @@ export default class Pix3D extends Pix2D {
         const r: number = (rgb >> 16) / 256.0;
         const g: number = ((rgb >> 8) & 0xff) / 256.0;
         const b: number = (rgb & 0xff) / 256.0;
+
         const powR: number = Math.pow(r, gamma);
         const powG: number = Math.pow(g, gamma);
         const powB: number = Math.pow(b, gamma);
+
         const intR: number = (powR * 256.0) | 0;
         const intG: number = (powG * 256.0) | 0;
         const intB: number = (powB * 256.0) | 0;
         return (intR << 16) + (intG << 8) + intB;
     }
 
-    static gouraudTriangle(xA: number, xB: number, xC: number, yA: number, yB: number, yC: number, colorA: number, colorB: number, colorC: number): void {
+    static gouraudTriangle(
+        xA: number, xB: number, xC: number,
+        yA: number, yB: number, yC: number,
+        colourA: number, colourB: number, colourC: number
+    ): void {
         let xStepAB: number = 0;
-        let colorStepAB: number = 0;
+        let colourStepAB: number = 0;
         if (yB !== yA) {
             xStepAB = (((xB - xA) << 16) / (yB - yA)) | 0;
-            colorStepAB = (((colorB - colorA) << 15) / (yB - yA)) | 0;
+            colourStepAB = (((colourB - colourA) << 15) / (yB - yA)) | 0;
         }
 
         let xStepBC: number = 0;
-        let colorStepBC: number = 0;
+        let colourStepBC: number = 0;
         if (yC !== yB) {
             xStepBC = (((xC - xB) << 16) / (yC - yB)) | 0;
-            colorStepBC = (((colorC - colorB) << 15) / (yC - yB)) | 0;
+            colourStepBC = (((colourC - colourB) << 15) / (yC - yB)) | 0;
         }
 
         let xStepAC: number = 0;
-        let colorStepAC: number = 0;
+        let colourStepAC: number = 0;
         if (yC !== yA) {
             xStepAC = (((xA - xC) << 16) / (yA - yC)) | 0;
-            colorStepAC = (((colorA - colorC) << 15) / (yA - yC)) | 0;
+            colourStepAC = (((colourA - colourC) << 15) / (yA - yC)) | 0;
         }
 
         if (yA <= yB && yA <= yC) {
-            if (yA < Pix2D.clipMaxY) {
-                if (yB > Pix2D.clipMaxY) {
-                    yB = Pix2D.clipMaxY;
+            if (yA >= Pix2D.clipMaxY) {
+                return;
+            }
+
+            if (yB > Pix2D.clipMaxY) {
+                yB = Pix2D.clipMaxY;
+            }
+
+            if (yC > Pix2D.clipMaxY) {
+                yC = Pix2D.clipMaxY;
+            }
+
+            if (yB < yC) {
+                xC = xA <<= 16;
+                colourC = colourA <<= 15;
+
+                if (yA < 0) {
+                    xC -= xStepAC * yA;
+                    xA -= xStepAB * yA;
+                    colourC -= colourStepAC * yA;
+                    colourA -= colourStepAB * yA;
+                    yA = 0;
                 }
-                if (yC > Pix2D.clipMaxY) {
-                    yC = Pix2D.clipMaxY;
+
+                xB <<= 16;
+                colourB <<= 15;
+
+                if (yB < 0) {
+                    xB -= xStepBC * yB;
+                    colourB -= colourStepBC * yB;
+                    yB = 0;
                 }
-                if (yB < yC) {
-                    xC = xA <<= 0x10;
-                    colorC = colorA <<= 0xf;
-                    if (yA < 0) {
-                        xC -= xStepAC * yA;
-                        xA -= xStepAB * yA;
-                        colorC -= colorStepAC * yA;
-                        colorA -= colorStepAB * yA;
-                        yA = 0;
-                    }
-                    xB <<= 0x10;
-                    colorB <<= 0xf;
-                    if (yB < 0) {
-                        xB -= xStepBC * yB;
-                        colorB -= colorStepBC * yB;
-                        yB = 0;
-                    }
-                    if ((yA !== yB && xStepAC < xStepAB) || (yA === yB && xStepAC > xStepBC)) {
-                        yC -= yB;
-                        yB -= yA;
-                        yA = Pix3D.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yB--;
-                            if (yB < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xC >> 16, xB >> 16, colorC >> 7, colorB >> 7, Pix2D.pixels, yA, 0);
-                                    xC += xStepAC;
-                                    xB += xStepBC;
-                                    colorC += colorStepAC;
-                                    colorB += colorStepBC;
-                                    yA += Pix2D.width;
+
+                if ((yA !== yB && xStepAC < xStepAB) || (yA === yB && xStepAC > xStepBC)) {
+                    yC -= yB;
+                    yB -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yB--;
+
+                        if (yB < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
                                 }
+
+                                this.gouraudRaster(xC >> 16, xB >> 16, colourC >> 7, colourB >> 7, Pix2D.pixels, yA, 0);
+                                xC += xStepAC;
+                                xB += xStepBC;
+                                colourC += colourStepAC;
+                                colourB += colourStepBC;
+                                yA += Pix2D.width;
                             }
-                            this.gouraudRaster(xC >> 16, xA >> 16, colorC >> 7, colorA >> 7, Pix2D.pixels, yA, 0);
-                            xC += xStepAC;
-                            xA += xStepAB;
-                            colorC += colorStepAC;
-                            colorA += colorStepAB;
-                            yA += Pix2D.width;
                         }
-                    } else {
-                        yC -= yB;
-                        yB -= yA;
-                        yA = Pix3D.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yB--;
-                            if (yB < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xB >> 16, xC >> 16, colorB >> 7, colorC >> 7, Pix2D.pixels, yA, 0);
-                                    xC += xStepAC;
-                                    xB += xStepBC;
-                                    colorC += colorStepAC;
-                                    colorB += colorStepBC;
-                                    yA += Pix2D.width;
-                                }
-                            }
-                            this.gouraudRaster(xA >> 16, xC >> 16, colorA >> 7, colorC >> 7, Pix2D.pixels, yA, 0);
-                            xC += xStepAC;
-                            xA += xStepAB;
-                            colorC += colorStepAC;
-                            colorA += colorStepAB;
-                            yA += Pix2D.width;
-                        }
+
+                        this.gouraudRaster(xC >> 16, xA >> 16, colourC >> 7, colourA >> 7, Pix2D.pixels, yA, 0);
+                        xC += xStepAC;
+                        xA += xStepAB;
+                        colourC += colourStepAC;
+                        colourA += colourStepAB;
+                        yA += Pix2D.width;
                     }
                 } else {
-                    xB = xA <<= 0x10;
-                    colorB = colorA <<= 0xf;
-                    if (yA < 0) {
-                        xB -= xStepAC * yA;
-                        xA -= xStepAB * yA;
-                        colorB -= colorStepAC * yA;
-                        colorA -= colorStepAB * yA;
-                        yA = 0;
-                    }
-                    xC <<= 0x10;
-                    colorC <<= 0xf;
-                    if (yC < 0) {
-                        xC -= xStepBC * yC;
-                        colorC -= colorStepBC * yC;
-                        yC = 0;
-                    }
-                    if ((yA !== yC && xStepAC < xStepAB) || (yA === yC && xStepBC > xStepAB)) {
-                        yB -= yC;
-                        yC -= yA;
-                        yA = Pix3D.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yB--;
-                                    if (yB < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xC >> 16, xA >> 16, colorC >> 7, colorA >> 7, Pix2D.pixels, yA, 0);
-                                    xC += xStepBC;
-                                    xA += xStepAB;
-                                    colorC += colorStepBC;
-                                    colorA += colorStepAB;
-                                    yA += Pix2D.width;
+                    yC -= yB;
+                    yB -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yB--;
+
+                        if (yB < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
                                 }
+
+                                this.gouraudRaster(xB >> 16, xC >> 16, colourB >> 7, colourC >> 7, Pix2D.pixels, yA, 0);
+                                xC += xStepAC;
+                                xB += xStepBC;
+                                colourC += colourStepAC;
+                                colourB += colourStepBC;
+                                yA += Pix2D.width;
                             }
-                            this.gouraudRaster(xB >> 16, xA >> 16, colorB >> 7, colorA >> 7, Pix2D.pixels, yA, 0);
-                            xB += xStepAC;
-                            xA += xStepAB;
-                            colorB += colorStepAC;
-                            colorA += colorStepAB;
-                            yA += Pix2D.width;
                         }
-                    } else {
-                        yB -= yC;
-                        yC -= yA;
-                        yA = Pix3D.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yB--;
-                                    if (yB < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xA >> 16, xC >> 16, colorA >> 7, colorC >> 7, Pix2D.pixels, yA, 0);
-                                    xC += xStepBC;
-                                    xA += xStepAB;
-                                    colorC += colorStepBC;
-                                    colorA += colorStepAB;
-                                    yA += Pix2D.width;
+
+                        this.gouraudRaster(xA >> 16, xC >> 16, colourA >> 7, colourC >> 7, Pix2D.pixels, yA, 0);
+                        xC += xStepAC;
+                        xA += xStepAB;
+                        colourC += colourStepAC;
+                        colourA += colourStepAB;
+                        yA += Pix2D.width;
+                    }
+                }
+            } else {
+                xB = xA <<= 16;
+                colourB = colourA <<= 15;
+
+                if (yA < 0) {
+                    xB -= xStepAC * yA;
+                    xA -= xStepAB * yA;
+                    colourB -= colourStepAC * yA;
+                    colourA -= colourStepAB * yA;
+                    yA = 0;
+                }
+
+                xC <<= 16;
+                colourC <<= 15;
+
+                if (yC < 0) {
+                    xC -= xStepBC * yC;
+                    colourC -= colourStepBC * yC;
+                    yC = 0;
+                }
+
+                if ((yA !== yC && xStepAC < xStepAB) || (yA === yC && xStepBC > xStepAB)) {
+                    yB -= yC;
+                    yC -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yB--;
+
+                                if (yB < 0) {
+                                    return;
                                 }
+
+                                this.gouraudRaster(xC >> 16, xA >> 16, colourC >> 7, colourA >> 7, Pix2D.pixels, yA, 0);
+                                xC += xStepBC;
+                                xA += xStepAB;
+                                colourC += colourStepBC;
+                                colourA += colourStepAB;
+                                yA += Pix2D.width;
                             }
-                            this.gouraudRaster(xA >> 16, xB >> 16, colorA >> 7, colorB >> 7, Pix2D.pixels, yA, 0);
-                            xB += xStepAC;
-                            xA += xStepAB;
-                            colorB += colorStepAC;
-                            colorA += colorStepAB;
-                            yA += Pix2D.width;
                         }
+
+                        this.gouraudRaster(xB >> 16, xA >> 16, colourB >> 7, colourA >> 7, Pix2D.pixels, yA, 0);
+                        xB += xStepAC;
+                        xA += xStepAB;
+                        colourB += colourStepAC;
+                        colourA += colourStepAB;
+                        yA += Pix2D.width;
+                    }
+                } else {
+                    yB -= yC;
+                    yC -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yB--;
+
+                                if (yB < 0) {
+                                    return;
+                                }
+
+                                this.gouraudRaster(xA >> 16, xC >> 16, colourA >> 7, colourC >> 7, Pix2D.pixels, yA, 0);
+                                xC += xStepBC;
+                                xA += xStepAB;
+                                colourC += colourStepBC;
+                                colourA += colourStepAB;
+                                yA += Pix2D.width;
+                            }
+                        }
+
+                        this.gouraudRaster(xA >> 16, xB >> 16, colourA >> 7, colourB >> 7, Pix2D.pixels, yA, 0);
+                        xB += xStepAC;
+                        xA += xStepAB;
+                        colourB += colourStepAC;
+                        colourA += colourStepAB;
+                        yA += Pix2D.width;
                     }
                 }
             }
         } else if (yB <= yC) {
-            if (yB < Pix2D.clipMaxY) {
-                if (yC > Pix2D.clipMaxY) {
-                    yC = Pix2D.clipMaxY;
-                }
-                if (yA > Pix2D.clipMaxY) {
-                    yA = Pix2D.clipMaxY;
-                }
-                if (yC < yA) {
-                    xA = xB <<= 0x10;
-                    colorA = colorB <<= 0xf;
-                    if (yB < 0) {
-                        xA -= xStepAB * yB;
-                        xB -= xStepBC * yB;
-                        colorA -= colorStepAB * yB;
-                        colorB -= colorStepBC * yB;
-                        yB = 0;
-                    }
-                    xC <<= 0x10;
-                    colorC <<= 0xf;
-                    if (yC < 0) {
-                        xC -= xStepAC * yC;
-                        colorC -= colorStepAC * yC;
-                        yC = 0;
-                    }
-                    if ((yB !== yC && xStepAB < xStepBC) || (yB === yC && xStepAB > xStepAC)) {
-                        yA -= yC;
-                        yC -= yB;
-                        yB = Pix3D.scanline[yB];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yA--;
-                                    if (yA < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xA >> 16, xC >> 16, colorA >> 7, colorC >> 7, Pix2D.pixels, yB, 0);
-                                    xA += xStepAB;
-                                    xC += xStepAC;
-                                    colorA += colorStepAB;
-                                    colorC += colorStepAC;
-                                    yB += Pix2D.width;
-                                }
-                            }
-                            this.gouraudRaster(xA >> 16, xB >> 16, colorA >> 7, colorB >> 7, Pix2D.pixels, yB, 0);
-                            xA += xStepAB;
-                            xB += xStepBC;
-                            colorA += colorStepAB;
-                            colorB += colorStepBC;
-                            yB += Pix2D.width;
-                        }
-                    } else {
-                        yA -= yC;
-                        yC -= yB;
-                        yB = Pix3D.scanline[yB];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yA--;
-                                    if (yA < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xC >> 16, xA >> 16, colorC >> 7, colorA >> 7, Pix2D.pixels, yB, 0);
-                                    xA += xStepAB;
-                                    xC += xStepAC;
-                                    colorA += colorStepAB;
-                                    colorC += colorStepAC;
-                                    yB += Pix2D.width;
-                                }
-                            }
-                            this.gouraudRaster(xB >> 16, xA >> 16, colorB >> 7, colorA >> 7, Pix2D.pixels, yB, 0);
-                            xA += xStepAB;
-                            xB += xStepBC;
-                            colorA += colorStepAB;
-                            colorB += colorStepBC;
-                            yB += Pix2D.width;
-                        }
-                    }
-                } else {
-                    xC = xB <<= 0x10;
-                    colorC = colorB <<= 0xf;
-                    if (yB < 0) {
-                        xC -= xStepAB * yB;
-                        xB -= xStepBC * yB;
-                        colorC -= colorStepAB * yB;
-                        colorB -= colorStepBC * yB;
-                        yB = 0;
-                    }
-                    xA <<= 0x10;
-                    colorA <<= 0xf;
-                    if (yA < 0) {
-                        xA -= xStepAC * yA;
-                        colorA -= colorStepAC * yA;
-                        yA = 0;
-                    }
-                    yC -= yA;
-                    yA -= yB;
-                    yB = Pix3D.scanline[yB];
-                    if (xStepAB < xStepBC) {
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yA--;
-                            if (yA < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xA >> 16, xB >> 16, colorA >> 7, colorB >> 7, Pix2D.pixels, yB, 0);
-                                    xA += xStepAC;
-                                    xB += xStepBC;
-                                    colorA += colorStepAC;
-                                    colorB += colorStepBC;
-                                    yB += Pix2D.width;
-                                }
-                            }
-                            this.gouraudRaster(xC >> 16, xB >> 16, colorC >> 7, colorB >> 7, Pix2D.pixels, yB, 0);
-                            xC += xStepAB;
-                            xB += xStepBC;
-                            colorC += colorStepAB;
-                            colorB += colorStepBC;
-                            yB += Pix2D.width;
-                        }
-                    } else {
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yA--;
-                            if (yA < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.gouraudRaster(xB >> 16, xA >> 16, colorB >> 7, colorA >> 7, Pix2D.pixels, yB, 0);
-                                    xA += xStepAC;
-                                    xB += xStepBC;
-                                    colorA += colorStepAC;
-                                    colorB += colorStepBC;
-                                    yB += Pix2D.width;
-                                }
-                            }
-                            this.gouraudRaster(xB >> 16, xC >> 16, colorB >> 7, colorC >> 7, Pix2D.pixels, yB, 0);
-                            xC += xStepAB;
-                            xB += xStepBC;
-                            colorC += colorStepAB;
-                            colorB += colorStepBC;
-                            yB += Pix2D.width;
-                        }
-                    }
-                }
+            if (yB >= Pix2D.clipMaxY) {
+                return;
             }
-        } else if (yC < Pix2D.clipMaxY) {
+
+            if (yC > Pix2D.clipMaxY) {
+                yC = Pix2D.clipMaxY;
+            }
+
             if (yA > Pix2D.clipMaxY) {
                 yA = Pix2D.clipMaxY;
             }
+
+            if (yC < yA) {
+                xA = xB <<= 16;
+                colourA = colourB <<= 15;
+
+                if (yB < 0) {
+                    xA -= xStepAB * yB;
+                    xB -= xStepBC * yB;
+                    colourA -= colourStepAB * yB;
+                    colourB -= colourStepBC * yB;
+                    yB = 0;
+                }
+
+                xC <<= 16;
+                colourC <<= 15;
+
+                if (yC < 0) {
+                    xC -= xStepAC * yC;
+                    colourC -= colourStepAC * yC;
+                    yC = 0;
+                }
+
+                if ((yB !== yC && xStepAB < xStepBC) || (yB === yC && xStepAB > xStepAC)) {
+                    yA -= yC;
+                    yC -= yB;
+                    yB = this.scanline[yB];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.gouraudRaster(xA >> 16, xC >> 16, colourA >> 7, colourC >> 7, Pix2D.pixels, yB, 0);
+                                xA += xStepAB;
+                                xC += xStepAC;
+                                colourA += colourStepAB;
+                                colourC += colourStepAC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.gouraudRaster(xA >> 16, xB >> 16, colourA >> 7, colourB >> 7, Pix2D.pixels, yB, 0);
+                        xA += xStepAB;
+                        xB += xStepBC;
+                        colourA += colourStepAB;
+                        colourB += colourStepBC;
+                        yB += Pix2D.width;
+                    }
+                } else {
+                    yA -= yC;
+                    yC -= yB;
+                    yB = this.scanline[yB];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.gouraudRaster(xC >> 16, xA >> 16, colourC >> 7, colourA >> 7, Pix2D.pixels, yB, 0);
+                                xA += xStepAB;
+                                xC += xStepAC;
+                                colourA += colourStepAB;
+                                colourC += colourStepAC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.gouraudRaster(xB >> 16, xA >> 16, colourB >> 7, colourA >> 7, Pix2D.pixels, yB, 0);
+                        xA += xStepAB;
+                        xB += xStepBC;
+                        colourA += colourStepAB;
+                        colourB += colourStepBC;
+                        yB += Pix2D.width;
+                    }
+                }
+            } else {
+                xC = xB <<= 16;
+                colourC = colourB <<= 15;
+
+                if (yB < 0) {
+                    xC -= xStepAB * yB;
+                    xB -= xStepBC * yB;
+                    colourC -= colourStepAB * yB;
+                    colourB -= colourStepBC * yB;
+                    yB = 0;
+                }
+
+                xA <<= 16;
+                colourA <<= 15;
+
+                if (yA < 0) {
+                    xA -= xStepAC * yA;
+                    colourA -= colourStepAC * yA;
+                    yA = 0;
+                }
+
+                yC -= yA;
+                yA -= yB;
+                yB = this.scanline[yB];
+
+                if (xStepAB < xStepBC) {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
+                                }
+
+                                this.gouraudRaster(xA >> 16, xB >> 16, colourA >> 7, colourB >> 7, Pix2D.pixels, yB, 0);
+                                xA += xStepAC;
+                                xB += xStepBC;
+                                colourA += colourStepAC;
+                                colourB += colourStepBC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.gouraudRaster(xC >> 16, xB >> 16, colourC >> 7, colourB >> 7, Pix2D.pixels, yB, 0);
+                        xC += xStepAB;
+                        xB += xStepBC;
+                        colourC += colourStepAB;
+                        colourB += colourStepBC;
+                        yB += Pix2D.width;
+                    }
+                } else {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
+                                }
+
+                                this.gouraudRaster(xB >> 16, xA >> 16, colourB >> 7, colourA >> 7, Pix2D.pixels, yB, 0);
+                                xA += xStepAC;
+                                xB += xStepBC;
+                                colourA += colourStepAC;
+                                colourB += colourStepBC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.gouraudRaster(xB >> 16, xC >> 16, colourB >> 7, colourC >> 7, Pix2D.pixels, yB, 0);
+                        xC += xStepAB;
+                        xB += xStepBC;
+                        colourC += colourStepAB;
+                        colourB += colourStepBC;
+                        yB += Pix2D.width;
+                    }
+                }
+            }
+        } else {
+            if (yC >= Pix2D.clipMaxY) {
+                return;
+            }
+
+            if (yA > Pix2D.clipMaxY) {
+                yA = Pix2D.clipMaxY;
+            }
+
             if (yB > Pix2D.clipMaxY) {
                 yB = Pix2D.clipMaxY;
             }
+
             if (yA < yB) {
-                xB = xC <<= 0x10;
-                colorB = colorC <<= 0xf;
+                xB = xC <<= 16;
+                colourB = colourC <<= 15;
+
                 if (yC < 0) {
                     xB -= xStepBC * yC;
                     xC -= xStepAC * yC;
-                    colorB -= colorStepBC * yC;
-                    colorC -= colorStepAC * yC;
+                    colourB -= colourStepBC * yC;
+                    colourC -= colourStepAC * yC;
                     yC = 0;
                 }
-                xA <<= 0x10;
-                colorA <<= 0xf;
+
+                xA <<= 16;
+                colourA <<= 15;
+
                 if (yA < 0) {
                     xA -= xStepAB * yA;
-                    colorA -= colorStepAB * yA;
+                    colourA -= colourStepAB * yA;
                     yA = 0;
                 }
+
                 yB -= yA;
                 yA -= yC;
-                yC = Pix3D.scanline[yC];
+                yC = this.scanline[yC];
+
                 if (xStepBC < xStepAC) {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yA--;
+
                         if (yA < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yB--;
+
                                 if (yB < 0) {
                                     return;
                                 }
-                                this.gouraudRaster(xB >> 16, xA >> 16, colorB >> 7, colorA >> 7, Pix2D.pixels, yC, 0);
+
+                                this.gouraudRaster(xB >> 16, xA >> 16, colourB >> 7, colourA >> 7, Pix2D.pixels, yC, 0);
                                 xB += xStepBC;
                                 xA += xStepAB;
-                                colorB += colorStepBC;
-                                colorA += colorStepAB;
+                                colourB += colourStepBC;
+                                colourA += colourStepAB;
                                 yC += Pix2D.width;
                             }
                         }
-                        this.gouraudRaster(xB >> 16, xC >> 16, colorB >> 7, colorC >> 7, Pix2D.pixels, yC, 0);
+
+                        this.gouraudRaster(xB >> 16, xC >> 16, colourB >> 7, colourC >> 7, Pix2D.pixels, yC, 0);
                         xB += xStepBC;
                         xC += xStepAC;
-                        colorB += colorStepBC;
-                        colorC += colorStepAC;
+                        colourB += colourStepBC;
+                        colourC += colourStepAC;
                         yC += Pix2D.width;
                     }
                 } else {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yA--;
+
                         if (yA < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yB--;
+
                                 if (yB < 0) {
                                     return;
                                 }
-                                this.gouraudRaster(xA >> 16, xB >> 16, colorA >> 7, colorB >> 7, Pix2D.pixels, yC, 0);
+
+                                this.gouraudRaster(xA >> 16, xB >> 16, colourA >> 7, colourB >> 7, Pix2D.pixels, yC, 0);
                                 xB += xStepBC;
                                 xA += xStepAB;
-                                colorB += colorStepBC;
-                                colorA += colorStepAB;
+                                colourB += colourStepBC;
+                                colourA += colourStepAB;
                                 yC += Pix2D.width;
                             }
                         }
-                        this.gouraudRaster(xC >> 16, xB >> 16, colorC >> 7, colorB >> 7, Pix2D.pixels, yC, 0);
+
+                        this.gouraudRaster(xC >> 16, xB >> 16, colourC >> 7, colourB >> 7, Pix2D.pixels, yC, 0);
                         xB += xStepBC;
                         xC += xStepAC;
-                        colorB += colorStepBC;
-                        colorC += colorStepAC;
+                        colourB += colourStepBC;
+                        colourC += colourStepAC;
                         yC += Pix2D.width;
                     }
                 }
             } else {
-                xA = xC <<= 0x10;
-                colorA = colorC <<= 0xf;
+                xA = xC <<= 16;
+                colourA = colourC <<= 15;
+
                 if (yC < 0) {
                     xA -= xStepBC * yC;
                     xC -= xStepAC * yC;
-                    colorA -= colorStepBC * yC;
-                    colorC -= colorStepAC * yC;
+                    colourA -= colourStepBC * yC;
+                    colourC -= colourStepAC * yC;
                     yC = 0;
                 }
-                xB <<= 0x10;
-                colorB <<= 0xf;
+
+                xB <<= 16;
+                colourB <<= 15;
+
                 if (yB < 0) {
                     xB -= xStepAB * yB;
-                    colorB -= colorStepAB * yB;
+                    colourB -= colourStepAB * yB;
                     yB = 0;
                 }
+
                 yA -= yB;
                 yB -= yC;
-                yC = Pix3D.scanline[yC];
+                yC = this.scanline[yC];
+
                 if (xStepBC < xStepAC) {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yB--;
+
                         if (yB < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yA--;
+
                                 if (yA < 0) {
                                     return;
                                 }
-                                this.gouraudRaster(xB >> 16, xC >> 16, colorB >> 7, colorC >> 7, Pix2D.pixels, yC, 0);
+
+                                this.gouraudRaster(xB >> 16, xC >> 16, colourB >> 7, colourC >> 7, Pix2D.pixels, yC, 0);
                                 xB += xStepAB;
                                 xC += xStepAC;
-                                colorB += colorStepAB;
-                                colorC += colorStepAC;
+                                colourB += colourStepAB;
+                                colourC += colourStepAC;
                                 yC += Pix2D.width;
                             }
                         }
-                        this.gouraudRaster(xA >> 16, xC >> 16, colorA >> 7, colorC >> 7, Pix2D.pixels, yC, 0);
+
+                        this.gouraudRaster(xA >> 16, xC >> 16, colourA >> 7, colourC >> 7, Pix2D.pixels, yC, 0);
                         xA += xStepBC;
                         xC += xStepAC;
-                        colorA += colorStepBC;
-                        colorC += colorStepAC;
+                        colourA += colourStepBC;
+                        colourC += colourStepAC;
                         yC += Pix2D.width;
                     }
                 } else {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yB--;
+
                         if (yB < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yA--;
+
                                 if (yA < 0) {
                                     return;
                                 }
-                                this.gouraudRaster(xC >> 16, xB >> 16, colorC >> 7, colorB >> 7, Pix2D.pixels, yC, 0);
+
+                                this.gouraudRaster(xC >> 16, xB >> 16, colourC >> 7, colourB >> 7, Pix2D.pixels, yC, 0);
                                 xB += xStepAB;
                                 xC += xStepAC;
-                                colorB += colorStepAB;
-                                colorC += colorStepAC;
+                                colourB += colourStepAB;
+                                colourC += colourStepAC;
                                 yC += Pix2D.width;
                             }
                         }
-                        this.gouraudRaster(xC >> 16, xA >> 16, colorC >> 7, colorA >> 7, Pix2D.pixels, yC, 0);
+
+                        this.gouraudRaster(xC >> 16, xA >> 16, colourC >> 7, colourA >> 7, Pix2D.pixels, yC, 0);
                         xA += xStepBC;
                         xC += xStepAC;
-                        colorA += colorStepBC;
-                        colorC += colorStepAC;
+                        colourA += colourStepBC;
+                        colourC += colourStepAC;
                         yC += Pix2D.width;
                     }
                 }
@@ -807,635 +900,730 @@ export default class Pix3D extends Pix2D {
         }
     }
 
-    private static gouraudRaster(x0: number, x1: number, color0: number, color1: number, dst: Int32Array, offset: number, length: number): void {
+    private static gouraudRaster(
+        xA: number, xB: number,
+        colourA: number, colourB: number,
+        dst: Int32Array, off: number, len: number
+    ): void {
         let rgb: number;
 
-        if (Pix3D.lowDetail) {
-            let colorStep: number;
+        if (this.lowDetail) {
+            let colourStep: number;
 
-            if (Pix3D.hclip) {
-                if (x1 - x0 > 3) {
-                    colorStep = ((color1 - color0) / (x1 - x0)) | 0;
+            if (this.hclip) {
+                if (xB - xA > 3) {
+                    colourStep = ((colourB - colourA) / (xB - xA)) | 0;
                 } else {
-                    colorStep = 0;
+                    colourStep = 0;
                 }
-                if (x1 > Pix2D.sizeX) {
-                    x1 = Pix2D.sizeX;
+
+                if (xB > Pix2D.sizeX) {
+                    xB = Pix2D.sizeX;
                 }
-                if (x0 < 0) {
-                    color0 -= x0 * colorStep;
-                    x0 = 0;
+
+                if (xA < 0) {
+                    colourA -= xA * colourStep;
+                    xA = 0;
                 }
-                if (x0 >= x1) {
+
+                if (xA >= xB) {
                     return;
                 }
-                offset += x0;
-                length = (x1 - x0) >> 2;
-                colorStep <<= 0x2;
-            } else if (x0 < x1) {
-                offset += x0;
-                length = (x1 - x0) >> 2;
-                if (length > 0) {
-                    colorStep = ((color1 - color0) * Pix3D.divTable[length]) >> 15;
+
+                off += xA;
+                len = (xB - xA) >> 2;
+                colourStep <<= 2;
+            } else if (xA < xB) {
+                off += xA;
+                len = (xB - xA) >> 2;
+
+                if (len > 0) {
+                    colourStep = ((colourB - colourA) * this.divTable[len]) >> 15;
                 } else {
-                    colorStep = 0;
+                    colourStep = 0;
                 }
             } else {
                 return;
             }
 
-            if (Pix3D.trans === 0) {
-                // eslint-disable-next-line no-constant-condition
+            if (this.trans === 0) {
                 while (true) {
-                    length--;
-                    if (length < 0) {
-                        length = (x1 - x0) & 0x3;
-                        if (length > 0) {
-                            rgb = Pix3D.colourTable[color0 >> 8];
+                    len--;
+
+                    if (len < 0) {
+                        len = (xB - xA) & 0x3;
+
+                        if (len > 0) {
+                            rgb = this.colourTable[colourA >> 8];
+
                             do {
-                                dst[offset++] = rgb;
-                                length--;
-                            } while (length > 0);
+                                dst[off++] = rgb;
+                                len--;
+                            } while (len > 0);
+
                             return;
                         }
+
                         break;
                     }
-                    rgb = Pix3D.colourTable[color0 >> 8];
-                    color0 += colorStep;
-                    dst[offset++] = rgb;
-                    dst[offset++] = rgb;
-                    dst[offset++] = rgb;
-                    dst[offset++] = rgb;
+
+                    rgb = this.colourTable[colourA >> 8];
+                    colourA += colourStep;
+                    dst[off++] = rgb;
+                    dst[off++] = rgb;
+                    dst[off++] = rgb;
+                    dst[off++] = rgb;
                 }
             } else {
-                const alpha: number = Pix3D.trans;
-                const invAlpha: number = 256 - Pix3D.trans;
-                // eslint-disable-next-line no-constant-condition
+                const alpha: number = this.trans;
+                const invAlpha: number = 256 - this.trans;
+
                 while (true) {
-                    length--;
-                    if (length < 0) {
-                        length = (x1 - x0) & 0x3;
-                        if (length > 0) {
-                            rgb = Pix3D.colourTable[color0 >> 8];
+                    len--;
+
+                    if (len < 0) {
+                        len = (xB - xA) & 0x3;
+
+                        if (len > 0) {
+                            rgb = this.colourTable[colourA >> 8];
                             rgb = ((((rgb & 0xff00ff) * invAlpha) >> 8) & 0xff00ff) + ((((rgb & 0xff00) * invAlpha) >> 8) & 0xff00);
+
                             do {
-                                dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-                                length--;
-                            } while (length > 0);
+                                dst[off++] = rgb + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                                len--;
+                            } while (len > 0);
                         }
+
                         break;
                     }
-                    rgb = Pix3D.colourTable[color0 >> 8];
-                    color0 += colorStep;
+
+                    rgb = this.colourTable[colourA >> 8];
+                    colourA += colourStep;
                     rgb = ((((rgb & 0xff00ff) * invAlpha) >> 8) & 0xff00ff) + ((((rgb & 0xff00) * invAlpha) >> 8) & 0xff00);
-                    dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-                    dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-                    dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-                    dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
+
+                    dst[off++] = rgb + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                    dst[off++] = rgb + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                    dst[off++] = rgb + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                    dst[off++] = rgb + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
                 }
             }
-        } else if (x0 < x1) {
-            const colorStep: number = ((color1 - color0) / (x1 - x0)) | 0;
-            if (Pix3D.hclip) {
-                if (x1 > Pix2D.sizeX) {
-                    x1 = Pix2D.sizeX;
+        } else if (xA < xB) {
+            const colourStep: number = ((colourB - colourA) / (xB - xA)) | 0;
+
+            if (this.hclip) {
+                if (xB > Pix2D.sizeX) {
+                    xB = Pix2D.sizeX;
                 }
-                if (x0 < 0) {
-                    color0 -= x0 * colorStep;
-                    x0 = 0;
+
+                if (xA < 0) {
+                    colourA -= xA * colourStep;
+                    xA = 0;
                 }
-                if (x0 >= x1) {
+
+                if (xA >= xB) {
                     return;
                 }
             }
-            offset += x0;
-            length = x1 - x0;
-            if (Pix3D.trans === 0) {
+
+            off += xA;
+            len = xB - xA;
+
+            if (this.trans === 0) {
                 do {
-                    dst[offset++] = Pix3D.colourTable[color0 >> 8];
-                    color0 += colorStep;
-                    length--;
-                } while (length > 0);
+                    dst[off++] = this.colourTable[colourA >> 8];
+                    colourA += colourStep;
+                    len--;
+                } while (len > 0);
             } else {
-                const alpha: number = Pix3D.trans;
-                const invAlpha: number = 256 - Pix3D.trans;
+                const alpha: number = this.trans;
+                const invAlpha: number = 256 - this.trans;
+
                 do {
-                    rgb = Pix3D.colourTable[color0 >> 8];
-                    color0 += colorStep;
+                    rgb = this.colourTable[colourA >> 8];
+                    colourA += colourStep;
                     rgb = ((((rgb & 0xff00ff) * invAlpha) >> 8) & 0xff00ff) + ((((rgb & 0xff00) * invAlpha) >> 8) & 0xff00);
-                    dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-                    length--;
-                } while (length > 0);
+
+                    dst[off++] = rgb + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                    len--;
+                } while (len > 0);
             }
         }
     }
 
-    static flatTriangle(x0: number, x1: number, x2: number, y0: number, y1: number, y2: number, color: number): void {
+    static flatTriangle(
+        xA: number, xB: number, xC: number,
+        yA: number, yB: number, yC: number,
+        colour: number
+    ): void {
         let xStepAB: number = 0;
-        if (y1 !== y0) {
-            xStepAB = (((x1 - x0) << 16) / (y1 - y0)) | 0;
+        if (yB !== yA) {
+            xStepAB = (((xB - xA) << 16) / (yB - yA)) | 0;
         }
+
         let xStepBC: number = 0;
-        if (y2 !== y1) {
-            xStepBC = (((x2 - x1) << 16) / (y2 - y1)) | 0;
+        if (yC !== yB) {
+            xStepBC = (((xC - xB) << 16) / (yC - yB)) | 0;
         }
+
         let xStepAC: number = 0;
-        if (y2 !== y0) {
-            xStepAC = (((x0 - x2) << 16) / (y0 - y2)) | 0;
+        if (yC !== yA) {
+            xStepAC = (((xA - xC) << 16) / (yA - yC)) | 0;
         }
-        if (y0 <= y1 && y0 <= y2) {
-            if (y0 < Pix2D.clipMaxY) {
-                if (y1 > Pix2D.clipMaxY) {
-                    y1 = Pix2D.clipMaxY;
-                }
-                if (y2 > Pix2D.clipMaxY) {
-                    y2 = Pix2D.clipMaxY;
-                }
-                if (y1 < y2) {
-                    x2 = x0 <<= 0x10;
-                    if (y0 < 0) {
-                        x2 -= xStepAC * y0;
-                        x0 -= xStepAB * y0;
-                        y0 = 0;
-                    }
-                    x1 <<= 0x10;
-                    if (y1 < 0) {
-                        x1 -= xStepBC * y1;
-                        y1 = 0;
-                    }
-                    if ((y0 !== y1 && xStepAC < xStepAB) || (y0 === y1 && xStepAC > xStepBC)) {
-                        y2 -= y1;
-                        y1 -= y0;
-                        y0 = this.scanline[y0];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y1--;
-                            if (y1 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y2--;
-                                    if (y2 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y0, color);
-                                    x2 += xStepAC;
-                                    x1 += xStepBC;
-                                    y0 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y0, color);
-                            x2 += xStepAC;
-                            x0 += xStepAB;
-                            y0 += Pix2D.width;
-                        }
-                    } else {
-                        y2 -= y1;
-                        y1 -= y0;
-                        y0 = this.scanline[y0];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y1--;
-                            if (y1 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y2--;
-                                    if (y2 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y0, color);
-                                    x2 += xStepAC;
-                                    x1 += xStepBC;
-                                    y0 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y0, color);
-                            x2 += xStepAC;
-                            x0 += xStepAB;
-                            y0 += Pix2D.width;
-                        }
-                    }
-                } else {
-                    x1 = x0 <<= 0x10;
-                    if (y0 < 0) {
-                        x1 -= xStepAC * y0;
-                        x0 -= xStepAB * y0;
-                        y0 = 0;
-                    }
-                    x2 <<= 0x10;
-                    if (y2 < 0) {
-                        x2 -= xStepBC * y2;
-                        y2 = 0;
-                    }
-                    if ((y0 !== y2 && xStepAC < xStepAB) || (y0 === y2 && xStepBC > xStepAB)) {
-                        y1 -= y2;
-                        y2 -= y0;
-                        y0 = this.scanline[y0];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y2--;
-                            if (y2 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y1--;
-                                    if (y1 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y0, color);
-                                    x2 += xStepBC;
-                                    x0 += xStepAB;
-                                    y0 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y0, color);
-                            x1 += xStepAC;
-                            x0 += xStepAB;
-                            y0 += Pix2D.width;
-                        }
-                    } else {
-                        y1 -= y2;
-                        y2 -= y0;
-                        y0 = this.scanline[y0];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y2--;
-                            if (y2 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y1--;
-                                    if (y1 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y0, color);
-                                    x2 += xStepBC;
-                                    x0 += xStepAB;
-                                    y0 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y0, color);
-                            x1 += xStepAC;
-                            x0 += xStepAB;
-                            y0 += Pix2D.width;
-                        }
-                    }
-                }
+
+        if (yA <= yB && yA <= yC) {
+            if (yA >= Pix2D.clipMaxY) {
+                return;
             }
-        } else if (y1 <= y2) {
-            if (y1 < Pix2D.clipMaxY) {
-                if (y2 > Pix2D.clipMaxY) {
-                    y2 = Pix2D.clipMaxY;
-                }
-                if (y0 > Pix2D.clipMaxY) {
-                    y0 = Pix2D.clipMaxY;
-                }
-                if (y2 < y0) {
-                    x0 = x1 <<= 0x10;
-                    if (y1 < 0) {
-                        x0 -= xStepAB * y1;
-                        x1 -= xStepBC * y1;
-                        y1 = 0;
-                    }
-                    x2 <<= 0x10;
-                    if (y2 < 0) {
-                        x2 -= xStepAC * y2;
-                        y2 = 0;
-                    }
-                    if ((y1 !== y2 && xStepAB < xStepBC) || (y1 === y2 && xStepAB > xStepAC)) {
-                        y0 -= y2;
-                        y2 -= y1;
-                        y1 = this.scanline[y1];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y2--;
-                            if (y2 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y0--;
-                                    if (y0 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y1, color);
-                                    x0 += xStepAB;
-                                    x2 += xStepAC;
-                                    y1 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y1, color);
-                            x0 += xStepAB;
-                            x1 += xStepBC;
-                            y1 += Pix2D.width;
-                        }
-                    } else {
-                        y0 -= y2;
-                        y2 -= y1;
-                        y1 = this.scanline[y1];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y2--;
-                            if (y2 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y0--;
-                                    if (y0 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y1, color);
-                                    x0 += xStepAB;
-                                    x2 += xStepAC;
-                                    y1 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y1, color);
-                            x0 += xStepAB;
-                            x1 += xStepBC;
-                            y1 += Pix2D.width;
-                        }
-                    }
-                } else {
-                    x2 = x1 <<= 0x10;
-                    if (y1 < 0) {
-                        x2 -= xStepAB * y1;
-                        x1 -= xStepBC * y1;
-                        y1 = 0;
-                    }
-                    x0 <<= 0x10;
-                    if (y0 < 0) {
-                        x0 -= xStepAC * y0;
-                        y0 = 0;
-                    }
-                    if (xStepAB < xStepBC) {
-                        y2 -= y0;
-                        y0 -= y1;
-                        y1 = this.scanline[y1];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y0--;
-                            if (y0 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y2--;
-                                    if (y2 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y1, color);
-                                    x0 += xStepAC;
-                                    x1 += xStepBC;
-                                    y1 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y1, color);
-                            x2 += xStepAB;
-                            x1 += xStepBC;
-                            y1 += Pix2D.width;
-                        }
-                    } else {
-                        y2 -= y0;
-                        y0 -= y1;
-                        y1 = this.scanline[y1];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            y0--;
-                            if (y0 < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    y2--;
-                                    if (y2 < 0) {
-                                        return;
-                                    }
-                                    this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y1, color);
-                                    x0 += xStepAC;
-                                    x1 += xStepBC;
-                                    y1 += Pix2D.width;
-                                }
-                            }
-                            this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y1, color);
-                            x2 += xStepAB;
-                            x1 += xStepBC;
-                            y1 += Pix2D.width;
-                        }
-                    }
-                }
+
+            if (yB > Pix2D.clipMaxY) {
+                yB = Pix2D.clipMaxY;
             }
-        } else if (y2 < Pix2D.clipMaxY) {
-            if (y0 > Pix2D.clipMaxY) {
-                y0 = Pix2D.clipMaxY;
+
+            if (yC > Pix2D.clipMaxY) {
+                yC = Pix2D.clipMaxY;
             }
-            if (y1 > Pix2D.clipMaxY) {
-                y1 = Pix2D.clipMaxY;
-            }
-            if (y0 < y1) {
-                x1 = x2 <<= 0x10;
-                if (y2 < 0) {
-                    x1 -= xStepBC * y2;
-                    x2 -= xStepAC * y2;
-                    y2 = 0;
+
+            if (yB < yC) {
+                xC = xA <<= 16;
+
+                if (yA < 0) {
+                    xC -= xStepAC * yA;
+                    xA -= xStepAB * yA;
+                    yA = 0;
                 }
-                x0 <<= 0x10;
-                if (y0 < 0) {
-                    x0 -= xStepAB * y0;
-                    y0 = 0;
+
+                xB <<= 16;
+
+                if (yB < 0) {
+                    xB -= xStepBC * yB;
+                    yB = 0;
                 }
-                if (xStepBC < xStepAC) {
-                    y1 -= y0;
-                    y0 -= y2;
-                    y2 = this.scanline[y2];
-                    // eslint-disable-next-line no-constant-condition
+
+                if ((yA !== yB && xStepAC < xStepAB) || (yA === yB && xStepAC > xStepBC)) {
+                    yC -= yB;
+                    yB -= yA;
+                    yA = this.scanline[yA];
+
                     while (true) {
-                        y0--;
-                        if (y0 < 0) {
-                            // eslint-disable-next-line no-constant-condition
+                        yB--;
+
+                        if (yB < 0) {
                             while (true) {
-                                y1--;
-                                if (y1 < 0) {
+                                yC--;
+
+                                if (yC < 0) {
                                     return;
                                 }
-                                this.flatRaster(x1 >> 16, x0 >> 16, Pix2D.pixels, y2, color);
-                                x1 += xStepBC;
-                                x0 += xStepAB;
-                                y2 += Pix2D.width;
+
+                                this.flatRaster(xC >> 16, xB >> 16, Pix2D.pixels, yA, colour);
+                                xC += xStepAC;
+                                xB += xStepBC;
+                                yA += Pix2D.width;
                             }
                         }
-                        this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y2, color);
-                        x1 += xStepBC;
-                        x2 += xStepAC;
-                        y2 += Pix2D.width;
+
+                        this.flatRaster(xC >> 16, xA >> 16, Pix2D.pixels, yA, colour);
+                        xC += xStepAC;
+                        xA += xStepAB;
+                        yA += Pix2D.width;
                     }
                 } else {
-                    y1 -= y0;
-                    y0 -= y2;
-                    y2 = this.scanline[y2];
-                    // eslint-disable-next-line no-constant-condition
+                    yC -= yB;
+                    yB -= yA;
+                    yA = this.scanline[yA];
+
                     while (true) {
-                        y0--;
-                        if (y0 < 0) {
-                            // eslint-disable-next-line no-constant-condition
+                        yB--;
+
+                        if (yB < 0) {
                             while (true) {
-                                y1--;
-                                if (y1 < 0) {
+                                yC--;
+
+                                if (yC < 0) {
                                     return;
                                 }
-                                this.flatRaster(x0 >> 16, x1 >> 16, Pix2D.pixels, y2, color);
-                                x1 += xStepBC;
-                                x0 += xStepAB;
-                                y2 += Pix2D.width;
+
+                                this.flatRaster(xB >> 16, xC >> 16, Pix2D.pixels, yA, colour);
+                                xC += xStepAC;
+                                xB += xStepBC;
+                                yA += Pix2D.width;
                             }
                         }
-                        this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y2, color);
-                        x1 += xStepBC;
-                        x2 += xStepAC;
-                        y2 += Pix2D.width;
+
+                        this.flatRaster(xA >> 16, xC >> 16, Pix2D.pixels, yA, colour);
+                        xC += xStepAC;
+                        xA += xStepAB;
+                        yA += Pix2D.width;
                     }
                 }
             } else {
-                x0 = x2 <<= 0x10;
-                if (y2 < 0) {
-                    x0 -= xStepBC * y2;
-                    x2 -= xStepAC * y2;
-                    y2 = 0;
+                xB = xA <<= 16;
+
+                if (yA < 0) {
+                    xB -= xStepAC * yA;
+                    xA -= xStepAB * yA;
+                    yA = 0;
                 }
-                x1 <<= 0x10;
-                if (y1 < 0) {
-                    x1 -= xStepAB * y1;
-                    y1 = 0;
+
+                xC <<= 16;
+
+                if (yC < 0) {
+                    xC -= xStepBC * yC;
+                    yC = 0;
                 }
-                if (xStepBC < xStepAC) {
-                    y0 -= y1;
-                    y1 -= y2;
-                    y2 = this.scanline[y2];
-                    // eslint-disable-next-line no-constant-condition
+
+                if ((yA !== yC && xStepAC < xStepAB) || (yA === yC && xStepBC > xStepAB)) {
+                    yB -= yC;
+                    yC -= yA;
+                    yA = this.scanline[yA];
+
                     while (true) {
-                        y1--;
-                        if (y1 < 0) {
-                            // eslint-disable-next-line no-constant-condition
+                        yC--;
+
+                        if (yC < 0) {
                             while (true) {
-                                y0--;
-                                if (y0 < 0) {
+                                yB--;
+
+                                if (yB < 0) {
                                     return;
                                 }
-                                this.flatRaster(x1 >> 16, x2 >> 16, Pix2D.pixels, y2, color);
-                                x1 += xStepAB;
-                                x2 += xStepAC;
-                                y2 += Pix2D.width;
+
+                                this.flatRaster(xC >> 16, xA >> 16, Pix2D.pixels, yA, colour);
+                                xC += xStepBC;
+                                xA += xStepAB;
+                                yA += Pix2D.width;
                             }
                         }
-                        this.flatRaster(x0 >> 16, x2 >> 16, Pix2D.pixels, y2, color);
-                        x0 += xStepBC;
-                        x2 += xStepAC;
-                        y2 += Pix2D.width;
+
+                        this.flatRaster(xB >> 16, xA >> 16, Pix2D.pixels, yA, colour);
+                        xB += xStepAC;
+                        xA += xStepAB;
+                        yA += Pix2D.width;
                     }
                 } else {
-                    y0 -= y1;
-                    y1 -= y2;
-                    y2 = this.scanline[y2];
-                    // eslint-disable-next-line no-constant-condition
+                    yB -= yC;
+                    yC -= yA;
+                    yA = this.scanline[yA];
+
                     while (true) {
-                        y1--;
-                        if (y1 < 0) {
-                            // eslint-disable-next-line no-constant-condition
+                        yC--;
+
+                        if (yC < 0) {
                             while (true) {
-                                y0--;
-                                if (y0 < 0) {
+                                yB--;
+
+                                if (yB < 0) {
                                     return;
                                 }
-                                this.flatRaster(x2 >> 16, x1 >> 16, Pix2D.pixels, y2, color);
-                                x1 += xStepAB;
-                                x2 += xStepAC;
-                                y2 += Pix2D.width;
+
+                                this.flatRaster(xA >> 16, xC >> 16, Pix2D.pixels, yA, colour);
+                                xC += xStepBC;
+                                xA += xStepAB;
+                                yA += Pix2D.width;
                             }
                         }
-                        this.flatRaster(x2 >> 16, x0 >> 16, Pix2D.pixels, y2, color);
-                        x0 += xStepBC;
-                        x2 += xStepAC;
-                        y2 += Pix2D.width;
+
+                        this.flatRaster(xA >> 16, xB >> 16, Pix2D.pixels, yA, colour);
+                        xB += xStepAC;
+                        xA += xStepAB;
+                        yA += Pix2D.width;
+                    }
+                }
+            }
+        } else if (yB <= yC) {
+            if (yB >= Pix2D.clipMaxY) {
+                return;
+            }
+
+            if (yC > Pix2D.clipMaxY) {
+                yC = Pix2D.clipMaxY;
+            }
+
+            if (yA > Pix2D.clipMaxY) {
+                yA = Pix2D.clipMaxY;
+            }
+
+            if (yC < yA) {
+                xA = xB <<= 16;
+
+                if (yB < 0) {
+                    xA -= xStepAB * yB;
+                    xB -= xStepBC * yB;
+                    yB = 0;
+                }
+
+                xC <<= 16;
+
+                if (yC < 0) {
+                    xC -= xStepAC * yC;
+                    yC = 0;
+                }
+
+                if ((yB !== yC && xStepAB < xStepBC) || (yB === yC && xStepAB > xStepAC)) {
+                    yA -= yC;
+                    yC -= yB;
+                    yB = this.scanline[yB];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xA >> 16, xC >> 16, Pix2D.pixels, yB, colour);
+                                xA += xStepAB;
+                                xC += xStepAC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xA >> 16, xB >> 16, Pix2D.pixels, yB, colour);
+                        xA += xStepAB;
+                        xB += xStepBC;
+                        yB += Pix2D.width;
+                    }
+                } else {
+                    yA -= yC;
+                    yC -= yB;
+                    yB = this.scanline[yB];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xC >> 16, xA >> 16, Pix2D.pixels, yB, colour);
+                                xA += xStepAB;
+                                xC += xStepAC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xB >> 16, xA >> 16, Pix2D.pixels, yB, colour);
+                        xA += xStepAB;
+                        xB += xStepBC;
+                        yB += Pix2D.width;
+                    }
+                }
+            } else {
+                xC = xB <<= 16;
+
+                if (yB < 0) {
+                    xC -= xStepAB * yB;
+                    xB -= xStepBC * yB;
+                    yB = 0;
+                }
+
+                xA <<= 16;
+
+                if (yA < 0) {
+                    xA -= xStepAC * yA;
+                    yA = 0;
+                }
+
+                yC -= yA;
+                yA -= yB;
+                yB = this.scanline[yB];
+
+                if (xStepAB < xStepBC) {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xA >> 16, xB >> 16, Pix2D.pixels, yB, colour);
+                                xA += xStepAC;
+                                xB += xStepBC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xC >> 16, xB >> 16, Pix2D.pixels, yB, colour);
+                        xC += xStepAB;
+                        xB += xStepBC;
+                        yB += Pix2D.width;
+                    }
+                } else {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xB >> 16, xA >> 16, Pix2D.pixels, yB, colour);
+                                xA += xStepAC;
+                                xB += xStepBC;
+                                yB += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xB >> 16, xC >> 16, Pix2D.pixels, yB, colour);
+                        xC += xStepAB;
+                        xB += xStepBC;
+                        yB += Pix2D.width;
+                    }
+                }
+            }
+        } else {
+            if (yC >= Pix2D.clipMaxY) {
+                return;
+            }
+
+            if (yA > Pix2D.clipMaxY) {
+                yA = Pix2D.clipMaxY;
+            }
+
+            if (yB > Pix2D.clipMaxY) {
+                yB = Pix2D.clipMaxY;
+            }
+
+            if (yA < yB) {
+                xB = xC <<= 16;
+
+                if (yC < 0) {
+                    xB -= xStepBC * yC;
+                    xC -= xStepAC * yC;
+                    yC = 0;
+                }
+
+                xA <<= 16;
+
+                if (yA < 0) {
+                    xA -= xStepAB * yA;
+                    yA = 0;
+                }
+
+                yB -= yA;
+                yA -= yC;
+                yC = this.scanline[yC];
+
+                if (xStepBC < xStepAC) {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yB--;
+
+                                if (yB < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xB >> 16, xA >> 16, Pix2D.pixels, yC, colour);
+                                xB += xStepBC;
+                                xA += xStepAB;
+                                yC += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xB >> 16, xC >> 16, Pix2D.pixels, yC, colour);
+                        xB += xStepBC;
+                        xC += xStepAC;
+                        yC += Pix2D.width;
+                    }
+                } else {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yB--;
+
+                                if (yB < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xA >> 16, xB >> 16, Pix2D.pixels, yC, colour);
+                                xB += xStepBC;
+                                xA += xStepAB;
+                                yC += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xC >> 16, xB >> 16, Pix2D.pixels, yC, colour);
+                        xB += xStepBC;
+                        xC += xStepAC;
+                        yC += Pix2D.width;
+                    }
+                }
+            } else {
+                xA = xC <<= 16;
+
+                if (yC < 0) {
+                    xA -= xStepBC * yC;
+                    xC -= xStepAC * yC;
+                    yC = 0;
+                }
+
+                xB <<= 16;
+
+                if (yB < 0) {
+                    xB -= xStepAB * yB;
+                    yB = 0;
+                }
+
+                yA -= yB;
+                yB -= yC;
+                yC = this.scanline[yC];
+
+                if (xStepBC < xStepAC) {
+                    while (true) {
+                        yB--;
+
+                        if (yB < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xB >> 16, xC >> 16, Pix2D.pixels, yC, colour);
+                                xB += xStepAB;
+                                xC += xStepAC;
+                                yC += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xA >> 16, xC >> 16, Pix2D.pixels, yC, colour);
+                        xA += xStepBC;
+                        xC += xStepAC;
+                        yC += Pix2D.width;
+                    }
+                } else {
+                    while (true) {
+                        yB--;
+
+                        if (yB < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.flatRaster(xC >> 16, xB >> 16, Pix2D.pixels, yC, colour);
+                                xB += xStepAB;
+                                xC += xStepAC;
+                                yC += Pix2D.width;
+                            }
+                        }
+
+                        this.flatRaster(xC >> 16, xA >> 16, Pix2D.pixels, yC, colour);
+                        xA += xStepBC;
+                        xC += xStepAC;
+                        yC += Pix2D.width;
                     }
                 }
             }
         }
     }
 
-    private static flatRaster(x0: number, x1: number, dst: Int32Array, offset: number, rgb: number): void {
+    private static flatRaster(
+        xA: number, xB: number,
+        dst: Int32Array, off: number,
+        colour: number
+    ): void {
         if (this.hclip) {
-            if (x1 > Pix2D.sizeX) {
-                x1 = Pix2D.sizeX;
+            if (xB > Pix2D.sizeX) {
+                xB = Pix2D.sizeX;
             }
-            if (x0 < 0) {
-                x0 = 0;
+
+            if (xA < 0) {
+                xA = 0;
             }
         }
 
-        if (x0 >= x1) {
+        if (xA >= xB) {
             return;
         }
 
-        offset += x0;
-        let length: number = (x1 - x0) >> 2;
+        off += xA;
+        let len: number = (xB - xA) >> 2;
 
         if (this.trans === 0) {
-            // eslint-disable-next-line no-constant-condition
             while (true) {
-                length--;
-                if (length < 0) {
-                    length = (x1 - x0) & 0x3;
-                    // eslint-disable-next-line no-constant-condition
+                len--;
+
+                if (len < 0) {
+                    len = (xB - xA) & 0x3;
+
                     while (true) {
-                        length--;
-                        if (length < 0) {
+                        len--;
+
+                        if (len < 0) {
                             return;
                         }
-                        dst[offset++] = rgb;
+
+                        dst[off++] = colour;
                     }
                 }
-                dst[offset++] = rgb;
-                dst[offset++] = rgb;
-                dst[offset++] = rgb;
-                dst[offset++] = rgb;
+
+                dst[off++] = colour;
+                dst[off++] = colour;
+                dst[off++] = colour;
+                dst[off++] = colour;
             }
-        }
+        } else {
+            const alpha: number = this.trans;
+            const invAlpha: number = 256 - this.trans;
+            colour = ((((colour & 0xff00ff) * invAlpha) >> 8) & 0xff00ff) + ((((colour & 0xff00) * invAlpha) >> 8) & 0xff00);
 
-        const alpha: number = this.trans;
-        const invAlpha: number = 256 - this.trans;
-        rgb = ((((rgb & 0xff00ff) * invAlpha) >> 8) & 0xff00ff) + ((((rgb & 0xff00) * invAlpha) >> 8) & 0xff00);
+            while (true) {
+                len--;
 
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-            length--;
-            if (length < 0) {
-                length = (x1 - x0) & 0x3;
-                // eslint-disable-next-line no-constant-condition
-                while (true) {
-                    length--;
-                    if (length < 0) {
-                        return;
+                if (len < 0) {
+                    len = (xB - xA) & 0x3;
+
+                    while (true) {
+                        len--;
+
+                        if (len < 0) {
+                            return;
+                        }
+
+                        dst[off++] = colour + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
                     }
-                    dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
                 }
-            }
 
-            dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-            dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-            dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
-            dst[offset++] = rgb + ((((dst[offset] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[offset] & 0xff00) * alpha) >> 8) & 0xff00);
+                dst[off++] = colour + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                dst[off++] = colour + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                dst[off++] = colour + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+                dst[off++] = colour + ((((dst[off] & 0xff00ff) * alpha) >> 8) & 0xff00ff) + ((((dst[off] & 0xff00) * alpha) >> 8) & 0xff00);
+            }
         }
     }
 
     static textureTriangle(
-        xA: number,
-        xB: number,
-        xC: number,
-        yA: number,
-        yB: number,
-        yC: number,
-        shadeA: number,
-        shadeB: number,
-        shadeC: number,
-        originX: number,
-        originY: number,
-        originZ: number,
-        txB: number,
-        txC: number,
-        tyB: number,
-        tyC: number,
-        tzB: number,
-        tzC: number,
+        xA: number, xB: number, xC: number,
+        yA: number, yB: number, yC: number,
+        shadeA: number, shadeB: number, shadeC: number,
+        originX: number, originY: number, originZ: number,
+        txB: number, txC: number,
+        tyB: number, tyC: number,
+        tzB: number, tzC: number,
         texture: number
     ): void {
         const texels: Int32Array | null = this.getTexels(texture);
@@ -1483,462 +1671,518 @@ export default class Pix3D extends Pix2D {
         }
 
         if (yA <= yB && yA <= yC) {
-            if (yA < Pix2D.clipMaxY) {
-                if (yB > Pix2D.clipMaxY) {
-                    yB = Pix2D.clipMaxY;
+            if (yA >= Pix2D.clipMaxY) {
+                return;
+            }
+
+            if (yB > Pix2D.clipMaxY) {
+                yB = Pix2D.clipMaxY;
+            }
+
+            if (yC > Pix2D.clipMaxY) {
+                yC = Pix2D.clipMaxY;
+            }
+
+            if (yB < yC) {
+                xC = xA <<= 16;
+                shadeC = shadeA <<= 16;
+
+                if (yA < 0) {
+                    xC -= xStepAC * yA;
+                    xA -= xStepAB * yA;
+                    shadeC -= shadeStepAC * yA;
+                    shadeA -= shadeStepAB * yA;
+                    yA = 0;
                 }
 
-                if (yC > Pix2D.clipMaxY) {
-                    yC = Pix2D.clipMaxY;
+                xB <<= 16;
+                shadeB <<= 16;
+
+                if (yB < 0) {
+                    xB -= xStepBC * yB;
+                    shadeB -= shadeStepBC * yB;
+                    yB = 0;
                 }
 
-                if (yB < yC) {
-                    xC = xA <<= 0x10;
-                    shadeC = shadeA <<= 0x10;
-                    if (yA < 0) {
-                        xC -= xStepAC * yA;
-                        xA -= xStepAB * yA;
-                        shadeC -= shadeStepAC * yA;
-                        shadeA -= shadeStepAB * yA;
-                        yA = 0;
-                    }
-                    xB <<= 0x10;
-                    shadeB <<= 0x10;
-                    if (yB < 0) {
-                        xB -= xStepBC * yB;
-                        shadeB -= shadeStepBC * yB;
-                        yB = 0;
-                    }
-                    const dy: number = yA - this.originY;
-                    u += uStepVertical * dy;
-                    v += vStepVertical * dy;
-                    w += wStepVertical * dy;
-                    u |= 0;
-                    v |= 0;
-                    w |= 0;
-                    if ((yA !== yB && xStepAC < xStepAB) || (yA === yB && xStepAC > xStepBC)) {
-                        yC -= yB;
-                        yB -= yA;
-                        yA = this.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yB--;
-                            if (yB < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xC >> 16, xB >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeB >> 8);
-                                    xC += xStepAC;
-                                    xB += xStepBC;
-                                    shadeC += shadeStepAC;
-                                    shadeB += shadeStepBC;
-                                    yA += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
+                const dy: number = yA - this.originY;
+                u += uStepVertical * dy;
+                v += vStepVertical * dy;
+                w += wStepVertical * dy;
+                u |= 0;
+                v |= 0;
+                w |= 0;
+
+                if ((yA !== yB && xStepAC < xStepAB) || (yA === yB && xStepAC > xStepBC)) {
+                    yC -= yB;
+                    yB -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yB--;
+
+                        if (yB < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
                                 }
+
+                                this.textureRaster(xC >> 16, xB >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeB >> 8);
+                                xC += xStepAC;
+                                xB += xStepBC;
+                                shadeC += shadeStepAC;
+                                shadeB += shadeStepBC;
+                                yA += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
                             }
-                            this.textureRaster(xC >> 16, xA >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeA >> 8);
-                            xC += xStepAC;
-                            xA += xStepAB;
-                            shadeC += shadeStepAC;
-                            shadeA += shadeStepAB;
-                            yA += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
                         }
-                    } else {
-                        yC -= yB;
-                        yB -= yA;
-                        yA = this.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yB--;
-                            if (yB < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xB >> 16, xC >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeC >> 8);
-                                    xC += xStepAC;
-                                    xB += xStepBC;
-                                    shadeC += shadeStepAC;
-                                    shadeB += shadeStepBC;
-                                    yA += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
-                                }
-                            }
-                            this.textureRaster(xA >> 16, xC >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeC >> 8);
-                            xC += xStepAC;
-                            xA += xStepAB;
-                            shadeC += shadeStepAC;
-                            shadeA += shadeStepAB;
-                            yA += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
-                        }
+
+                        this.textureRaster(xC >> 16, xA >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeA >> 8);
+                        xC += xStepAC;
+                        xA += xStepAB;
+                        shadeC += shadeStepAC;
+                        shadeA += shadeStepAB;
+                        yA += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
                     }
                 } else {
-                    xB = xA <<= 0x10;
-                    shadeB = shadeA <<= 0x10;
-                    if (yA < 0) {
-                        xB -= xStepAC * yA;
-                        xA -= xStepAB * yA;
-                        shadeB -= shadeStepAC * yA;
-                        shadeA -= shadeStepAB * yA;
-                        yA = 0;
-                    }
-                    xC <<= 0x10;
-                    shadeC <<= 0x10;
-                    if (yC < 0) {
-                        xC -= xStepBC * yC;
-                        shadeC -= shadeStepBC * yC;
-                        yC = 0;
-                    }
-                    const dy: number = yA - this.originY;
-                    u += uStepVertical * dy;
-                    v += vStepVertical * dy;
-                    w += wStepVertical * dy;
-                    u |= 0;
-                    v |= 0;
-                    w |= 0;
-                    if ((yA === yC || xStepAC >= xStepAB) && (yA !== yC || xStepBC <= xStepAB)) {
-                        yB -= yC;
-                        yC -= yA;
-                        yA = this.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yB--;
-                                    if (yB < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xA >> 16, xC >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeC >> 8);
-                                    xC += xStepBC;
-                                    xA += xStepAB;
-                                    shadeC += shadeStepBC;
-                                    shadeA += shadeStepAB;
-                                    yA += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
+                    yC -= yB;
+                    yB -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yB--;
+
+                        if (yB < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
                                 }
+
+                                this.textureRaster(xB >> 16, xC >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeC >> 8);
+                                xC += xStepAC;
+                                xB += xStepBC;
+                                shadeC += shadeStepAC;
+                                shadeB += shadeStepBC;
+                                yA += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
                             }
-                            this.textureRaster(xA >> 16, xB >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeB >> 8);
-                            xB += xStepAC;
-                            xA += xStepAB;
-                            shadeB += shadeStepAC;
-                            shadeA += shadeStepAB;
-                            yA += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
                         }
-                    } else {
-                        yB -= yC;
-                        yC -= yA;
-                        yA = this.scanline[yA];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yB--;
-                                    if (yB < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xC >> 16, xA >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeA >> 8);
-                                    xC += xStepBC;
-                                    xA += xStepAB;
-                                    shadeC += shadeStepBC;
-                                    shadeA += shadeStepAB;
-                                    yA += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
+
+                        this.textureRaster(xA >> 16, xC >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeC >> 8);
+                        xC += xStepAC;
+                        xA += xStepAB;
+                        shadeC += shadeStepAC;
+                        shadeA += shadeStepAB;
+                        yA += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
+                    }
+                }
+            } else {
+                xB = xA <<= 16;
+                shadeB = shadeA <<= 16;
+
+                if (yA < 0) {
+                    xB -= xStepAC * yA;
+                    xA -= xStepAB * yA;
+                    shadeB -= shadeStepAC * yA;
+                    shadeA -= shadeStepAB * yA;
+                    yA = 0;
+                }
+
+                xC <<= 16;
+                shadeC <<= 16;
+
+                if (yC < 0) {
+                    xC -= xStepBC * yC;
+                    shadeC -= shadeStepBC * yC;
+                    yC = 0;
+                }
+
+                const dy: number = yA - this.originY;
+                u += uStepVertical * dy;
+                v += vStepVertical * dy;
+                w += wStepVertical * dy;
+                u |= 0;
+                v |= 0;
+                w |= 0;
+
+                if ((yA === yC || xStepAC >= xStepAB) && (yA !== yC || xStepBC <= xStepAB)) {
+                    yB -= yC;
+                    yC -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yB--;
+
+                                if (yB < 0) {
+                                    return;
                                 }
+
+                                this.textureRaster(xA >> 16, xC >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeC >> 8);
+                                xC += xStepBC;
+                                xA += xStepAB;
+                                shadeC += shadeStepBC;
+                                shadeA += shadeStepAB;
+                                yA += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
                             }
-                            this.textureRaster(xB >> 16, xA >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeA >> 8);
-                            xB += xStepAC;
-                            xA += xStepAB;
-                            shadeB += shadeStepAC;
-                            shadeA += shadeStepAB;
-                            yA += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
                         }
+
+                        this.textureRaster(xA >> 16, xB >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeB >> 8);
+                        xB += xStepAC;
+                        xA += xStepAB;
+                        shadeB += shadeStepAC;
+                        shadeA += shadeStepAB;
+                        yA += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
+                    }
+                } else {
+                    yB -= yC;
+                    yC -= yA;
+                    yA = this.scanline[yA];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yB--;
+
+                                if (yB < 0) {
+                                    return;
+                                }
+
+                                this.textureRaster(xC >> 16, xA >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeA >> 8);
+                                xC += xStepBC;
+                                xA += xStepAB;
+                                shadeC += shadeStepBC;
+                                shadeA += shadeStepAB;
+                                yA += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
+                            }
+                        }
+
+                        this.textureRaster(xB >> 16, xA >> 16, Pix2D.pixels, yA, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeA >> 8);
+                        xB += xStepAC;
+                        xA += xStepAB;
+                        shadeB += shadeStepAC;
+                        shadeA += shadeStepAB;
+                        yA += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
                     }
                 }
             }
         } else if (yB <= yC) {
-            if (yB < Pix2D.clipMaxY) {
-                if (yC > Pix2D.clipMaxY) {
-                    yC = Pix2D.clipMaxY;
-                }
-                if (yA > Pix2D.clipMaxY) {
-                    yA = Pix2D.clipMaxY;
-                }
-                if (yC < yA) {
-                    xA = xB <<= 0x10;
-                    shadeA = shadeB <<= 0x10;
-                    if (yB < 0) {
-                        xA -= xStepAB * yB;
-                        xB -= xStepBC * yB;
-                        shadeA -= shadeStepAB * yB;
-                        shadeB -= shadeStepBC * yB;
-                        yB = 0;
-                    }
-                    xC <<= 0x10;
-                    shadeC <<= 0x10;
-                    if (yC < 0) {
-                        xC -= xStepAC * yC;
-                        shadeC -= shadeStepAC * yC;
-                        yC = 0;
-                    }
-                    const dy: number = yB - this.originY;
-                    u += uStepVertical * dy;
-                    v += vStepVertical * dy;
-                    w += wStepVertical * dy;
-                    u |= 0;
-                    v |= 0;
-                    w |= 0;
-                    if ((yB !== yC && xStepAB < xStepBC) || (yB === yC && xStepAB > xStepAC)) {
-                        yA -= yC;
-                        yC -= yB;
-                        yB = this.scanline[yB];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yA--;
-                                    if (yA < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xA >> 16, xC >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeC >> 8);
-                                    xA += xStepAB;
-                                    xC += xStepAC;
-                                    shadeA += shadeStepAB;
-                                    shadeC += shadeStepAC;
-                                    yB += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
-                                }
-                            }
-                            this.textureRaster(xA >> 16, xB >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeB >> 8);
-                            xA += xStepAB;
-                            xB += xStepBC;
-                            shadeA += shadeStepAB;
-                            shadeB += shadeStepBC;
-                            yB += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
-                        }
-                    } else {
-                        yA -= yC;
-                        yC -= yB;
-                        yB = this.scanline[yB];
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yC--;
-                            if (yC < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yA--;
-                                    if (yA < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xC >> 16, xA >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeA >> 8);
-                                    xA += xStepAB;
-                                    xC += xStepAC;
-                                    shadeA += shadeStepAB;
-                                    shadeC += shadeStepAC;
-                                    yB += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
-                                }
-                            }
-                            this.textureRaster(xB >> 16, xA >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeA >> 8);
-                            xA += xStepAB;
-                            xB += xStepBC;
-                            shadeA += shadeStepAB;
-                            shadeB += shadeStepBC;
-                            yB += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
-                        }
-                    }
-                } else {
-                    xC = xB <<= 0x10;
-                    shadeC = shadeB <<= 0x10;
-                    if (yB < 0) {
-                        xC -= xStepAB * yB;
-                        xB -= xStepBC * yB;
-                        shadeC -= shadeStepAB * yB;
-                        shadeB -= shadeStepBC * yB;
-                        yB = 0;
-                    }
-                    xA <<= 0x10;
-                    shadeA <<= 0x10;
-                    if (yA < 0) {
-                        xA -= xStepAC * yA;
-                        shadeA -= shadeStepAC * yA;
-                        yA = 0;
-                    }
-                    const dy: number = yB - this.originY;
-                    u += uStepVertical * dy;
-                    v += vStepVertical * dy;
-                    w += wStepVertical * dy;
-                    u |= 0;
-                    v |= 0;
-                    w |= 0;
-                    yC -= yA;
-                    yA -= yB;
-                    yB = this.scanline[yB];
-                    if (xStepAB < xStepBC) {
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yA--;
-                            if (yA < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xA >> 16, xB >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeB >> 8);
-                                    xA += xStepAC;
-                                    xB += xStepBC;
-                                    shadeA += shadeStepAC;
-                                    shadeB += shadeStepBC;
-                                    yB += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
-                                }
-                            }
-                            this.textureRaster(xC >> 16, xB >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeB >> 8);
-                            xC += xStepAB;
-                            xB += xStepBC;
-                            shadeC += shadeStepAB;
-                            shadeB += shadeStepBC;
-                            yB += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
-                        }
-                    } else {
-                        // eslint-disable-next-line no-constant-condition
-                        while (true) {
-                            yA--;
-                            if (yA < 0) {
-                                // eslint-disable-next-line no-constant-condition
-                                while (true) {
-                                    yC--;
-                                    if (yC < 0) {
-                                        return;
-                                    }
-                                    this.textureRaster(xB >> 16, xA >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeA >> 8);
-                                    xA += xStepAC;
-                                    xB += xStepBC;
-                                    shadeA += shadeStepAC;
-                                    shadeB += shadeStepBC;
-                                    yB += Pix2D.width;
-                                    u += uStepVertical;
-                                    v += vStepVertical;
-                                    w += wStepVertical;
-                                    u |= 0;
-                                    v |= 0;
-                                    w |= 0;
-                                }
-                            }
-                            this.textureRaster(xB >> 16, xC >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeC >> 8);
-                            xC += xStepAB;
-                            xB += xStepBC;
-                            shadeC += shadeStepAB;
-                            shadeB += shadeStepBC;
-                            yB += Pix2D.width;
-                            u += uStepVertical;
-                            v += vStepVertical;
-                            w += wStepVertical;
-                            u |= 0;
-                            v |= 0;
-                            w |= 0;
-                        }
-                    }
-                }
+            if (yB >= Pix2D.clipMaxY) {
+                return;
             }
-        } else if (yC < Pix2D.clipMaxY) {
+
+            if (yC > Pix2D.clipMaxY) {
+                yC = Pix2D.clipMaxY;
+            }
+
             if (yA > Pix2D.clipMaxY) {
                 yA = Pix2D.clipMaxY;
             }
+
+            if (yC < yA) {
+                xA = xB <<= 16;
+                shadeA = shadeB <<= 16;
+
+                if (yB < 0) {
+                    xA -= xStepAB * yB;
+                    xB -= xStepBC * yB;
+                    shadeA -= shadeStepAB * yB;
+                    shadeB -= shadeStepBC * yB;
+                    yB = 0;
+                }
+
+                xC <<= 16;
+                shadeC <<= 16;
+
+                if (yC < 0) {
+                    xC -= xStepAC * yC;
+                    shadeC -= shadeStepAC * yC;
+                    yC = 0;
+                }
+
+                const dy: number = yB - this.originY;
+                u += uStepVertical * dy;
+                v += vStepVertical * dy;
+                w += wStepVertical * dy;
+                u |= 0;
+                v |= 0;
+                w |= 0;
+
+                if ((yB !== yC && xStepAB < xStepBC) || (yB === yC && xStepAB > xStepAC)) {
+                    yA -= yC;
+                    yC -= yB;
+                    yB = this.scanline[yB];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.textureRaster(xA >> 16, xC >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeC >> 8);
+                                xA += xStepAB;
+                                xC += xStepAC;
+                                shadeA += shadeStepAB;
+                                shadeC += shadeStepAC;
+                                yB += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
+                            }
+                        }
+
+                        this.textureRaster(xA >> 16, xB >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeB >> 8);
+                        xA += xStepAB;
+                        xB += xStepBC;
+                        shadeA += shadeStepAB;
+                        shadeB += shadeStepBC;
+                        yB += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
+                    }
+                } else {
+                    yA -= yC;
+                    yC -= yB;
+                    yB = this.scanline[yB];
+
+                    while (true) {
+                        yC--;
+
+                        if (yC < 0) {
+                            while (true) {
+                                yA--;
+
+                                if (yA < 0) {
+                                    return;
+                                }
+
+                                this.textureRaster(xC >> 16, xA >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeA >> 8);
+                                xA += xStepAB;
+                                xC += xStepAC;
+                                shadeA += shadeStepAB;
+                                shadeC += shadeStepAC;
+                                yB += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
+                            }
+                        }
+
+                        this.textureRaster(xB >> 16, xA >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeA >> 8);
+                        xA += xStepAB;
+                        xB += xStepBC;
+                        shadeA += shadeStepAB;
+                        shadeB += shadeStepBC;
+                        yB += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
+                    }
+                }
+            } else {
+                xC = xB <<= 16;
+                shadeC = shadeB <<= 16;
+
+                if (yB < 0) {
+                    xC -= xStepAB * yB;
+                    xB -= xStepBC * yB;
+                    shadeC -= shadeStepAB * yB;
+                    shadeB -= shadeStepBC * yB;
+                    yB = 0;
+                }
+
+                xA <<= 16;
+                shadeA <<= 16;
+
+                if (yA < 0) {
+                    xA -= xStepAC * yA;
+                    shadeA -= shadeStepAC * yA;
+                    yA = 0;
+                }
+
+                const dy: number = yB - this.originY;
+                u += uStepVertical * dy;
+                v += vStepVertical * dy;
+                w += wStepVertical * dy;
+                u |= 0;
+                v |= 0;
+                w |= 0;
+
+                yC -= yA;
+                yA -= yB;
+                yB = this.scanline[yB];
+
+                if (xStepAB < xStepBC) {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
+                                }
+
+                                this.textureRaster(xA >> 16, xB >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeB >> 8);
+                                xA += xStepAC;
+                                xB += xStepBC;
+                                shadeA += shadeStepAC;
+                                shadeB += shadeStepBC;
+                                yB += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
+                            }
+                        }
+
+                        this.textureRaster(xC >> 16, xB >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeB >> 8);
+                        xC += xStepAB;
+                        xB += xStepBC;
+                        shadeC += shadeStepAB;
+                        shadeB += shadeStepBC;
+                        yB += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
+                    }
+                } else {
+                    while (true) {
+                        yA--;
+
+                        if (yA < 0) {
+                            while (true) {
+                                yC--;
+
+                                if (yC < 0) {
+                                    return;
+                                }
+
+                                this.textureRaster(xB >> 16, xA >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeA >> 8);
+                                xA += xStepAC;
+                                xB += xStepBC;
+                                shadeA += shadeStepAC;
+                                shadeB += shadeStepBC;
+                                yB += Pix2D.width;
+                                u += uStepVertical;
+                                v += vStepVertical;
+                                w += wStepVertical;
+                                u |= 0;
+                                v |= 0;
+                                w |= 0;
+                            }
+                        }
+
+                        this.textureRaster(xB >> 16, xC >> 16, Pix2D.pixels, yB, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeC >> 8);
+                        xC += xStepAB;
+                        xB += xStepBC;
+                        shadeC += shadeStepAB;
+                        shadeB += shadeStepBC;
+                        yB += Pix2D.width;
+                        u += uStepVertical;
+                        v += vStepVertical;
+                        w += wStepVertical;
+                        u |= 0;
+                        v |= 0;
+                        w |= 0;
+                    }
+                }
+            }
+        } else {
+            if (yC >= Pix2D.clipMaxY) {
+                return;
+            }
+
+            if (yA > Pix2D.clipMaxY) {
+                yA = Pix2D.clipMaxY;
+            }
+
             if (yB > Pix2D.clipMaxY) {
                 yB = Pix2D.clipMaxY;
             }
+
             if (yA < yB) {
-                xB = xC <<= 0x10;
-                shadeB = shadeC <<= 0x10;
+                xB = xC <<= 16;
+                shadeB = shadeC <<= 16;
+
                 if (yC < 0) {
                     xB -= xStepBC * yC;
                     xC -= xStepAC * yC;
@@ -1946,13 +2190,16 @@ export default class Pix3D extends Pix2D {
                     shadeC -= shadeStepAC * yC;
                     yC = 0;
                 }
-                xA <<= 0x10;
-                shadeA <<= 0x10;
+
+                xA <<= 16;
+                shadeA <<= 16;
+
                 if (yA < 0) {
                     xA -= xStepAB * yA;
                     shadeA -= shadeStepAB * yA;
                     yA = 0;
                 }
+
                 const dy: number = yC - this.originY;
                 u += uStepVertical * dy;
                 v += vStepVertical * dy;
@@ -1960,20 +2207,23 @@ export default class Pix3D extends Pix2D {
                 u |= 0;
                 v |= 0;
                 w |= 0;
+
                 yB -= yA;
                 yA -= yC;
                 yC = this.scanline[yC];
+
                 if (xStepBC < xStepAC) {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yA--;
+
                         if (yA < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yB--;
+
                                 if (yB < 0) {
                                     return;
                                 }
+
                                 this.textureRaster(xB >> 16, xA >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeA >> 8);
                                 xB += xStepBC;
                                 xA += xStepAB;
@@ -1988,6 +2238,7 @@ export default class Pix3D extends Pix2D {
                                 w |= 0;
                             }
                         }
+
                         this.textureRaster(xB >> 16, xC >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeC >> 8);
                         xB += xStepBC;
                         xC += xStepAC;
@@ -2002,16 +2253,17 @@ export default class Pix3D extends Pix2D {
                         w |= 0;
                     }
                 } else {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yA--;
+
                         if (yA < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yB--;
+
                                 if (yB < 0) {
                                     return;
                                 }
+
                                 this.textureRaster(xA >> 16, xB >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeB >> 8);
                                 xB += xStepBC;
                                 xA += xStepAB;
@@ -2026,6 +2278,7 @@ export default class Pix3D extends Pix2D {
                                 w |= 0;
                             }
                         }
+
                         this.textureRaster(xC >> 16, xB >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeB >> 8);
                         xB += xStepBC;
                         xC += xStepAC;
@@ -2041,8 +2294,9 @@ export default class Pix3D extends Pix2D {
                     }
                 }
             } else {
-                xA = xC <<= 0x10;
-                shadeA = shadeC <<= 0x10;
+                xA = xC <<= 16;
+                shadeA = shadeC <<= 16;
+
                 if (yC < 0) {
                     xA -= xStepBC * yC;
                     xC -= xStepAC * yC;
@@ -2050,13 +2304,16 @@ export default class Pix3D extends Pix2D {
                     shadeC -= shadeStepAC * yC;
                     yC = 0;
                 }
-                xB <<= 0x10;
-                shadeB <<= 0x10;
+
+                xB <<= 16;
+                shadeB <<= 16;
+
                 if (yB < 0) {
                     xB -= xStepAB * yB;
                     shadeB -= shadeStepAB * yB;
                     yB = 0;
                 }
+
                 const dy: number = yC - this.originY;
                 u += uStepVertical * dy;
                 v += vStepVertical * dy;
@@ -2064,20 +2321,23 @@ export default class Pix3D extends Pix2D {
                 u |= 0;
                 v |= 0;
                 w |= 0;
+
                 yA -= yB;
                 yB -= yC;
                 yC = this.scanline[yC];
+
                 if (xStepBC < xStepAC) {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yB--;
+
                         if (yB < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yA--;
+
                                 if (yA < 0) {
                                     return;
                                 }
+
                                 this.textureRaster(xB >> 16, xC >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeB >> 8, shadeC >> 8);
                                 xB += xStepAB;
                                 xC += xStepAC;
@@ -2092,6 +2352,7 @@ export default class Pix3D extends Pix2D {
                                 w |= 0;
                             }
                         }
+
                         this.textureRaster(xA >> 16, xC >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeA >> 8, shadeC >> 8);
                         xA += xStepBC;
                         xC += xStepAC;
@@ -2106,16 +2367,17 @@ export default class Pix3D extends Pix2D {
                         w |= 0;
                     }
                 } else {
-                    // eslint-disable-next-line no-constant-condition
                     while (true) {
                         yB--;
+
                         if (yB < 0) {
-                            // eslint-disable-next-line no-constant-condition
                             while (true) {
                                 yA--;
+
                                 if (yA < 0) {
                                     return;
                                 }
+
                                 this.textureRaster(xC >> 16, xB >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeB >> 8);
                                 xB += xStepAB;
                                 xC += xStepAC;
@@ -2130,6 +2392,7 @@ export default class Pix3D extends Pix2D {
                                 w |= 0;
                             }
                         }
+
                         this.textureRaster(xC >> 16, xA >> 16, Pix2D.pixels, yC, texels, 0, 0, u, v, w, uStride, vStride, wStride, shadeC >> 8, shadeA >> 8);
                         xA += xStepBC;
                         xC += xStepAC;
@@ -2149,22 +2412,18 @@ export default class Pix3D extends Pix2D {
     }
 
     private static textureRaster(
-        xA: number,
-        xB: number,
-        dst: Int32Array,
-        offset: number,
+        xA: number, xB: number,
+        dst: Int32Array, off: number,
         texels: Int32Array | null,
-        curU: number,
-        curV: number,
-        u: number,
-        v: number,
-        w: number,
-        uStride: number,
-        vStride: number,
-        wStride: number,
-        shadeA: number,
-        shadeB: number
+        curU: number, curV: number,
+        u: number, v: number, w: number,
+        uStride: number, vStride: number, wStride: number,
+        shadeA: number, shadeB: number
     ): void {
+        if (!texels) {
+            return;
+        }
+
         if (xA >= xB) {
             return;
         }
@@ -2188,7 +2447,7 @@ export default class Pix3D extends Pix2D {
             }
 
             strides = (xB - xA) >> 3;
-            shadeStrides <<= 0xc;
+            shadeStrides <<= 12;
         } else {
             if (xB - xA > 7) {
                 strides = (xB - xA) >> 3;
@@ -2199,8 +2458,8 @@ export default class Pix3D extends Pix2D {
             }
         }
 
-        shadeA <<= 0x9;
-        offset += xA;
+        shadeA <<= 9;
+        off += xA;
 
         let nextU: number;
         let nextV: number;
@@ -2209,9 +2468,11 @@ export default class Pix3D extends Pix2D {
         let stepU: number;
         let stepV: number;
         let shadeShift: number;
-        if (this.lowMem && texels) {
+
+        if (this.lowMem) {
             nextU = 0;
             nextV = 0;
+
             dx = xA - this.originX;
             u = u + (uStride >> 3) * dx;
             v = v + (vStride >> 3) * dx;
@@ -2219,84 +2480,110 @@ export default class Pix3D extends Pix2D {
             u |= 0;
             v |= 0;
             w |= 0;
+
             curW = w >> 12;
+
             if (curW !== 0) {
                 curU = (u / curW) | 0;
                 curV = (v / curW) | 0;
+
                 if (curU < 0) {
                     curU = 0;
                 } else if (curU > 4032) {
                     curU = 4032;
                 }
             }
+
             u = u + uStride;
             v = v + vStride;
             w = w + wStride;
             u |= 0;
             v |= 0;
             w |= 0;
+
             curW = w >> 12;
+
             if (curW !== 0) {
                 nextU = (u / curW) | 0;
                 nextV = (v / curW) | 0;
+
                 if (nextU < 7) {
                     nextU = 7;
                 } else if (nextU > 4032) {
                     nextU = 4032;
                 }
             }
+
             stepU = (nextU - curU) >> 3;
             stepV = (nextV - curV) >> 3;
             curU += (shadeA >> 3) & 0xc0000;
             shadeShift = shadeA >> 23;
+
             if (this.opaque) {
                 while (strides-- > 0) {
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU = nextU;
                     curV = nextV;
+
                     u += uStride;
                     v += vStride;
                     w += wStride;
+                    u |= 0;
+                    v |= 0;
+                    w |= 0;
+
                     curW = w >> 12;
+
                     if (curW !== 0) {
                         nextU = (u / curW) | 0;
                         nextV = (v / curW) | 0;
+
                         if (nextU < 7) {
                             nextU = 7;
                         } else if (nextU > 4032) {
                             nextU = 4032;
                         }
                     }
+
                     stepU = (nextU - curU) >> 3;
                     stepV = (nextV - curV) >> 3;
                     shadeA += shadeStrides;
                     curU += (shadeA >> 3) & 0xc0000;
                     shadeShift = shadeA >> 23;
                 }
+
                 strides = (xB - xA) & 0x7;
+
                 while (strides-- > 0) {
-                    dst[offset++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
+                    dst[off++] = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift;
                     curU += stepU;
                     curV += stepV;
                 }
@@ -2304,265 +2591,316 @@ export default class Pix3D extends Pix2D {
                 while (strides-- > 0) {
                     let rgb: number;
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset = offset + 1;
+                    off++;
                     curU += stepU;
                     curV += stepV;
+
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset++;
+                    off++;
                     curU += stepU;
                     curV += stepV;
+
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset++;
+                    off++;
                     curU += stepU;
                     curV += stepV;
+
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset++;
+                    off++;
                     curU += stepU;
                     curV += stepV;
+
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset++;
+                    off++;
                     curU += stepU;
                     curV += stepV;
+
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset++;
+                    off++;
                     curU += stepU;
                     curV += stepV;
+
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset++;
+                    off++;
                     curU += stepU;
                     curV += stepV;
+
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset = offset + 1;
+                    off++;
                     curU = nextU;
                     curV = nextV;
+
                     u += uStride;
                     v += vStride;
                     w += wStride;
                     u |= 0;
                     v |= 0;
                     w |= 0;
+
                     curW = w >> 12;
+
                     if (curW !== 0) {
                         nextU = (u / curW) | 0;
                         nextV = (v / curW) | 0;
+
                         if (nextU < 7) {
                             nextU = 7;
                         } else if (nextU > 4032) {
                             nextU = 4032;
                         }
                     }
+
                     stepU = (nextU - curU) >> 3;
                     stepV = (nextV - curV) >> 3;
                     shadeA += shadeStrides;
                     curU += (shadeA >> 3) & 0xc0000;
                     shadeShift = shadeA >> 23;
                 }
+
                 strides = (xB - xA) & 0x7;
+
                 while (strides-- > 0) {
                     let rgb: number;
                     if ((rgb = texels[(curV & 0xfc0) + (curU >> 6)] >>> shadeShift) !== 0) {
-                        dst[offset] = rgb;
+                        dst[off] = rgb;
                     }
-                    offset++;
+                    off++;
                     curU += stepU;
                     curV += stepV;
                 }
             }
-            return;
-        }
-        nextU = 0;
-        nextV = 0;
-        dx = xA - this.originX;
-        u = u + (uStride >> 3) * dx;
-        v = v + (vStride >> 3) * dx;
-        w = w + (wStride >> 3) * dx;
-        u |= 0;
-        v |= 0;
-        w |= 0;
-        curW = w >> 14;
-        if (curW !== 0) {
-            curU = (u / curW) | 0;
-            curV = (v / curW) | 0;
-            if (curU < 0) {
-                curU = 0;
-            } else if (curU > 16256) {
-                curU = 16256;
-            }
-        }
-        u = u + uStride;
-        v = v + vStride;
-        w = w + wStride;
-        u |= 0;
-        v |= 0;
-        w |= 0;
-        curW = w >> 14;
-        if (curW !== 0) {
-            nextU = (u / curW) | 0;
-            nextV = (v / curW) | 0;
-            if (nextU < 7) {
-                nextU = 7;
-            } else if (nextU > 16256) {
-                nextU = 16256;
-            }
-        }
-        stepU = (nextU - curU) >> 3;
-        stepV = (nextV - curV) >> 3;
-        curU += shadeA & 0x600000;
-        shadeShift = shadeA >> 23;
-        if (this.opaque && texels) {
-            while (strides-- > 0) {
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU = nextU;
-                curV = nextV;
-                u += uStride;
-                v += vStride;
-                w += wStride;
-                u |= 0;
-                v |= 0;
-                w |= 0;
-                curW = w >> 14;
-                if (curW !== 0) {
-                    nextU = (u / curW) | 0;
-                    nextV = (v / curW) | 0;
-                    if (nextU < 7) {
-                        nextU = 7;
-                    } else if (nextU > 16256) {
-                        nextU = 16256;
-                    }
-                }
-                stepU = (nextU - curU) >> 3;
-                stepV = (nextV - curV) >> 3;
-                shadeA += shadeStrides;
-                curU += shadeA & 0x600000;
-                shadeShift = shadeA >> 23;
-            }
-            strides = (xB - xA) & 0x7;
-            while (strides-- > 0) {
-                dst[offset++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
-                curU += stepU;
-                curV += stepV;
-            }
-            return;
-        }
+        } else {
+            nextU = 0;
+            nextV = 0;
 
-        while (strides-- > 0 && texels) {
-            let rgb: number;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset = offset + 1;
-            curU += stepU;
-            curV += stepV;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset++;
-            curU += stepU;
-            curV += stepV;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset++;
-            curU += stepU;
-            curV += stepV;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset++;
-            curU += stepU;
-            curV += stepV;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset++;
-            curU += stepU;
-            curV += stepV;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset++;
-            curU += stepU;
-            curV += stepV;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset++;
-            curU += stepU;
-            curV += stepV;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
-            }
-            offset++;
-            curU = nextU;
-            curV = nextV;
-            u += uStride;
-            v += vStride;
-            w += wStride;
+            dx = xA - this.originX;
+            u = u + (uStride >> 3) * dx;
+            v = v + (vStride >> 3) * dx;
+            w = w + (wStride >> 3) * dx;
             u |= 0;
             v |= 0;
             w |= 0;
+
             curW = w >> 14;
+
+            if (curW !== 0) {
+                curU = (u / curW) | 0;
+                curV = (v / curW) | 0;
+
+                if (curU < 0) {
+                    curU = 0;
+                } else if (curU > 16256) {
+                    curU = 16256;
+                }
+            }
+
+            u = u + uStride;
+            v = v + vStride;
+            w = w + wStride;
+            u |= 0;
+            v |= 0;
+            w |= 0;
+
+            curW = w >> 14;
+
             if (curW !== 0) {
                 nextU = (u / curW) | 0;
                 nextV = (v / curW) | 0;
+
                 if (nextU < 7) {
                     nextU = 7;
                 } else if (nextU > 16256) {
                     nextU = 16256;
                 }
             }
+
             stepU = (nextU - curU) >> 3;
             stepV = (nextV - curV) >> 3;
-            shadeA += shadeStrides;
             curU += shadeA & 0x600000;
             shadeShift = shadeA >> 23;
-        }
-        strides = (xB - xA) & 0x7;
-        while (strides-- > 0 && texels) {
-            let rgb: number;
-            if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
-                dst[offset] = rgb;
+
+            if (this.opaque) {
+                while (strides-- > 0) {
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU = nextU;
+                    curV = nextV;
+
+                    u += uStride;
+                    v += vStride;
+                    w += wStride;
+                    u |= 0;
+                    v |= 0;
+                    w |= 0;
+
+                    curW = w >> 14;
+
+                    if (curW !== 0) {
+                        nextU = (u / curW) | 0;
+                        nextV = (v / curW) | 0;
+
+                        if (nextU < 7) {
+                            nextU = 7;
+                        } else if (nextU > 16256) {
+                            nextU = 16256;
+                        }
+                    }
+
+                    stepU = (nextU - curU) >> 3;
+                    stepV = (nextV - curV) >> 3;
+                    shadeA += shadeStrides;
+                    curU += shadeA & 0x600000;
+                    shadeShift = shadeA >> 23;
+                }
+
+                strides = (xB - xA) & 0x7;
+
+                while (strides-- > 0) {
+                    dst[off++] = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift;
+                    curU += stepU;
+                    curV += stepV;
+                }
+            } else {
+                while (strides-- > 0 && texels) {
+                    let rgb: number;
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU = nextU;
+                    curV = nextV;
+
+                    u += uStride;
+                    v += vStride;
+                    w += wStride;
+                    u |= 0;
+                    v |= 0;
+                    w |= 0;
+
+                    curW = w >> 14;
+
+                    if (curW !== 0) {
+                        nextU = (u / curW) | 0;
+                        nextV = (v / curW) | 0;
+
+                        if (nextU < 7) {
+                            nextU = 7;
+                        } else if (nextU > 16256) {
+                            nextU = 16256;
+                        }
+                    }
+
+                    stepU = (nextU - curU) >> 3;
+                    stepV = (nextV - curV) >> 3;
+                    shadeA += shadeStrides;
+                    curU += shadeA & 0x600000;
+                    shadeShift = shadeA >> 23;
+                }
+
+                strides = (xB - xA) & 0x7;
+
+                while (strides-- > 0 && texels) {
+                    let rgb: number;
+                    if ((rgb = texels[(curV & 0x3f80) + (curU >> 7)] >>> shadeShift) !== 0) {
+                        dst[off] = rgb;
+                    }
+                    off++;
+                    curU += stepU;
+                    curV += stepV;
+                }
             }
-            offset++;
-            curU += stepU;
-            curV += stepV;
         }
     }
 }

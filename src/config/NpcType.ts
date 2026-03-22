@@ -152,62 +152,58 @@ export default class NpcType {
     }
 
     getTempModel(primaryTransformId: number, secondaryTransformId: number, seqMask: Int32Array | null): Model | null {
-        let model: Model | null = null;
+        let model = NpcType.modelCache.find(BigInt(this.id));
 
-        if (NpcType.modelCache) {
-            model = NpcType.modelCache.find(BigInt(this.id)) as Model | null;
+        if (!model && this.model) {
+            const models: (Model | null)[] = new TypedArray1d(this.model.length, null);
+            for (let i: number = 0; i < this.model.length; i++) {
+                models[i] = Model.load(this.model[i]);
+            }
 
-            if (!model && this.model) {
-                const models: (Model | null)[] = new TypedArray1d(this.model.length, null);
-                for (let i: number = 0; i < this.model.length; i++) {
-                    models[i] = Model.load(this.model[i]);
-                }
+            if (models.length === 1) {
+                model = models[0];
+            } else {
+                model = Model.combineForAnim(models, models.length);
+            }
 
-                if (models.length === 1) {
-                    model = models[0];
-                } else {
-                    model = Model.combineForAnim(models, models.length);
-                }
-
+            if (model) {
                 if (this.recol_s && this.recol_d) {
                     for (let i: number = 0; i < this.recol_s.length; i++) {
-                        model?.recolour(this.recol_s[i], this.recol_d[i]);
+                        model.recolour(this.recol_s[i], this.recol_d[i]);
                     }
                 }
 
-                model?.prepareAnim();
-                model?.calculateNormals(64, 850, -30, -50, -30, true);
-                if (model) {
-                    NpcType.modelCache.put(BigInt(this.id), model);
-                }
+                model.prepareAnim();
+                model.calculateNormals(64, 850, -30, -50, -30, true);
+                NpcType.modelCache.put(BigInt(this.id), model);
             }
         }
 
-        let tmp: Model | null = null;
-
-        if (model) {
-            tmp = Model.set(model, !this.animateTransparencies);
-            if (primaryTransformId !== -1 && secondaryTransformId !== -1) {
-                tmp.maskAnimate(primaryTransformId, secondaryTransformId, seqMask);
-            } else if (primaryTransformId !== -1) {
-                tmp.animate(primaryTransformId);
-            }
-
-            if (this.resizeh !== 128 || this.resizev !== 128) {
-                tmp.resize(this.resizeh, this.resizev, this.resizeh);
-            }
-
-            tmp.calcBoundingCylinder();
-            tmp.labelFaces = null;
-            tmp.labelVertices = null;
-
-            if (this.size === 1) {
-                tmp.useAABBMouseCheck = true;
-            }
-            return tmp;
+        if (!model) {
+            return null;
         }
 
-        return null;
+        const tmp = Model.set(model, !this.animateTransparencies);
+
+        if (primaryTransformId !== -1 && secondaryTransformId !== -1) {
+            tmp.maskAnimate(primaryTransformId, secondaryTransformId, seqMask);
+        } else if (primaryTransformId !== -1) {
+            tmp.animate(primaryTransformId);
+        }
+
+        if (this.resizeh !== 128 || this.resizev !== 128) {
+            tmp.resize(this.resizeh, this.resizev, this.resizeh);
+        }
+
+        tmp.calcBoundingCylinder();
+        tmp.labelFaces = null;
+        tmp.labelVertices = null;
+
+        if (this.size === 1) {
+            tmp.useAABBMouseCheck = true;
+        }
+
+        return tmp;
     }
 
     getHead(): Model | null {
@@ -227,9 +223,9 @@ export default class NpcType {
             model = Model.combineForAnim(models, models.length);
         }
 
-        if (this.recol_s && this.recol_d) {
+        if (model && this.recol_s && this.recol_d) {
             for (let i: number = 0; i < this.recol_s.length; i++) {
-                model?.recolour(this.recol_s[i], this.recol_d[i]);
+                model.recolour(this.recol_s[i], this.recol_d[i]);
             }
         }
 

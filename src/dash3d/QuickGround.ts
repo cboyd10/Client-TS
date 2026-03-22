@@ -7,7 +7,12 @@ export default class QuickGround {
     readonly minimapRgb: number;
     readonly flat: boolean;
 
-    constructor(colourSW: number, colourSE: number, colourNE: number, colourNW: number, texture: number, minimapRgb: number, flat: boolean) {
+    constructor(
+        colourSW: number, colourSE: number, colourNE: number, colourNW: number,
+        texture: number,
+        minimapRgb: number,
+        flat: boolean
+    ) {
         this.colourSW = colourSW;
         this.colourSE = colourSE;
         this.colourNE = colourNE;

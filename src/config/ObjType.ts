@@ -18,8 +18,8 @@ export default class ObjType {
     static recent: (ObjType | null)[] | null = null;
     static recentPos: number = 0;
     static memServer: boolean = true;
-    static modelCache: LruCache<Model> | null = new LruCache(50);
-    static spriteCache: LruCache<Pix32> | null = new LruCache(200);
+    static modelCache: LruCache<Model> = new LruCache(50);
+    static spriteCache: LruCache<Pix32> = new LruCache(200);
 
     id: number = -1;
 
@@ -44,7 +44,7 @@ export default class ObjType {
     manwearOffset: number = 0;
     womanwear: number = -1;
     womanwear2: number = -1;
-    womanwearOffsetY: number = 0;
+    womanwearOffset: number = 0;
     manwear3: number = -1;
     womanwear3: number = -1;
     manhead: number = -1;
@@ -133,7 +133,7 @@ export default class ObjType {
         this.manwearOffset = 0;
         this.womanwear = -1;
         this.womanwear2 = -1;
-        this.womanwearOffsetY = 0;
+        this.womanwearOffset = 0;
         this.manwear3 = -1;
         this.womanwear3 = -1;
         this.manhead = -1;
@@ -192,7 +192,7 @@ export default class ObjType {
                 this.manwear2 = dat.g2();
             } else if (code === 25) {
                 this.womanwear = dat.g2();
-                this.womanwearOffsetY = dat.g1b();
+                this.womanwearOffset = dat.g1b();
             } else if (code === 26) {
                 this.womanwear2 = dat.g2();
             } else if (code >= 30 && code < 35) {
@@ -289,14 +289,13 @@ export default class ObjType {
             }
         }
 
-        if (ObjType.modelCache) {
-            const model: Model | null = ObjType.modelCache.find(BigInt(this.id)) as Model | null;
-            if (model) {
-                return model;
-            }
+        let model = ObjType.modelCache.find(BigInt(this.id));
+        if (model) {
+            return model;
         }
 
-        const model: Model = Model.load(this.model);
+        model = Model.load(this.model);
+
         if (this.recol_s && this.recol_d) {
             for (let i: number = 0; i < this.recol_s.length; i++) {
                 model.recolour(this.recol_s[i], this.recol_d[i]);
@@ -305,13 +304,14 @@ export default class ObjType {
 
         model.calculateNormals(64, 768, -50, -10, -50, true);
         model.useAABBMouseCheck = true;
-        ObjType.modelCache?.put(BigInt(this.id), model);
+
+        ObjType.modelCache.put(BigInt(this.id), model);
         return model;
     }
 
     static getSprite(id: number, count: number): Pix32 {
-        if (ObjType.spriteCache) {
-            let icon: Pix32 | null = ObjType.spriteCache.find(BigInt(id)) as Pix32 | null;
+        {
+            let icon = ObjType.spriteCache.find(BigInt(id));
 
             if (icon && icon.ohi !== count && icon.ohi !== -1) {
                 icon.unlink();
@@ -360,12 +360,14 @@ export default class ObjType {
         Pix2D.fillRect(0, 0, 32, 32, Colour.BLACK);
         Pix3D.setRenderClipping();
 
-        const iModel: Model = obj.getModelLit(1);
+        const model: Model = obj.getModelLit(1);
+
         const sinPitch: number = (Pix3D.sinTable[obj.xan2d] * obj.zoom2d) >> 16;
         const cosPitch: number = (Pix3D.cosTable[obj.xan2d] * obj.zoom2d) >> 16;
-        iModel.objRender(0, obj.yan2d, obj.zan2d, obj.xan2d, obj.xof2d, sinPitch + ((iModel.minY / 2) | 0) + obj.yof2d, cosPitch + obj.yof2d);
 
-        // draw outline
+        model.objRender(0, obj.yan2d, obj.zan2d, obj.xan2d, obj.xof2d, sinPitch + ((model.minY / 2) | 0) + obj.yof2d, cosPitch + obj.yof2d);
+
+        // add outline
         for (let x: number = 31; x >= 0; x--) {
             for (let y: number = 31; y >= 0; y--) {
                 if (icon.data[x + y * 32] !== 0) {
@@ -384,7 +386,7 @@ export default class ObjType {
             }
         }
 
-        // draw shadow
+        // add shadow
         for (let x: number = 31; x >= 0; x--) {
             for (let y: number = 31; y >= 0; y--) {
                 if (icon.data[x + y * 32] === 0 && x > 0 && y > 0 && icon.data[x + (y - 1) * 32 - 1] > 0) {
@@ -404,18 +406,21 @@ export default class ObjType {
             linkedIcon.ohi = h;
         }
 
-        ObjType.spriteCache?.put(BigInt(id), icon);
+        ObjType.spriteCache.put(BigInt(id), icon);
+
         Pix2D.setPixels(_data, _w, _h);
         Pix2D.setClipping(_l, _t, _r, _b);
         Pix3D.originX = _cx;
         Pix3D.originY = _cy;
         Pix3D.scanline = _loff;
         Pix3D.lowDetail = true;
+
         if (obj.stackable) {
             icon.owi = 33;
         } else {
             icon.owi = 32;
         }
+
         icon.ohi = count;
         return icon;
     }
@@ -453,10 +458,8 @@ export default class ObjType {
 
         if (gender === 0 && this.manwearOffset !== 0) {
             model.translate(this.manwearOffset, 0, 0);
-        }
-
-        if (gender === 1 && this.womanwearOffsetY !== 0) {
-            model.translate(this.womanwearOffsetY, 0, 0);
+        } else if (gender === 1 && this.womanwearOffset !== 0) {
+            model.translate(this.womanwearOffset, 0, 0);
         }
 
         if (this.recol_s && this.recol_d) {
@@ -464,6 +467,7 @@ export default class ObjType {
                 model.recolour(this.recol_s[i], this.recol_d[i]);
             }
         }
+
         return model;
     }
 

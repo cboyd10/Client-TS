@@ -48,8 +48,8 @@ export default class Packet extends Linkable2 {
         return ~crc;
     }
 
-    static checkcrc(src: Uint8Array, offset: number, length: number, expected: number): boolean {
-        return Packet.getcrc(src, offset, length) === expected;
+    static checkcrc(src: Uint8Array, offset: number, length: number, expected: number = 0): boolean {
+        return Packet.getcrc(src, offset, length) == expected;
     }
 
     private readonly view: DataView;
@@ -87,13 +87,13 @@ export default class Packet extends Linkable2 {
         let cached: Packet | null = null;
         if (type === 0 && Packet.cacheMinCount > 0) {
             Packet.cacheMinCount--;
-            cached = Packet.cacheMin.popFront() as Packet | null;
+            cached = Packet.cacheMin.popFront();
         } else if (type === 1 && Packet.cacheMidCount > 0) {
             Packet.cacheMidCount--;
-            cached = Packet.cacheMid.popFront() as Packet | null;
+            cached = Packet.cacheMid.popFront();
         } else if (type === 2 && Packet.cacheMaxCount > 0) {
             Packet.cacheMaxCount--;
-            cached = Packet.cacheMax.popFront() as Packet | null;
+            cached = Packet.cacheMax.popFront();
         }
 
         if (cached) {

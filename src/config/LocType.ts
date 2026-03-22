@@ -16,8 +16,8 @@ export default class LocType {
     static dat: Packet | null = null;
     static recent: (LocType | null)[] | null = null;
     static recentPos: number = 0;
-    static mc1: LruCache<Model> | null = new LruCache(500);
-    static mc2: LruCache<Model> | null = new LruCache(30);
+    static mc1: LruCache<Model> = new LruCache(500);
+    static mc2: LruCache<Model> = new LruCache(30);
 
     id: number = -1;
 
@@ -41,10 +41,10 @@ export default class LocType {
     ambient: number = 0;
     contrast: number = 0;
     op: (string | null)[] | null = null;
-    mirror: boolean = false;
-    shadow: boolean = true;
     mapfunction: number = -1;
     mapscene: number = -1;
+    mirror: boolean = false;
+    shadow: boolean = true;
     resizex: number = 128;
     resizey: number = 128;
     resizez: number = 128;
@@ -263,12 +263,12 @@ export default class LocType {
             return null;
         }
 
-        const typecode: bigint = BigInt(BigInt(this.id) << 6n) + BigInt(BigInt(index) << 3n) + BigInt(angle) + BigInt((BigInt(transformId) + 1n) << 32n);
+        const typecode = ((BigInt(transformId) + 1n) << 32n) + (BigInt(this.id) << 6n) + (BigInt(index) << 3n) + BigInt(angle);
         /*if (reset) {
             typecode = 0L;
         }*/
 
-        let cached: Model | null = LocType.mc2?.find(typecode) as Model | null;
+        let cached = LocType.mc2.find(typecode);
         if (cached) {
             /*if (reset) {
                 return cached;
@@ -316,7 +316,7 @@ export default class LocType {
             modelId += 65536;
         }
 
-        let model: Model | null = LocType.mc1?.find(BigInt(modelId)) as Model | null;
+        let model = LocType.mc1.find(BigInt(modelId));
         if (!model) {
             model = Model.load(modelId & 0xffff);
             if (flip) {
@@ -361,7 +361,7 @@ export default class LocType {
             modified.objRaise = modified.minY;
         }
 
-        LocType.mc2?.put(typecode, modified);
+        LocType.mc2.put(typecode, modified);
 
         if (this.hillskew || this.sharelight) {
             modified = Model.hillSkewCopy(modified, this.hillskew, this.sharelight);

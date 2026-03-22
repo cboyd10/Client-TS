@@ -7,16 +7,17 @@ import Packet from '#/io/Packet.js';
 
 export default class Pix8 extends Linkable2 {
     data: Int8Array;
-    wi: number;
-    hi: number;
-    xof: number;
-    yof: number;
-    owi: number;
-    ohi: number;
-    readonly bpal: Int32Array;
+    readonly bpal: Int32Array; // base palette
+    wi: number; // width
+    hi: number; // height
+    xof: number; // x offset
+    yof: number; // y offset
+    owi: number; // original width
+    ohi: number; // original height
 
     constructor(width: number, height: number, palette: Int32Array) {
         super();
+
         this.data = new Int8Array(width * height);
         this.wi = this.owi = width;
         this.hi = this.ohi = height;
@@ -24,28 +25,21 @@ export default class Pix8 extends Linkable2 {
         this.bpal = palette;
     }
 
-    static depack(archive: JagFile, name: string, sprite: number = 0): Pix8 {
-        const dat: Packet = new Packet(archive.read(name + '.dat'));
-        const index: Packet = new Packet(archive.read('index.dat'));
+    static depack(jag: JagFile, name: string, sprite: number = 0): Pix8 {
+        const dat: Packet = new Packet(jag.read(name + '.dat'));
+        const index: Packet = new Packet(jag.read('index.dat'));
 
-        // cropW/cropH are shared across all sprites in a single image
         index.pos = dat.g2();
-        const cropW: number = index.g2();
-        const cropH: number = index.g2();
+        const owi: number = index.g2();
+        const ohi: number = index.g2();
 
-        // palette is shared across all images in a single archive
-        const paletteCount: number = index.g1();
-        const palette: Int32Array = new Int32Array(paletteCount);
-        // the first color (0) is reserved for transparency
-        for (let i: number = 1; i < paletteCount; i++) {
-            palette[i] = index.g3();
-            // black (0) will become transparent, make it black (1) so it's visible
-            if (palette[i] === 0) {
-                palette[i] = 1;
-            }
+        const bpalCount: number = index.g1();
+        const bpal: Int32Array = new Int32Array(bpalCount);
+
+        for (let i: number = 0; i < bpalCount - 1; i++) {
+            bpal[i + 1] = index.g3();
         }
 
-        // advance to sprite
         for (let i: number = 0; i < sprite; i++) {
             index.pos += 2;
             dat.pos += index.g2() * index.g2();
@@ -56,31 +50,26 @@ export default class Pix8 extends Linkable2 {
             throw new Error();
         }
 
-        // read sprite
-        const cropX: number = index.g1();
-        const cropY: number = index.g1();
-        const width: number = index.g2();
-        const height: number = index.g2();
+        const xof: number = index.g1();
+        const yof: number = index.g1();
+        const wi: number = index.g2();
+        const hi: number = index.g2();
 
-        const image: Pix8 = new Pix8(width, height, palette);
-        image.xof = cropX;
-        image.yof = cropY;
-        image.owi = cropW;
-        image.ohi = cropH;
+        const image: Pix8 = new Pix8(wi, hi, bpal);
+        image.xof = xof;
+        image.yof = yof;
+        image.owi = owi;
+        image.ohi = ohi;
 
-        const pixels: Int8Array = image.data;
-        const pixelOrder: number = index.g1();
-        if (pixelOrder === 0) {
-            const length: number = image.wi * image.hi;
-            for (let i: number = 0; i < length; i++) {
-                pixels[i] = dat.g1b();
+        const encoding: number = index.g1();
+        if (encoding === 0) {
+            for (let i: number = 0; i < image.wi * image.hi; i++) {
+                image.data[i] = dat.g1b();
             }
-        } else if (pixelOrder === 1) {
-            const width: number = image.wi;
-            const height: number = image.hi;
-            for (let x: number = 0; x < width; x++) {
-                for (let y: number = 0; y < height; y++) {
-                    pixels[x + y * width] = dat.g1b();
+        } else if (encoding === 1) {
+            for (let x: number = 0; x < image.wi; x++) {
+                for (let y: number = 0; y < image.hi; y++) {
+                    image.data[x + y * image.wi] = dat.g1b();
                 }
             }
         }
@@ -103,6 +92,7 @@ export default class Pix8 extends Linkable2 {
                 pixels[((x + this.xof) >> 1) + ((y + this.yof) >> 1) * this.owi] = this.data[off++];
             }
         }
+
         this.data = pixels;
         this.wi = this.owi;
         this.hi = this.ohi;
@@ -122,11 +112,42 @@ export default class Pix8 extends Linkable2 {
                 pixels[x + this.xof + (y + this.yof) * this.owi] = this.data[off++];
             }
         }
+
         this.data = pixels;
         this.wi = this.owi;
         this.hi = this.ohi;
         this.xof = 0;
         this.yof = 0;
+    }
+
+    rgbAdjust(r: number, g: number, b: number): void {
+        for (let i: number = 0; i < this.bpal.length; i++) {
+            let red: number = (this.bpal[i] >> 16) & 0xff;
+            red += r;
+            if (red < 0) {
+                red = 0;
+            } else if (red > 255) {
+                red = 255;
+            }
+
+            let green: number = (this.bpal[i] >> 8) & 0xff;
+            green += g;
+            if (green < 0) {
+                green = 0;
+            } else if (green > 255) {
+                green = 255;
+            }
+
+            let blue: number = this.bpal[i] & 0xff;
+            blue += b;
+            if (blue < 0) {
+                blue = 0;
+            } else if (blue > 255) {
+                blue = 255;
+            }
+
+            this.bpal[i] = (red << 16) + (green << 8) + blue;
+        }
     }
 
     hflip(): void {
@@ -161,36 +182,6 @@ export default class Pix8 extends Linkable2 {
                 pixels[off1] = pixels[off2];
                 pixels[off2] = tmp;
             }
-        }
-    }
-
-    rgbAdjust(r: number, g: number, b: number): void {
-        for (let i: number = 0; i < this.bpal.length; i++) {
-            let red: number = (this.bpal[i] >> 16) & 0xff;
-            red += r;
-            if (red < 0) {
-                red = 0;
-            } else if (red > 255) {
-                red = 255;
-            }
-
-            let green: number = (this.bpal[i] >> 8) & 0xff;
-            green += g;
-            if (green < 0) {
-                green = 0;
-            } else if (green > 255) {
-                green = 255;
-            }
-
-            let blue: number = this.bpal[i] & 0xff;
-            blue += b;
-            if (blue < 0) {
-                blue = 0;
-            } else if (blue > 255) {
-                blue = 255;
-            }
-
-            this.bpal[i] = (red << 16) + (green << 8) + blue;
         }
     }
 
@@ -291,14 +282,16 @@ export default class Pix8 extends Linkable2 {
         }
     }
 
+    // mapview applet:
+
     scalePlotSprite(arg0: number, arg1: number, arg2: number, arg3: number): void {
         try {
             const local2: number = this.wi;
             const local5: number = this.hi;
             let local7: number = 0;
             let local9: number = 0;
-            const local15: number = ((local2 << 16) / arg2) | 0;
-            const local21: number = ((local5 << 16) / arg3) | 0;
+            const _local15: number = ((local2 << 16) / arg2) | 0;
+            const _local21: number = ((local5 << 16) / arg3) | 0;
             const local24: number = this.owi;
             const local27: number = this.ohi;
             const local33: number = ((local24 << 16) / arg2) | 0;
@@ -340,30 +333,30 @@ export default class Pix8 extends Linkable2 {
                 local137 += local144;
             }
             this.plotScale(Pix2D.pixels, this.data, this.bpal, local7, local9, local133, local137, arg2, arg3, local33, local39, local2);
-        } catch (ignore) {
+        } catch (_e) {
             console.log('error in sprite clipping routine');
         }
     }
 
-    private plotScale(arg0: Int32Array, arg1: Int8Array, arg2: Int32Array, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: number, arg9: number, arg10: number, arg11: number): void {
+    private plotScale(dst: Int32Array, src: Int8Array, bpal: Int32Array, offW: number, offH: number, dstOff: number, dstStep: number, w: number, h: number, scaleCropWidth: number, scaleCropHeight: number, arg11: number): void {
         try {
-            const local3: number = arg3;
-            for (let local6: number = -arg8; local6 < 0; local6++) {
-                const local14: number = (arg4 >> 16) * arg11;
-                for (let local17: number = -arg7; local17 < 0; local17++) {
-                    const local27: number = arg1[(arg3 >> 16) + local14];
-                    if (local27 == 0) {
-                        arg5++;
+            const lastOffW: number = offW;
+            for (let y: number = -h; y < 0; y++) {
+                const offY: number = (offH >> 16) * arg11;
+                for (let x: number = -w; x < 0; x++) {
+                    const rgb: number = src[(offW >> 16) + offY];
+                    if (rgb == 0) {
+                        dstOff++;
                     } else {
-                        arg0[arg5++] = arg2[local27 & 0xff];
+                        dst[dstOff++] = bpal[rgb & 0xff];
                     }
-                    arg3 += arg9;
+                    offW += scaleCropWidth;
                 }
-                arg4 += arg10;
-                arg3 = local3;
-                arg5 += arg6;
+                offH += scaleCropHeight;
+                offW = lastOffW;
+                dstOff += dstStep;
             }
-        } catch (ignore) {
+        } catch (_e) {
             console.log('error in plot_scale');
         }
     }

@@ -7,6 +7,7 @@ import LinkList from '#/datastruct/LinkList.js';
 import CollisionMap, { BuildArea } from '#/dash3d/CollisionMap.js';
 import { LocAngle } from '#/dash3d/LocAngle.js';
 import { LocShape } from '#/dash3d/LocShape.js';
+import { MapFlag } from '#/dash3d/MapFlag.js';
 import World from '#/dash3d/World.js';
 
 import ClientLocAnim from '#/dash3d/ClientLocAnim.js';
@@ -79,10 +80,10 @@ export default class ClientBuild {
         for (let level: number = 0; level < BuildArea.LEVELS; level++) {
             for (let x: number = 0; x < BuildArea.SIZE; x++) {
                 for (let z: number = 0; z < BuildArea.SIZE; z++) {
-                    if ((this.mapl[level][x][z] & 0x1) === 1) {
+                    if ((this.mapl[level][x][z] & MapFlag.Block) !== 0) {
                         let trueLevel: number = level;
 
-                        if ((this.mapl[1][x][z] & 0x2) === 2) {
+                        if ((this.mapl[1][x][z] & MapFlag.LinkBelow) !== 0) {
                             trueLevel--;
                         }
 
@@ -201,7 +202,7 @@ export default class ClientBuild {
                             blendTot -= this.tot[dz2];
                         }
 
-                        if (z0 >= 1 && z0 < this.maxTileZ - 1 && (!ClientBuild.lowMem || ((this.mapl[level][x0][z0] & 0x10) === 0 && this.getVisBelowLevel(level, x0, z0) === ClientBuild.minusedlevel))) {
+                        if (z0 >= 1 && z0 < this.maxTileZ - 1 && (!ClientBuild.lowMem || ((this.mapl[level][x0][z0] & MapFlag.ForceHighDetail) === 0 && this.getVisBelowLevel(level, x0, z0) === ClientBuild.minusedlevel))) {
                             const t1: number = this.floort1[level][x0][z0] & 0xff;
                             const t2: number = this.floort2[level][x0][z0] & 0xff;
 
@@ -338,162 +339,164 @@ export default class ClientBuild {
 
         for (let x: number = 0; x < this.maxTileX; x++) {
             for (let z: number = 0; z < this.maxTileZ; z++) {
-                if ((this.mapl[1][x][z] & 0x2) === 2) {
+                if ((this.mapl[1][x][z] & MapFlag.LinkBelow) !== 0) {
                     world?.pushDown(x, z);
                 }
             }
         }
 
-        if (!ClientBuild.fullbright) {
-            let wall0: number = 0x1; // this flag is set by walls with rotation 0 or 2
-            let wall1: number = 0x2; // this flag is set by walls with rotation 1 or 3
-            let floor: number = 0x4; // this flag is set by floors which are flat
+        if (ClientBuild.fullbright) {
+            return;
+        }
 
-            for (let topLevel: number = 0; topLevel < BuildArea.LEVELS; topLevel++) {
-                if (topLevel > 0) {
-                    wall0 <<= 0x3;
-                    wall1 <<= 0x3;
-                    floor <<= 0x3;
-                }
+        let wall0: number = 0x1; // this flag is set by walls with rotation 0 or 2
+        let wall1: number = 0x2; // this flag is set by walls with rotation 1 or 3
+        let floor: number = 0x4; // this flag is set by floors which are flat
 
-                for (let level: number = 0; level <= topLevel; level++) {
-                    for (let tileZ: number = 0; tileZ <= this.maxTileZ; tileZ++) {
-                        for (let tileX: number = 0; tileX <= this.maxTileX; tileX++) {
-                            if ((this.mapo[level][tileX][tileZ] & wall0) !== 0) {
-                                let minTileZ: number = tileZ;
-                                let maxTileZ: number = tileZ;
-                                let minLevel: number = level;
-                                let maxLevel: number = level;
+        for (let topLevel: number = 0; topLevel < BuildArea.LEVELS; topLevel++) {
+            if (topLevel > 0) {
+                wall0 <<= 0x3;
+                wall1 <<= 0x3;
+                floor <<= 0x3;
+            }
 
-                                while (minTileZ > 0 && (this.mapo[level][tileX][minTileZ - 1] & wall0) !== 0) {
-                                    minTileZ--;
-                                }
+            for (let level: number = 0; level <= topLevel; level++) {
+                for (let tileZ: number = 0; tileZ <= this.maxTileZ; tileZ++) {
+                    for (let tileX: number = 0; tileX <= this.maxTileX; tileX++) {
+                        if ((this.mapo[level][tileX][tileZ] & wall0) !== 0) {
+                            let minTileZ: number = tileZ;
+                            let maxTileZ: number = tileZ;
+                            let minLevel: number = level;
+                            let maxLevel: number = level;
 
-                                while (maxTileZ < this.maxTileZ && (this.mapo[level][tileX][maxTileZ + 1] & wall0) !== 0) {
-                                    maxTileZ++;
-                                }
+                            while (minTileZ > 0 && (this.mapo[level][tileX][minTileZ - 1] & wall0) !== 0) {
+                                minTileZ--;
+                            }
 
-                                find_min_level: while (minLevel > 0) {
-                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
-                                        if ((this.mapo[minLevel - 1][tileX][z] & wall0) === 0) {
-                                            break find_min_level;
-                                        }
+                            while (maxTileZ < this.maxTileZ && (this.mapo[level][tileX][maxTileZ + 1] & wall0) !== 0) {
+                                maxTileZ++;
+                            }
+
+                            find_min_level: while (minLevel > 0) {
+                                for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                    if ((this.mapo[minLevel - 1][tileX][z] & wall0) === 0) {
+                                        break find_min_level;
                                     }
-                                    minLevel--;
                                 }
+                                minLevel--;
+                            }
 
-                                find_max_level: while (maxLevel < topLevel) {
-                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
-                                        if ((this.mapo[maxLevel + 1][tileX][z] & wall0) === 0) {
-                                            break find_max_level;
-                                        }
+                            find_max_level: while (maxLevel < topLevel) {
+                                for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                    if ((this.mapo[maxLevel + 1][tileX][z] & wall0) === 0) {
+                                        break find_max_level;
                                     }
-                                    maxLevel++;
                                 }
+                                maxLevel++;
+                            }
 
-                                const area: number = (maxLevel + 1 - minLevel) * (maxTileZ + 1 - minTileZ);
-                                if (area >= 8) {
-                                    const minY: number = this.groundh[maxLevel][tileX][minTileZ] - 240;
-                                    const maxX: number = this.groundh[minLevel][tileX][minTileZ];
+                            const area: number = (maxLevel + 1 - minLevel) * (maxTileZ + 1 - minTileZ);
+                            if (area >= 8) {
+                                const minY: number = this.groundh[maxLevel][tileX][minTileZ] - 240;
+                                const maxX: number = this.groundh[minLevel][tileX][minTileZ];
 
-                                    World.setOcclude(topLevel, 1, tileX * 128, minY, minTileZ * 128, tileX * 128, maxX, maxTileZ * 128 + 128);
+                                World.setOcclude(topLevel, 1, tileX * 128, minY, minTileZ * 128, tileX * 128, maxX, maxTileZ * 128 + 128);
 
-                                    for (let l: number = minLevel; l <= maxLevel; l++) {
-                                        for (let z: number = minTileZ; z <= maxTileZ; z++) {
-                                            this.mapo[l][tileX][z] &= ~wall0;
-                                        }
+                                for (let l: number = minLevel; l <= maxLevel; l++) {
+                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                        this.mapo[l][tileX][z] &= ~wall0;
                                     }
                                 }
                             }
+                        }
 
-                            if ((this.mapo[level][tileX][tileZ] & wall1) !== 0) {
-                                let minTileX: number = tileX;
-                                let maxTileX: number = tileX;
-                                let minLevel: number = level;
-                                let maxLevel: number = level;
+                        if ((this.mapo[level][tileX][tileZ] & wall1) !== 0) {
+                            let minTileX: number = tileX;
+                            let maxTileX: number = tileX;
+                            let minLevel: number = level;
+                            let maxLevel: number = level;
 
-                                while (minTileX > 0 && (this.mapo[level][minTileX - 1][tileZ] & wall1) !== 0) {
-                                    minTileX--;
-                                }
+                            while (minTileX > 0 && (this.mapo[level][minTileX - 1][tileZ] & wall1) !== 0) {
+                                minTileX--;
+                            }
 
-                                while (maxTileX < this.maxTileX && (this.mapo[level][maxTileX + 1][tileZ] & wall1) !== 0) {
-                                    maxTileX++;
-                                }
+                            while (maxTileX < this.maxTileX && (this.mapo[level][maxTileX + 1][tileZ] & wall1) !== 0) {
+                                maxTileX++;
+                            }
 
-                                find_min_level2: while (minLevel > 0) {
-                                    for (let x: number = minTileX; x <= maxTileX; x++) {
-                                        if ((this.mapo[minLevel - 1][x][tileZ] & wall1) === 0) {
-                                            break find_min_level2;
-                                        }
+                            find_min_level2: while (minLevel > 0) {
+                                for (let x: number = minTileX; x <= maxTileX; x++) {
+                                    if ((this.mapo[minLevel - 1][x][tileZ] & wall1) === 0) {
+                                        break find_min_level2;
                                     }
-                                    minLevel--;
                                 }
+                                minLevel--;
+                            }
 
-                                find_max_level2: while (maxLevel < topLevel) {
-                                    for (let x: number = minTileX; x <= maxTileX; x++) {
-                                        if ((this.mapo[maxLevel + 1][x][tileZ] & wall1) === 0) {
-                                            break find_max_level2;
-                                        }
+                            find_max_level2: while (maxLevel < topLevel) {
+                                for (let x: number = minTileX; x <= maxTileX; x++) {
+                                    if ((this.mapo[maxLevel + 1][x][tileZ] & wall1) === 0) {
+                                        break find_max_level2;
                                     }
-                                    maxLevel++;
                                 }
+                                maxLevel++;
+                            }
 
-                                const area: number = (maxLevel + 1 - minLevel) * (maxTileX + 1 - minTileX);
+                            const area: number = (maxLevel + 1 - minLevel) * (maxTileX + 1 - minTileX);
 
-                                if (area >= 8) {
-                                    const minY: number = this.groundh[maxLevel][minTileX][tileZ] - 240;
-                                    const maxY: number = this.groundh[minLevel][minTileX][tileZ];
+                            if (area >= 8) {
+                                const minY: number = this.groundh[maxLevel][minTileX][tileZ] - 240;
+                                const maxY: number = this.groundh[minLevel][minTileX][tileZ];
 
-                                    World.setOcclude(topLevel, 2, minTileX * 128, minY, tileZ * 128, maxTileX * 128 + 128, maxY, tileZ * 128);
+                                World.setOcclude(topLevel, 2, minTileX * 128, minY, tileZ * 128, maxTileX * 128 + 128, maxY, tileZ * 128);
 
-                                    for (let l: number = minLevel; l <= maxLevel; l++) {
-                                        for (let x: number = minTileX; x <= maxTileX; x++) {
-                                            this.mapo[l][x][tileZ] &= ~wall1;
-                                        }
+                                for (let l: number = minLevel; l <= maxLevel; l++) {
+                                    for (let x: number = minTileX; x <= maxTileX; x++) {
+                                        this.mapo[l][x][tileZ] &= ~wall1;
                                     }
                                 }
                             }
-                            if ((this.mapo[level][tileX][tileZ] & floor) !== 0) {
-                                let minTileX: number = tileX;
-                                let maxTileX: number = tileX;
-                                let minTileZ: number = tileZ;
-                                let maxTileZ: number = tileZ;
+                        }
+                        if ((this.mapo[level][tileX][tileZ] & floor) !== 0) {
+                            let minTileX: number = tileX;
+                            let maxTileX: number = tileX;
+                            let minTileZ: number = tileZ;
+                            let maxTileZ: number = tileZ;
 
-                                while (minTileZ > 0 && (this.mapo[level][tileX][minTileZ - 1] & floor) !== 0) {
-                                    minTileZ--;
-                                }
+                            while (minTileZ > 0 && (this.mapo[level][tileX][minTileZ - 1] & floor) !== 0) {
+                                minTileZ--;
+                            }
 
-                                while (maxTileZ < this.maxTileZ && (this.mapo[level][tileX][maxTileZ + 1] & floor) !== 0) {
-                                    maxTileZ++;
-                                }
+                            while (maxTileZ < this.maxTileZ && (this.mapo[level][tileX][maxTileZ + 1] & floor) !== 0) {
+                                maxTileZ++;
+                            }
 
-                                find_min_tile_xz: while (minTileX > 0) {
-                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
-                                        if ((this.mapo[level][minTileX - 1][z] & floor) === 0) {
-                                            break find_min_tile_xz;
-                                        }
+                            find_min_tile_xz: while (minTileX > 0) {
+                                for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                    if ((this.mapo[level][minTileX - 1][z] & floor) === 0) {
+                                        break find_min_tile_xz;
                                     }
-                                    minTileX--;
                                 }
+                                minTileX--;
+                            }
 
-                                find_max_tile_xz: while (maxTileX < this.maxTileX) {
-                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
-                                        if ((this.mapo[level][maxTileX + 1][z] & floor) === 0) {
-                                            break find_max_tile_xz;
-                                        }
+                            find_max_tile_xz: while (maxTileX < this.maxTileX) {
+                                for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                    if ((this.mapo[level][maxTileX + 1][z] & floor) === 0) {
+                                        break find_max_tile_xz;
                                     }
-                                    maxTileX++;
                                 }
+                                maxTileX++;
+                            }
 
-                                if ((maxTileX + 1 - minTileX) * (maxTileZ + 1 - minTileZ) >= 4) {
-                                    const y: number = this.groundh[level][minTileX][minTileZ];
+                            if ((maxTileX + 1 - minTileX) * (maxTileZ + 1 - minTileZ) >= 4) {
+                                const y: number = this.groundh[level][minTileX][minTileZ];
 
-                                    World.setOcclude(topLevel, 4, minTileX * 128, y, minTileZ * 128, maxTileX * 128 + 128, y, maxTileZ * 128 + 128);
+                                World.setOcclude(topLevel, 4, minTileX * 128, y, minTileZ * 128, maxTileX * 128 + 128, y, maxTileZ * 128 + 128);
 
-                                    for (let x: number = minTileX; x <= maxTileX; x++) {
-                                        for (let z: number = minTileZ; z <= maxTileZ; z++) {
-                                            this.mapo[level][x][z] &= ~floor;
-                                        }
+                                for (let x: number = minTileX; x <= maxTileX; x++) {
+                                    for (let z: number = minTileZ; z <= maxTileZ; z++) {
+                                        this.mapo[level][x][z] &= ~floor;
                                     }
                                 }
                             }
@@ -639,7 +642,7 @@ export default class ClientBuild {
         }
     }
 
-    loadLocations(scene: World | null, locs: LinkList<ClientLocAnim>, collision: (CollisionMap | null)[], src: Uint8Array, xOffset: number, zOffset: number): void {
+    loadLocations(scene: World | null, locs: LinkList<ClientLocAnim>, collisions: (CollisionMap | null)[], src: Uint8Array, xOffset: number, zOffset: number): void {
         const buf: Packet = new Packet(src);
         let locId: number = -1;
 
@@ -671,13 +674,13 @@ export default class ClientBuild {
 
                 if (stx > 0 && stz > 0 && stx < BuildArea.SIZE - 1 && stz < BuildArea.SIZE - 1) {
                     let currentLevel: number = level;
-                    if ((this.mapl[1][stx][stz] & 0x2) === 2) {
+                    if ((this.mapl[1][stx][stz] & MapFlag.LinkBelow) !== 0) {
                         currentLevel = level - 1;
                     }
 
                     let cmap: CollisionMap | null = null;
                     if (currentLevel >= 0) {
-                        cmap = collision[currentLevel];
+                        cmap = collisions[currentLevel];
                     }
 
                     this.addLoc(level, stx, stz, scene, locs, cmap, locId, shape, rotation);
@@ -688,7 +691,7 @@ export default class ClientBuild {
 
     private addLoc(level: number, x: number, z: number, world: World | null, locs: LinkList<ClientLocAnim>, cmap: CollisionMap | null, locId: number, shape: number, angle: number): void {
         if (ClientBuild.lowMem) {
-            if ((this.mapl[level][x][z] & 0x10) !== 0) {
+            if ((this.mapl[level][x][z] & MapFlag.ForceHighDetail) !== 0) {
                 return;
             }
 
@@ -983,8 +986,8 @@ export default class ClientBuild {
     }
 
     private getVisBelowLevel(level: number, stx: number, stz: number): number {
-        if ((this.mapl[level][stx][stz] & 0x8) === 0) {
-            return level <= 0 || (this.mapl[1][stx][stz] & 0x2) === 0 ? level : level - 1;
+        if ((this.mapl[level][stx][stz] & MapFlag.VisBelow) === 0) {
+            return level <= 0 || (this.mapl[1][stx][stz] & MapFlag.LinkBelow) === 0 ? level : level - 1;
         }
 
         return 0;
@@ -1026,8 +1029,8 @@ export default class ClientBuild {
         if (shape === LocShape.GROUND_DECOR) {
             world?.setGroundDecor(loc.getModel(LocShape.GROUND_DECOR, angle, heightSW, heightSE, heightNW, heightNE, -1), level, x, z, y, typecode, typecode2);
 
-            if (loc.blockwalk && loc.active) {
-                cmap?.blockGround(x, z);
+            if (loc.blockwalk && loc.active && cmap) {
+                cmap.blockGround(x, z);
             }
 
             if (loc.anim !== -1) {

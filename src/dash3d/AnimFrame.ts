@@ -1,4 +1,4 @@
-import AnimBase from '#/dash3d/AnimBase.js';
+import AnimBase, { AnimTransform } from '#/dash3d/AnimBase.js';
 
 import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
@@ -9,10 +9,10 @@ export default class AnimFrame {
     delay: number = 0;
     base: AnimBase | null = null;
     size: number = 0;
-    ti: Int32Array | null = null;
-    tx: Int32Array | null = null;
-    ty: Int32Array | null = null;
-    tz: Int32Array | null = null;
+    ti: Int32Array | null = null; // transform index
+    tx: Int32Array | null = null; // transform x
+    ty: Int32Array | null = null; // transform y
+    tz: Int32Array | null = null; // transform z
 
     static init(models: JagFile): void {
         const head: Packet = new Packet(models.read('frame_head.dat'));
@@ -65,7 +65,7 @@ export default class AnimFrame {
                     tempTi[current] = j;
 
                     let defaultValue: number = 0;
-                    if (base.type[tempTi[current]] === 3) {
+                    if (base.type[tempTi[current]] === AnimTransform.SCALE) {
                         defaultValue = 128;
                     }
 

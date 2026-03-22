@@ -3,23 +3,22 @@ import { DirectionFlag } from '#/dash3d/DirectionFlag.js';
 import { LocAngle } from '#/dash3d/LocAngle.js';
 import { LocShape } from '#/dash3d/LocShape.js';
 
+// a standard build area is 4x13x13 zones, or 4x104x104 tiles
 export const enum BuildArea {
     LEVELS = 4,
-    SIZE = 104
+    SIZE = 13 << 3
 }
 
 export default class CollisionMap {
     static index = (x: number, z: number): number => x * BuildArea.SIZE + z;
 
-    readonly startX: number;
-    readonly startZ: number;
+    readonly startX: number = 0;
+    readonly startZ: number = 0;
     readonly sizeX: number;
     readonly sizeZ: number;
     readonly flags: Int32Array;
 
     constructor() {
-        this.startX = 0;
-        this.startZ = 0;
         this.sizeX = BuildArea.SIZE;
         this.sizeZ = BuildArea.SIZE;
         this.flags = new Int32Array(this.sizeX * this.sizeZ);
@@ -108,14 +107,14 @@ export default class CollisionMap {
         const x: number = tileX - this.startX;
         const z: number = tileZ - this.startZ;
 
-        const west: number = blockrange ? CollisionFlag.VIS_BLOCK_FLAGS : CollisionFlag.W_W;
+        const west: number = blockrange ? CollisionFlag.V_W : CollisionFlag.W_W;
         const east: number = blockrange ? CollisionFlag.V_E : CollisionFlag.W_E;
         const north: number = blockrange ? CollisionFlag.V_N : CollisionFlag.W_N;
-        const south: number = blockrange ? CollisionFlag.V_SW : CollisionFlag.W_S;
+        const south: number = blockrange ? CollisionFlag.V_S : CollisionFlag.W_S;
         const northWest: number = blockrange ? CollisionFlag.V_NW : CollisionFlag.W_NW;
         const southEast: number = blockrange ? CollisionFlag.V_SE : CollisionFlag.W_SE;
         const northEast: number = blockrange ? CollisionFlag.V_NE : CollisionFlag.W_NE;
-        const southWest: number = blockrange ? CollisionFlag.V_W : CollisionFlag.W_SW;
+        const southWest: number = blockrange ? CollisionFlag.V_SW : CollisionFlag.W_SW;
 
         if (shape === LocShape.WALL_STRAIGHT) {
             if (angle === LocAngle.WEST) {
@@ -173,14 +172,14 @@ export default class CollisionMap {
         const x: number = tileX - this.startX;
         const z: number = tileZ - this.startZ;
 
-        const west: number = blockrange ? CollisionFlag.VIS_BLOCK_FLAGS : CollisionFlag.W_W;
+        const west: number = blockrange ? CollisionFlag.V_W : CollisionFlag.W_W;
         const east: number = blockrange ? CollisionFlag.V_E : CollisionFlag.W_E;
         const north: number = blockrange ? CollisionFlag.V_N : CollisionFlag.W_N;
-        const south: number = blockrange ? CollisionFlag.V_SW : CollisionFlag.W_S;
+        const south: number = blockrange ? CollisionFlag.V_S : CollisionFlag.W_S;
         const northWest: number = blockrange ? CollisionFlag.V_NW : CollisionFlag.W_NW;
         const southEast: number = blockrange ? CollisionFlag.V_SE : CollisionFlag.W_SE;
         const northEast: number = blockrange ? CollisionFlag.V_NE : CollisionFlag.W_NE;
-        const southWest: number = blockrange ? CollisionFlag.V_W : CollisionFlag.W_SW;
+        const southWest: number = blockrange ? CollisionFlag.V_SW : CollisionFlag.W_SW;
 
         if (shape === LocShape.WALL_STRAIGHT) {
             if (angle === LocAngle.WEST) {
@@ -234,15 +233,15 @@ export default class CollisionMap {
         }
     }
 
-    testWall(sourceX: number, sourceZ: number, destX: number, destZ: number, shape: number, angle: LocAngle): boolean {
-        if (sourceX === destX && sourceZ === destZ) {
+    testWall(srcX: number, srcZ: number, dstX: number, dstZ: number, shape: number, angle: LocAngle): boolean {
+        if (srcX === dstX && srcZ === dstZ) {
             return true;
         }
 
-        const sx: number = sourceX - this.startX;
-        const sz: number = sourceZ - this.startZ;
-        const dx: number = destX - this.startX;
-        const dz: number = destZ - this.startZ;
+        const sx: number = srcX - this.startX;
+        const sz: number = srcZ - this.startZ;
+        const dx: number = dstX - this.startX;
+        const dz: number = dstZ - this.startZ;
         const index: number = CollisionMap.index(sx, sz);
 
         if (shape === LocShape.WALL_STRAIGHT) {
@@ -335,15 +334,15 @@ export default class CollisionMap {
         return false;
     }
 
-    testWDecor(sourceX: number, sourceZ: number, destX: number, destZ: number, shape: number, angle: number): boolean {
-        if (sourceX === destX && sourceZ === destZ) {
+    testWDecor(srcX: number, srcZ: number, dstX: number, dstZ: number, shape: number, angle: number): boolean {
+        if (srcX === dstX && srcZ === dstZ) {
             return true;
         }
 
-        const sx: number = sourceX - this.startX;
-        const sz: number = sourceZ - this.startZ;
-        const dx: number = destX - this.startX;
-        const dz: number = destZ - this.startZ;
+        const sx: number = srcX - this.startX;
+        const sz: number = srcZ - this.startZ;
+        const dx: number = dstX - this.startX;
+        const dz: number = dstZ - this.startZ;
         const index: number = CollisionMap.index(sx, sz);
 
         if (shape === LocShape.WALLDECOR_DIAGONAL_OFFSET || shape === LocShape.WALLDECOR_DIAGONAL_NOOFFSET) {

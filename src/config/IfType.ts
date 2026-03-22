@@ -112,6 +112,7 @@ export default class IfType {
             const com: IfType = (this.list[id] = new IfType());
             com.id = id;
             com.layerId = layer;
+
             com.type = data.g1();
             com.buttonType = data.g1();
             com.clientCode = data.g2();

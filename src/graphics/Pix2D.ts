@@ -31,27 +31,28 @@ export default class Pix2D extends Linkable2 {
         this.maxX = (this.clipMaxX / 2) | 0;
     }
 
-    static setClipping(left: number, top: number, right: number, bottom: number): void {
-        if (left < 0) {
-            left = 0;
+    static setClipping(x1: number, y1: number, x2: number, y2: number): void {
+        if (x1 < 0) {
+            x1 = 0;
         }
 
-        if (top < 0) {
-            top = 0;
+        if (y1 < 0) {
+            y1 = 0;
         }
 
-        if (right > this.width) {
-            right = this.width;
+        if (x2 > this.width) {
+            x2 = this.width;
         }
 
-        if (bottom > this.height) {
-            bottom = this.height;
+        if (y2 > this.height) {
+            y2 = this.height;
         }
 
-        this.clipMinY = top;
-        this.clipMaxY = bottom;
-        this.clipMinX = left;
-        this.clipMaxX = right;
+        this.clipMinY = y1;
+        this.clipMaxY = y2;
+        this.clipMinX = x1;
+        this.clipMaxX = x2;
+
         this.sizeX = this.clipMaxX - 1;
         this.maxX = (this.clipMaxX / 2) | 0;
         this.maxY = (this.clipMaxY / 2) | 0;
@@ -94,14 +95,14 @@ export default class Pix2D extends Linkable2 {
                 const r1: number = ((this.pixels[offset] >> 16) & 0xff) * invAlpha;
                 const g1: number = ((this.pixels[offset] >> 8) & 0xff) * invAlpha;
                 const b1: number = (this.pixels[offset] & 0xff) * invAlpha;
-                const color: number = (((r0 + r1) >> 8) << 16) + (((g0 + g1) >> 8) << 8) + ((b0 + b1) >> 8);
-                this.pixels[offset++] = color;
+                const mixed: number = (((r0 + r1) >> 8) << 16) + (((g0 + g1) >> 8) << 8) + ((b0 + b1) >> 8);
+                this.pixels[offset++] = mixed;
             }
             offset += step;
         }
     }
 
-    static fillRect(x: number, y: number, width: number, height: number, color: number): void {
+    static fillRect(x: number, y: number, width: number, height: number, rgb: number): void {
         if (x < this.clipMinX) {
             width -= this.clipMinX - x;
             x = this.clipMinX;
@@ -124,21 +125,21 @@ export default class Pix2D extends Linkable2 {
         let offset: number = x + y * this.width;
         for (let i: number = -height; i < 0; i++) {
             for (let j: number = -width; j < 0; j++) {
-                this.pixels[offset++] = color;
+                this.pixels[offset++] = rgb;
             }
 
             offset += step;
         }
     }
 
-    static drawRect(x: number, y: number, w: number, h: number, color: number): void {
-        this.hline(x, y, color, w);
-        this.hline(x, y + h - 1, color, w);
-        this.vline(x, y, color, h);
-        this.vline(x + w - 1, y, color, h);
+    static drawRect(x: number, y: number, w: number, h: number, rgb: number): void {
+        this.hline(x, y, rgb, w);
+        this.hline(x, y + h - 1, rgb, w);
+        this.vline(x, y, rgb, h);
+        this.vline(x + w - 1, y, rgb, h);
     }
 
-    static hline(x: number, y: number, color: number, width: number): void {
+    static hline(x: number, y: number, rgb: number, width: number): void {
         if (y < this.clipMinY || y >= this.clipMaxY) {
             return;
         }
@@ -154,11 +155,11 @@ export default class Pix2D extends Linkable2 {
 
         const off: number = x + y * this.width;
         for (let i: number = 0; i < width; i++) {
-            this.pixels[off + i] = color;
+            this.pixels[off + i] = rgb;
         }
     }
 
-    static vline(x: number, y: number, color: number, height: number): void {
+    static vline(x: number, y: number, rgb: number, height: number): void {
         if (x < this.clipMinX || x >= this.clipMaxX) {
             return;
         }
@@ -174,7 +175,7 @@ export default class Pix2D extends Linkable2 {
 
         const off: number = x + y * this.width;
         for (let i: number = 0; i < height; i++) {
-            this.pixels[off + i * this.width] = color;
+            this.pixels[off + i * this.width] = rgb;
         }
     }
 
@@ -213,8 +214,8 @@ export default class Pix2D extends Linkable2 {
                 const r1: number = ((this.pixels[offset] >> 16) & 0xff) * invAlpha;
                 const g1: number = ((this.pixels[offset] >> 8) & 0xff) * invAlpha;
                 const b1: number = (this.pixels[offset] & 0xff) * invAlpha;
-                const color: number = (((r0 + r1) >> 8) << 16) + (((g0 + g1) >> 8) << 8) + ((b0 + b1) >> 8);
-                this.pixels[offset++] = color;
+                const mixed: number = (((r0 + r1) >> 8) << 16) + (((g0 + g1) >> 8) << 8) + ((b0 + b1) >> 8);
+                this.pixels[offset++] = mixed;
             }
         }
     }

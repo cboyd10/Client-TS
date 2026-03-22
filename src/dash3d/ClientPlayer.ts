@@ -42,7 +42,7 @@ const enum HairColour {
     HAIR_MAGENTA = 54193,
 }
 
-const enum BodyColourSource {   
+const enum BodyColourSource {
     BODY_KHAKI = 8741,
     BODY_CHARCOAL = 12,
     BODY_CRIMSON = 64030,
@@ -202,7 +202,7 @@ export default class ClientPlayer extends ClientEntity {
     combatLevel: number = 0;
     baseId: bigint = 0n;
     lowMem: boolean = false;
-    static modelCache: LruCache<Model> | null = new LruCache(200);
+    static modelCache: LruCache<Model> = new LruCache(200);
     y: number = 0;
     locStartCycle: number = 0;
     locStopCycle: number = 0;
@@ -231,11 +231,11 @@ export default class ClientPlayer extends ClientEntity {
         }
 
         for (let part: number = 0; part < 5; part++) {
-            let color: number = buf.g1();
-            if (color < 0 || color >= ClientPlayer.recol1d[part].length) {
-                color = 0;
+            let colour: number = buf.g1();
+            if (colour < 0 || colour >= ClientPlayer.recol1d[part].length) {
+                colour = 0;
             }
-            this.colour[part] = color;
+            this.colour[part] = colour;
         }
 
         this.readyanim = buf.g2();
@@ -303,7 +303,7 @@ export default class ClientPlayer extends ClientEntity {
             return null;
         }
 
-        let model: Model = this.getTempModel2();
+        let model = this.getTempModel2();
         this.height = model.minY;
         model.useAABBMouseCheck = true;
 
@@ -311,58 +311,66 @@ export default class ClientPlayer extends ClientEntity {
             return model;
         }
 
-        if (this.spotanimId !== -1 && this.spotanimFrame !== -1) {
-            const spotanim: SpotType = SpotType.list[this.spotanimId];
-            const model2: Model = Model.copyForAnim(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
+        if (this.spotanimId != -1 && this.spotanimFrame != -1) {
+            const spot = SpotType.list[this.spotanimId];
+            const spotModel = spot.getTempModel2();
 
-            model2.translate(-this.spotanimHeight, 0, 0);
-            model2.prepareAnim();
-            if (spotanim.seq && spotanim.seq.frames) {
-                model2.animate(spotanim.seq.frames[this.spotanimFrame]);
-            }
-            model2.labelFaces = null;
-            model2.labelVertices = null;
-            if (spotanim.resizeh !== 128 || spotanim.resizev !== 128) {
-                model2.resize(spotanim.resizeh, spotanim.resizev, spotanim.resizeh);
-            }
-            model2.calculateNormals(spotanim.ambient + 64, spotanim.contrast + 850, -30, -50, -30, true);
+            const temp: Model = Model.copyForAnim(spotModel, true, !spot.animateTransparencies, false);
 
-            const models: Model[] = [model, model2];
+            temp.translate(-this.spotanimHeight, 0, 0);
+            temp.prepareAnim();
+
+            if (spot.seq && spot.seq.frames) {
+                temp.animate(spot.seq.frames[this.spotanimFrame]);
+            }
+
+            temp.labelFaces = null;
+            temp.labelVertices = null;
+            if (spot.resizeh != 128 || spot.resizev != 128) {
+                temp.resize(spot.resizeh, spot.resizev, spot.resizeh);
+            }
+
+            temp.calculateNormals(spot.ambient + 64, spot.contrast + 850, -30, -50, -30, true);
+
+            const models: Model[] = [model, temp];
             model = Model.combine(models, 2);
         }
 
-        if (this.locModel) {
+        if (this.locModel != null) {
             if (loopCycle >= this.locStopCycle) {
                 this.locModel = null;
             }
 
             if (loopCycle >= this.locStartCycle && loopCycle < this.locStopCycle) {
-                const loc: Model | null = this.locModel;
+                const loc = this.locModel;
                 if (loc) {
                     loc.translate(this.locOffsetY - this.y, this.locOffsetX - this.x, this.locOffsetZ - this.z);
-                    if (this.dstYaw === 512) {
+
+                    if (this.dstYaw == 512) {
                         loc.rotate90();
                         loc.rotate90();
                         loc.rotate90();
-                    } else if (this.dstYaw === 1024) {
+                    } else if (this.dstYaw == 1024) {
                         loc.rotate90();
                         loc.rotate90();
-                    } else if (this.dstYaw === 1536) {
+                    } else if (this.dstYaw == 1536) {
                         loc.rotate90();
                     }
 
                     const models: Model[] = [model, loc];
                     model = Model.combine(models, 2);
-                    if (this.dstYaw === 512) {
+
+                    if (this.dstYaw == 512) {
                         loc.rotate90();
-                    } else if (this.dstYaw === 1024) {
+                    } else if (this.dstYaw == 1024) {
                         loc.rotate90();
                         loc.rotate90();
-                    } else if (this.dstYaw === 1536) {
+                    } else if (this.dstYaw == 1536) {
                         loc.rotate90();
                         loc.rotate90();
                         loc.rotate90();
                     }
+
                     loc.translate(this.y - this.locOffsetY, this.x - this.locOffsetX, this.z - this.locOffsetZ);
                 }
             }
@@ -372,8 +380,8 @@ export default class ClientPlayer extends ClientEntity {
         return model;
     }
 
-    private getTempModel2(): Model {
-        let hashCode: bigint = this.baseId;
+    getTempModel2(): Model {
+        let hash: bigint = this.baseId;
         let primaryTransformId: number = -1;
         let secondaryTransformId: number = -1;
         let leftHandValue: number = -1;
@@ -385,6 +393,7 @@ export default class ClientPlayer extends ClientEntity {
             if (seq.frames) {
                 primaryTransformId = seq.frames[this.primaryAnimFrame];
             }
+
             if (this.secondaryAnim >= 0 && this.secondaryAnim !== this.readyanim) {
                 const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
                 if (secondFrames) {
@@ -394,12 +403,12 @@ export default class ClientPlayer extends ClientEntity {
 
             if (seq.replaceheldleft >= 0) {
                 leftHandValue = seq.replaceheldleft;
-                hashCode += BigInt(leftHandValue - this.appearance[5]) << 8n;
+                hash += BigInt(leftHandValue - this.appearance[5]) << 8n;
             }
 
             if (seq.replaceheldright >= 0) {
                 rightHandValue = seq.replaceheldright;
-                hashCode += BigInt(rightHandValue - this.appearance[3]) << 16n;
+                hash += BigInt(rightHandValue - this.appearance[3]) << 16n;
             }
         } else if (this.secondaryAnim >= 0) {
             const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
@@ -408,7 +417,7 @@ export default class ClientPlayer extends ClientEntity {
             }
         }
 
-        let model: Model | null = ClientPlayer.modelCache?.find(hashCode) as Model | null;
+        let model = ClientPlayer.modelCache.find(hash);
         if (!model) {
             const models: (Model | null)[] = new TypedArray1d(12, null);
             let modelCount: number = 0;
@@ -445,7 +454,9 @@ export default class ClientPlayer extends ClientEntity {
                 if (this.colour[part] === 0) {
                     continue;
                 }
+
                 model.recolour(ClientPlayer.recol1d[part][0], ClientPlayer.recol1d[part][this.colour[part]]);
+
                 if (part === 1) {
                     model.recolour(ClientPlayer.recol2d[0], ClientPlayer.recol2d[this.colour[part]]);
                 }
@@ -453,14 +464,15 @@ export default class ClientPlayer extends ClientEntity {
 
             model.prepareAnim();
             model.calculateNormals(64, 850, -30, -50, -30, true);
-            ClientPlayer.modelCache?.put(hashCode, model);
+            ClientPlayer.modelCache.put(hash, model);
         }
 
         if (this.lowMem) {
             return model;
         }
 
-        const tmp: Model = Model.set(model, true);
+        const tmp = Model.set(model, true);
+
         if (primaryTransformId !== -1 && secondaryTransformId !== -1) {
             tmp.maskAnimate(primaryTransformId, secondaryTransformId, SeqType.list[this.primaryAnim].walkmerge);
         } else if (primaryTransformId !== -1) {

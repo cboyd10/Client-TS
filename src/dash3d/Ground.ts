@@ -1,48 +1,48 @@
+// prettier-ignore
+const defShapeP: Int8Array[] = [
+    Int8Array.of(1, 3, 5, 7),
+    Int8Array.of(1, 3, 5, 7),
+    Int8Array.of(1, 3, 5, 7),
+    Int8Array.of(1, 3, 5, 7, 6),
+    Int8Array.of(1, 3, 5, 7, 6),
+    Int8Array.of(1, 3, 5, 7, 6),
+    Int8Array.of(1, 3, 5, 7, 6),
+    Int8Array.of(1, 3, 5, 7, 2, 6),
+    Int8Array.of(1, 3, 5, 7, 2, 8),
+    Int8Array.of(1, 3, 5, 7, 2, 8),
+    Int8Array.of(1, 3, 5, 7, 11, 12),
+    Int8Array.of(1, 3, 5, 7, 11, 12),
+    Int8Array.of(1, 3, 5, 7, 13, 14)
+]; // shape points
+
+// prettier-ignore
+const defShapeF: Int8Array[] = [
+    Int8Array.of(0, 1, 2, 3, 0, 0, 1, 3),
+    Int8Array.of(1, 1, 2, 3, 1, 0, 1, 3),
+    Int8Array.of(0, 1, 2, 3, 1, 0, 1, 3),
+    Int8Array.of(0, 0, 1, 2, 0, 0, 2, 4, 1, 0, 4, 3),
+    Int8Array.of(0, 0, 1, 4, 0, 0, 4, 3, 1, 1, 2, 4),
+    Int8Array.of(0, 0, 4, 3, 1, 0, 1, 2, 1, 0, 2, 4),
+    Int8Array.of(0, 1, 2, 4, 1, 0, 1, 4, 1, 0, 4, 3),
+    Int8Array.of(0, 4, 1, 2, 0, 4, 2, 5, 1, 0, 4, 5, 1, 0, 5, 3),
+    Int8Array.of(0, 4, 1, 2, 0, 4, 2, 3, 0, 4, 3, 5, 1, 0, 4, 5),
+    Int8Array.of(0, 0, 4, 5, 1, 4, 1, 2, 1, 4, 2, 3, 1, 4, 3, 5),
+    Int8Array.of(0, 0, 1, 5, 0, 1, 4, 5, 0, 1, 2, 4, 1, 0, 5, 3, 1, 5, 4, 3, 1, 4, 2, 3),
+    Int8Array.of(1, 0, 1, 5, 1, 1, 4, 5, 1, 1, 2, 4, 0, 0, 5, 3, 0, 5, 4, 3, 0, 4, 2, 3),
+    Int8Array.of(1, 0, 5, 4, 1, 0, 1, 5, 0, 0, 4, 3, 0, 4, 5, 3, 0, 5, 2, 3, 0, 1, 2, 5)
+]; // shape faces
+
+const FULL_SQUARE: number = 128;
+const HALF_SQUARE: number = (FULL_SQUARE / 2) | 0;
+const CORNER_SMALL: number = (FULL_SQUARE / 4) | 0;
+const CORNER_BIG: number = ((FULL_SQUARE * 3) / 4) | 0;
+
 export default class Ground {
     static readonly drawVertexX: Int32Array = new Int32Array(6);
     static readonly drawVertexY: Int32Array = new Int32Array(6);
     static readonly drawTextureVertexX: Int32Array = new Int32Array(6);
     static readonly drawTextureVertexY: Int32Array = new Int32Array(6);
     static readonly drawTextureVertexZ: Int32Array = new Int32Array(6);
-
-    // prettier-ignore
-    private static readonly defShapeP: Int8Array[] = [
-        Int8Array.of(1, 3, 5, 7),
-        Int8Array.of(1, 3, 5, 7),
-        Int8Array.of(1, 3, 5, 7),
-        Int8Array.of(1, 3, 5, 7, 6),
-        Int8Array.of(1, 3, 5, 7, 6),
-        Int8Array.of(1, 3, 5, 7, 6),
-        Int8Array.of(1, 3, 5, 7, 6),
-        Int8Array.of(1, 3, 5, 7, 2, 6),
-        Int8Array.of(1, 3, 5, 7, 2, 8),
-        Int8Array.of(1, 3, 5, 7, 2, 8),
-        Int8Array.of(1, 3, 5, 7, 11, 12),
-        Int8Array.of(1, 3, 5, 7, 11, 12),
-        Int8Array.of(1, 3, 5, 7, 13, 14)
-    ];
-
-    // prettier-ignore
-    private static readonly defShapeF: Int8Array[] = [
-        Int8Array.of(0, 1, 2, 3, 0, 0, 1, 3),
-        Int8Array.of(1, 1, 2, 3, 1, 0, 1, 3),
-        Int8Array.of(0, 1, 2, 3, 1, 0, 1, 3),
-        Int8Array.of(0, 0, 1, 2, 0, 0, 2, 4, 1, 0, 4, 3),
-        Int8Array.of(0, 0, 1, 4, 0, 0, 4, 3, 1, 1, 2, 4),
-        Int8Array.of(0, 0, 4, 3, 1, 0, 1, 2, 1, 0, 2, 4),
-        Int8Array.of(0, 1, 2, 4, 1, 0, 1, 4, 1, 0, 4, 3),
-        Int8Array.of(0, 4, 1, 2, 0, 4, 2, 5, 1, 0, 4, 5, 1, 0, 5, 3),
-        Int8Array.of(0, 4, 1, 2, 0, 4, 2, 3, 0, 4, 3, 5, 1, 0, 4, 5),
-        Int8Array.of(0, 0, 4, 5, 1, 4, 1, 2, 1, 4, 2, 3, 1, 4, 3, 5),
-        Int8Array.of(0, 0, 1, 5, 0, 1, 4, 5, 0, 1, 2, 4, 1, 0, 5, 3, 1, 5, 4, 3, 1, 4, 2, 3),
-        Int8Array.of(1, 0, 1, 5, 1, 1, 4, 5, 1, 1, 2, 4, 0, 0, 5, 3, 0, 5, 4, 3, 0, 4, 2, 3),
-        Int8Array.of(1, 0, 5, 4, 1, 0, 1, 5, 0, 0, 4, 3, 0, 4, 5, 3, 0, 5, 2, 3, 0, 1, 2, 5)
-    ];
-
-    private static readonly FULL_SQUARE: number = 128;
-    private static readonly HALF_SQUARE: number = (this.FULL_SQUARE / 2) | 0;
-    private static readonly CORNER_SMALL: number = (this.FULL_SQUARE / 4) | 0;
-    private static readonly CORNER_BIG: number = ((this.FULL_SQUARE * 3) / 4) | 0;
 
     // ----
 
@@ -63,25 +63,25 @@ export default class Ground {
     readonly overlayRotation: number;
 
     constructor(
-        tileX: number,
+        x: number,
         shape: number,
-        southeastColor2: number,
+        colour2SE: number,
         heightSE: number,
-        northeastColor1: number,
+        colourNE: number,
         rotation: number,
-        southwestColor1: number,
+        colourSW: number,
         heightNW: number,
         underlay: number,
-        southwestColor2: number,
-        textureId: number,
-        northwestColor2: number,
+        colour2SW: number,
+        texture: number,
+        colour2NW: number,
         overlay: number,
         heightNE: number,
-        northeastColor2: number,
-        northwestColor1: number,
+        colour2NE: number,
+        colourNW: number,
         heightSW: number,
-        tileZ: number,
-        southeastColor1: number
+        z: number,
+        colourSE: number
     ) {
         this.flat = !(heightSW !== heightSE || heightSW !== heightNE || heightSW !== heightNW);
         this.overlayShape = shape;
@@ -89,16 +89,16 @@ export default class Ground {
         this.minimapOverlay = overlay;
         this.minimapUnderlay = underlay;
 
-        const points: Int8Array = Ground.defShapeP[shape];
+        const points: Int8Array = defShapeP[shape];
         const vertexCount: number = points.length;
         this.vertexX = new Int32Array(vertexCount);
         this.vertexY = new Int32Array(vertexCount);
         this.vertexZ = new Int32Array(vertexCount);
-        const primaryColors: Int32Array = new Int32Array(vertexCount);
-        const secondaryColors: Int32Array = new Int32Array(vertexCount);
+        const primaryColours: Int32Array = new Int32Array(vertexCount);
+        const secondaryColours: Int32Array = new Int32Array(vertexCount);
 
-        const sceneX: number = tileX * Ground.FULL_SQUARE;
-        const sceneZ: number = tileZ * Ground.FULL_SQUARE;
+        const sceneX: number = x * FULL_SQUARE;
+        const sceneZ: number = z * FULL_SQUARE;
 
         for (let v: number = 0; v < vertexCount; v++) {
             let type: number = points[v];
@@ -118,132 +118,132 @@ export default class Ground {
             let x: number;
             let z: number;
             let y: number;
-            let color1: number;
-            let color2: number;
+            let colour1: number;
+            let colour2: number;
 
             if (type === 1) {
                 x = sceneX;
                 z = sceneZ;
                 y = heightSW;
-                color1 = southwestColor1;
-                color2 = southwestColor2;
+                colour1 = colourSW;
+                colour2 = colour2SW;
             } else if (type === 2) {
-                x = sceneX + Ground.HALF_SQUARE;
+                x = sceneX + HALF_SQUARE;
                 z = sceneZ;
                 y = (heightSW + heightSE) >> 1;
-                color1 = (southwestColor1 + southeastColor1) >> 1;
-                color2 = (southwestColor2 + southeastColor2) >> 1;
+                colour1 = (colourSW + colourSE) >> 1;
+                colour2 = (colour2SW + colour2SE) >> 1;
             } else if (type === 3) {
-                x = sceneX + Ground.FULL_SQUARE;
+                x = sceneX + FULL_SQUARE;
                 z = sceneZ;
                 y = heightSE;
-                color1 = southeastColor1;
-                color2 = southeastColor2;
+                colour1 = colourSE;
+                colour2 = colour2SE;
             } else if (type === 4) {
-                x = sceneX + Ground.FULL_SQUARE;
-                z = sceneZ + Ground.HALF_SQUARE;
+                x = sceneX + FULL_SQUARE;
+                z = sceneZ + HALF_SQUARE;
                 y = (heightSE + heightNE) >> 1;
-                color1 = (southeastColor1 + northeastColor1) >> 1;
-                color2 = (southeastColor2 + northeastColor2) >> 1;
+                colour1 = (colourSE + colourNE) >> 1;
+                colour2 = (colour2SE + colour2NE) >> 1;
             } else if (type === 5) {
-                x = sceneX + Ground.FULL_SQUARE;
-                z = sceneZ + Ground.FULL_SQUARE;
+                x = sceneX + FULL_SQUARE;
+                z = sceneZ + FULL_SQUARE;
                 y = heightNE;
-                color1 = northeastColor1;
-                color2 = northeastColor2;
+                colour1 = colourNE;
+                colour2 = colour2NE;
             } else if (type === 6) {
-                x = sceneX + Ground.HALF_SQUARE;
-                z = sceneZ + Ground.FULL_SQUARE;
+                x = sceneX + HALF_SQUARE;
+                z = sceneZ + FULL_SQUARE;
                 y = (heightNE + heightNW) >> 1;
-                color1 = (northeastColor1 + northwestColor1) >> 1;
-                color2 = (northeastColor2 + northwestColor2) >> 1;
+                colour1 = (colourNE + colourNW) >> 1;
+                colour2 = (colour2NE + colour2NW) >> 1;
             } else if (type === 7) {
                 x = sceneX;
-                z = sceneZ + Ground.FULL_SQUARE;
+                z = sceneZ + FULL_SQUARE;
                 y = heightNW;
-                color1 = northwestColor1;
-                color2 = northwestColor2;
+                colour1 = colourNW;
+                colour2 = colour2NW;
             } else if (type === 8) {
                 x = sceneX;
-                z = sceneZ + Ground.HALF_SQUARE;
+                z = sceneZ + HALF_SQUARE;
                 y = (heightNW + heightSW) >> 1;
-                color1 = (northwestColor1 + southwestColor1) >> 1;
-                color2 = (northwestColor2 + southwestColor2) >> 1;
+                colour1 = (colourNW + colourSW) >> 1;
+                colour2 = (colour2NW + colour2SW) >> 1;
             } else if (type === 9) {
-                x = sceneX + Ground.HALF_SQUARE;
-                z = sceneZ + Ground.CORNER_SMALL;
+                x = sceneX + HALF_SQUARE;
+                z = sceneZ + CORNER_SMALL;
                 y = (heightSW + heightSE) >> 1;
-                color1 = (southwestColor1 + southeastColor1) >> 1;
-                color2 = (southwestColor2 + southeastColor2) >> 1;
+                colour1 = (colourSW + colourSE) >> 1;
+                colour2 = (colour2SW + colour2SE) >> 1;
             } else if (type === 10) {
-                x = sceneX + Ground.CORNER_BIG;
-                z = sceneZ + Ground.HALF_SQUARE;
+                x = sceneX + CORNER_BIG;
+                z = sceneZ + HALF_SQUARE;
                 y = (heightSE + heightNE) >> 1;
-                color1 = (southeastColor1 + northeastColor1) >> 1;
-                color2 = (southeastColor2 + northeastColor2) >> 1;
+                colour1 = (colourSE + colourNE) >> 1;
+                colour2 = (colour2SE + colour2NE) >> 1;
             } else if (type === 11) {
-                x = sceneX + Ground.HALF_SQUARE;
-                z = sceneZ + Ground.CORNER_BIG;
+                x = sceneX + HALF_SQUARE;
+                z = sceneZ + CORNER_BIG;
                 y = (heightNE + heightNW) >> 1;
-                color1 = (northeastColor1 + northwestColor1) >> 1;
-                color2 = (northeastColor2 + northwestColor2) >> 1;
+                colour1 = (colourNE + colourNW) >> 1;
+                colour2 = (colour2NE + colour2NW) >> 1;
             } else if (type === 12) {
-                x = sceneX + Ground.CORNER_SMALL;
-                z = sceneZ + Ground.HALF_SQUARE;
+                x = sceneX + CORNER_SMALL;
+                z = sceneZ + HALF_SQUARE;
                 y = (heightNW + heightSW) >> 1;
-                color1 = (northwestColor1 + southwestColor1) >> 1;
-                color2 = (northwestColor2 + southwestColor2) >> 1;
+                colour1 = (colourNW + colourSW) >> 1;
+                colour2 = (colour2NW + colour2SW) >> 1;
             } else if (type === 13) {
-                x = sceneX + Ground.CORNER_SMALL;
-                z = sceneZ + Ground.CORNER_SMALL;
+                x = sceneX + CORNER_SMALL;
+                z = sceneZ + CORNER_SMALL;
                 y = heightSW;
-                color1 = southwestColor1;
-                color2 = southwestColor2;
+                colour1 = colourSW;
+                colour2 = colour2SW;
             } else if (type === 14) {
-                x = sceneX + Ground.CORNER_BIG;
-                z = sceneZ + Ground.CORNER_SMALL;
+                x = sceneX + CORNER_BIG;
+                z = sceneZ + CORNER_SMALL;
                 y = heightSE;
-                color1 = southeastColor1;
-                color2 = southeastColor2;
+                colour1 = colourSE;
+                colour2 = colour2SE;
             } else if (type === 15) {
-                x = sceneX + Ground.CORNER_BIG;
-                z = sceneZ + Ground.CORNER_BIG;
+                x = sceneX + CORNER_BIG;
+                z = sceneZ + CORNER_BIG;
                 y = heightNE;
-                color1 = northeastColor1;
-                color2 = northeastColor2;
+                colour1 = colourNE;
+                colour2 = colour2NE;
             } else {
-                x = sceneX + Ground.CORNER_SMALL;
-                z = sceneZ + Ground.CORNER_BIG;
+                x = sceneX + CORNER_SMALL;
+                z = sceneZ + CORNER_BIG;
                 y = heightNW;
-                color1 = northwestColor1;
-                color2 = northwestColor2;
+                colour1 = colourNW;
+                colour2 = colour2NW;
             }
 
             this.vertexX[v] = x;
             this.vertexY[v] = y;
             this.vertexZ[v] = z;
-            primaryColors[v] = color1;
-            secondaryColors[v] = color2;
+            primaryColours[v] = colour1;
+            secondaryColours[v] = colour2;
         }
 
-        const paths: Int8Array = Ground.defShapeF[shape];
-        const triangleCount: number = (paths.length / 4) | 0;
-        this.faceVertexA = new Int32Array(triangleCount);
-        this.faceVertexB = new Int32Array(triangleCount);
-        this.faceVertexC = new Int32Array(triangleCount);
-        this.faceColourA = new Int32Array(triangleCount);
-        this.faceColourB = new Int32Array(triangleCount);
-        this.faceColourC = new Int32Array(triangleCount);
+        const paths: Int8Array = defShapeF[shape];
+        const faceCount: number = (paths.length / 4) | 0;
+        this.faceVertexA = new Int32Array(faceCount);
+        this.faceVertexB = new Int32Array(faceCount);
+        this.faceVertexC = new Int32Array(faceCount);
+        this.faceColourA = new Int32Array(faceCount);
+        this.faceColourB = new Int32Array(faceCount);
+        this.faceColourC = new Int32Array(faceCount);
 
-        if (textureId !== -1) {
-            this.faceTexture = new Int32Array(triangleCount);
+        if (texture !== -1) {
+            this.faceTexture = new Int32Array(faceCount);
         } else {
             this.faceTexture = null;
         }
 
         let index: number = 0;
-        for (let t: number = 0; t < triangleCount; t++) {
-            const color: number = paths[index];
+        for (let t: number = 0; t < faceCount; t++) {
+            const colour: number = paths[index];
             let a: number = paths[index + 1];
             let b: number = paths[index + 2];
             let c: number = paths[index + 3];
@@ -265,21 +265,21 @@ export default class Ground {
             this.faceVertexB[t] = b;
             this.faceVertexC[t] = c;
 
-            if (color === 0) {
-                this.faceColourA[t] = primaryColors[a];
-                this.faceColourB[t] = primaryColors[b];
-                this.faceColourC[t] = primaryColors[c];
+            if (colour === 0) {
+                this.faceColourA[t] = primaryColours[a];
+                this.faceColourB[t] = primaryColours[b];
+                this.faceColourC[t] = primaryColours[c];
 
                 if (this.faceTexture) {
                     this.faceTexture[t] = -1;
                 }
             } else {
-                this.faceColourA[t] = secondaryColors[a];
-                this.faceColourB[t] = secondaryColors[b];
-                this.faceColourC[t] = secondaryColors[c];
+                this.faceColourA[t] = secondaryColours[a];
+                this.faceColourB[t] = secondaryColours[b];
+                this.faceColourC[t] = secondaryColours[c];
 
                 if (this.faceTexture) {
-                    this.faceTexture[t] = textureId;
+                    this.faceTexture[t] = texture;
                 }
             }
         }

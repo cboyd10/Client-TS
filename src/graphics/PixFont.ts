@@ -12,15 +12,15 @@ export default class PixFont extends Linkable2 {
     static readonly CHARSET: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!"£$%^&*()-_=+[{]};:\'@#~,<.>/?\\| ';
     static readonly CHARCODESET: number[] = [];
 
-    private readonly charMask: Int8Array[] = [];
-    readonly charMaskWidth: Int32Array = new Int32Array(94);
-    readonly charMaskHeight: Int32Array = new Int32Array(94);
-    readonly charOffsetX: Int32Array = new Int32Array(94);
-    readonly charOffsetY: Int32Array = new Int32Array(94);
-    readonly charAdvance: Int32Array = new Int32Array(95);
-    readonly drawWidth: Int32Array = new Int32Array(256);
+    charMask: Int8Array[] = [];
+    charMaskWidth: Int32Array = new Int32Array(94);
+    charMaskHeight: Int32Array = new Int32Array(94);
+    charOffsetX: Int32Array = new Int32Array(94);
+    charOffsetY: Int32Array = new Int32Array(94);
+    charAdvance: Int32Array = new Int32Array(95);
+    drawWidth: Int32Array = new Int32Array(256);
 
-    private readonly rand: JavaRandom = new JavaRandom(Date.now());
+    rand: JavaRandom = new JavaRandom(Date.now());
     height: number = 0;
 
     static {
@@ -47,55 +47,50 @@ export default class PixFont extends Linkable2 {
     static depack(archive: JagFile, name: string): PixFont {
         const dat: Packet = new Packet(archive.read(name + '.dat'));
         const idx: Packet = new Packet(archive.read('index.dat'));
+        idx.pos = dat.g2() + 4;
 
-        idx.pos = dat.g2() + 4; // skip cropW and cropH
-
-        const off: number = idx.g1();
-        if (off > 0) {
-            // skip palette
-            idx.pos += (off - 1) * 3;
+        const palCount: number = idx.g1();
+        if (palCount > 0) {
+            idx.pos += (palCount - 1) * 3;
         }
 
         const font: PixFont = new PixFont();
-
         for (let i: number = 0; i < 94; i++) {
             font.charOffsetX[i] = idx.g1();
             font.charOffsetY[i] = idx.g1();
+            const wi: number = (font.charMaskWidth[i] = idx.g2());
+            const hi: number = (font.charMaskHeight[i] = idx.g2());
+            const pixelOrder: number = idx.g1();
 
-            const w: number = (font.charMaskWidth[i] = idx.g2());
-            const h: number = (font.charMaskHeight[i] = idx.g2());
-
-            const type: number = idx.g1();
-            const len: number = w * h;
-
+            const len: number = wi * hi;
             font.charMask[i] = new Int8Array(len);
 
-            if (type === 0) {
-                for (let j: number = 0; j < w * h; j++) {
+            if (pixelOrder === 0) {
+                for (let j: number = 0; j < wi * hi; j++) {
                     font.charMask[i][j] = dat.g1b();
                 }
-            } else if (type === 1) {
-                for (let x: number = 0; x < w; x++) {
-                    for (let y: number = 0; y < h; y++) {
-                        font.charMask[i][x + y * w] = dat.g1b();
+            } else if (pixelOrder === 1) {
+                for (let x: number = 0; x < wi; x++) {
+                    for (let y: number = 0; y < hi; y++) {
+                        font.charMask[i][x + y * wi] = dat.g1b();
                     }
                 }
             }
 
-            if (h > font.height) {
-                font.height = h;
+            if (hi > font.height) {
+                font.height = hi;
             }
 
             font.charOffsetX[i] = 1;
-            font.charAdvance[i] = w + 2;
+            font.charAdvance[i] = wi + 2;
 
             {
                 let space: number = 0;
-                for (let y: number = (h / 7) | 0; y < h; y++) {
-                    space += font.charMask[i][y * w];
+                for (let y: number = (hi / 7) | 0; y < hi; y++) {
+                    space += font.charMask[i][y * wi];
                 }
 
-                if (space <= ((h / 7) | 0)) {
+                if (space <= ((hi / 7) | 0)) {
                     font.charAdvance[i]--;
                     font.charOffsetX[i] = 0;
                 }
@@ -103,11 +98,11 @@ export default class PixFont extends Linkable2 {
 
             {
                 let space: number = 0;
-                for (let y: number = (h / 7) | 0; y < h; y++) {
-                    space += font.charMask[i][w + y * w - 1];
+                for (let y: number = (hi / 7) | 0; y < hi; y++) {
+                    space += font.charMask[i][wi + y * wi - 1];
                 }
 
-                if (space <= ((h / 7) | 0)) {
+                if (space <= ((hi / 7) | 0)) {
                     font.charAdvance[i]--;
                 }
             }
@@ -121,26 +116,26 @@ export default class PixFont extends Linkable2 {
         return font;
     }
 
-    centreString(x: number, y: number, str: string | null, color: number): void {
-        if (!str) {
+    centreString(x: number, y: number, str: string | null, rgb: number): void {
+        if (str === null) {
             return;
         }
 
         x |= 0;
         y |= 0;
 
-        this.drawString(x - ((this.stringWid(str) / 2) | 0), y, str, color);
+        this.drawString(x - ((this.stringWid(str) / 2) | 0), y, str, rgb);
     }
 
-    centreStringTag(x: number, y: number, str: string, color: number, shadowed: boolean): void {
+    centreStringTag(x: number, y: number, str: string, rgb: number, shadowed: boolean): void {
         x |= 0;
         y |= 0;
 
-        this.drawStringTag(x - ((this.stringWid(str) / 2) | 0), y, str, color, shadowed);
+        this.drawStringTag(x - ((this.stringWid(str) / 2) | 0), y, str, rgb, shadowed);
     }
 
     stringWid(str: string | null): number {
-        if (!str) {
+        if (str === null) {
             return 0;
         }
 
@@ -157,7 +152,7 @@ export default class PixFont extends Linkable2 {
         return w;
     }
 
-    drawString(x: number, y: number, str: string | null, color: number): void {
+    drawString(x: number, y: number, str: string | null, rgb: number): void {
         if (!str) {
             return;
         }
@@ -165,21 +160,21 @@ export default class PixFont extends Linkable2 {
         x |= 0;
         y |= 0;
 
-        const length: number = str.length;
         y -= this.height;
-        for (let i: number = 0; i < length; i++) {
+
+        for (let i: number = 0; i < str.length; i++) {
             const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
 
             if (c !== 94) {
-                this.plotLetter(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color);
+                this.plotLetter(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], rgb);
             }
 
             x += this.charAdvance[c];
         }
     }
 
-    centreStringWave(x: number, y: number, str: string | null, color: number, phase: number): void {
-        if (!str) {
+    centreStringWave(x: number, y: number, str: string | null, rgb: number, phase: number): void {
+        if (str === null) {
             return;
         }
 
@@ -193,14 +188,14 @@ export default class PixFont extends Linkable2 {
             const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
 
             if (c != 94) {
-                this.plotLetter(this.charMask[c], x + this.charOffsetX[c], offY + this.charOffsetY[c] + ((Math.sin(i / 2.0 + phase / 5.0) * 5.0) | 0), this.charMaskWidth[c], this.charMaskHeight[c], color);
+                this.plotLetter(this.charMask[c], x + this.charOffsetX[c], offY + this.charOffsetY[c] + ((Math.sin(i / 2.0 + phase / 5.0) * 5.0) | 0), this.charMaskWidth[c], this.charMaskHeight[c], rgb);
             }
 
             x += this.charAdvance[c];
         }
     }
 
-    drawStringTag(x: number, y: number, str: string, color: number, shadowed: boolean): void {
+    drawStringTag(x: number, y: number, str: string, rgb: number, shadowed: boolean): void {
         x |= 0;
         y |= 0;
 
@@ -208,7 +203,7 @@ export default class PixFont extends Linkable2 {
         y -= this.height;
         for (let i: number = 0; i < length; i++) {
             if (str.charAt(i) === '@' && i + 4 < length && str.charAt(i + 4) === '@') {
-                color = this.updateState(str.substring(i + 1, i + 4));
+                rgb = this.updateState(str.substring(i + 1, i + 4));
                 i += 4;
             } else {
                 const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
@@ -217,7 +212,7 @@ export default class PixFont extends Linkable2 {
                     if (shadowed) {
                         this.plotLetter(this.charMask[c], x + this.charOffsetX[c] + 1, y + this.charOffsetY[c] + 1, this.charMaskWidth[c], this.charMaskHeight[c], Colour.BLACK);
                     }
-                    this.plotLetter(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color);
+                    this.plotLetter(this.charMask[c], x + this.charOffsetX[c], y + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], rgb);
                 }
 
                 x += this.charAdvance[c];
@@ -225,7 +220,7 @@ export default class PixFont extends Linkable2 {
         }
     }
 
-    drawStringAntiMacro(x: number, y: number, str: string, color: number, shadowed: boolean, seed: number): void {
+    drawStringAntiMacro(x: number, y: number, str: string, rgb: number, shadowed: boolean, seed: number): void {
         x |= 0;
         y |= 0;
 
@@ -235,7 +230,7 @@ export default class PixFont extends Linkable2 {
         const offY: number = y - this.height;
         for (let i: number = 0; i < str.length; i++) {
             if (str.charAt(i) === '@' && i + 4 < str.length && str.charAt(i + 4) === '@') {
-                color = this.updateState(str.substring(i + 1, i + 4));
+                rgb = this.updateState(str.substring(i + 1, i + 4));
                 i += 4;
             } else {
                 const c: number = PixFont.CHARCODESET[str.charCodeAt(i)];
@@ -244,7 +239,7 @@ export default class PixFont extends Linkable2 {
                         this.plotLetterTrans(x + this.charOffsetX[c] + 1, offY + this.charOffsetY[c] + 1, this.charMaskWidth[c], this.charMaskHeight[c], Colour.BLACK, 192, this.charMask[c]);
                     }
 
-                    this.plotLetterTrans(x + this.charOffsetX[c], offY + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], color, rand, this.charMask[c]);
+                    this.plotLetterTrans(x + this.charOffsetX[c], offY + this.charOffsetY[c], this.charMaskWidth[c], this.charMaskHeight[c], rgb, rand, this.charMask[c]);
                 }
 
                 x += this.charAdvance[c];
@@ -295,17 +290,17 @@ export default class PixFont extends Linkable2 {
         }
     }
 
-    drawStringRight(x: number, y: number, str: string, color: number, shadowed: boolean = true): void {
+    drawStringRight(x: number, y: number, str: string, rgb: number, shadowed: boolean = true): void {
         x |= 0;
         y |= 0;
 
         if (shadowed) {
             this.drawString(x - this.stringWid(str) + 1, y + 1, str, Colour.BLACK);
         }
-        this.drawString(x - this.stringWid(str), y, str, color);
+        this.drawString(x - this.stringWid(str), y, str, rgb);
     }
 
-    plotLetter(data: Int8Array, x: number, y: number, w: number, h: number, color: number): void {
+    plotLetter(data: Int8Array, x: number, y: number, w: number, h: number, rgb: number): void {
         x |= 0;
         y |= 0;
         w |= 0;
@@ -347,7 +342,7 @@ export default class PixFont extends Linkable2 {
         }
 
         if (w > 0 && h > 0) {
-            this.plot(w, h, data, srcOff, srcStep, Pix2D.pixels, dstOff, dstStep, color);
+            this.plot(w, h, data, srcOff, srcStep, Pix2D.pixels, dstOff, dstStep, rgb);
         }
     }
 
@@ -398,7 +393,7 @@ export default class PixFont extends Linkable2 {
         }
     }
 
-    plotLetterTrans(x: number, y: number, w: number, h: number, color: number, alpha: number, mask: Int8Array): void {
+    plotLetterTrans(x: number, y: number, w: number, h: number, rgb: number, alpha: number, mask: Int8Array): void {
         x |= 0;
         y |= 0;
         w |= 0;
@@ -440,29 +435,29 @@ export default class PixFont extends Linkable2 {
         }
 
         if (w > 0 && h > 0) {
-            this.plotTrans(w, h, Pix2D.pixels, dstOff, dstStep, mask, srcOff, srcStep, color, alpha);
+            this.plotTrans(w, h, Pix2D.pixels, dstOff, dstStep, mask, srcOff, srcStep, rgb, alpha);
         }
     }
 
-    private plotTrans(w: number, h: number, dst: Int32Array, dstOff: number, dstStep: number, mask: Int8Array, maskOff: number, maskStep: number, color: number, alpha: number): void {
+    private plotTrans(w: number, h: number, dst: Int32Array, dstOff: number, dstStep: number, src: Int8Array, srcOff: number, srcStep: number, rgb: number, alpha: number): void {
         w |= 0;
         h |= 0;
 
-        const rgb: number = ((((color & 0xff00ff) * alpha) & 0xff00ff00) + (((color & 0xff00) * alpha) & 0xff0000)) >> 8;
+        const mixed: number = ((((rgb & 0xff00ff) * alpha) & 0xff00ff00) + (((rgb & 0xff00) * alpha) & 0xff0000)) >> 8;
         const invAlpha: number = 256 - alpha;
 
         for (let y: number = -h; y < 0; y++) {
             for (let x: number = -w; x < 0; x++) {
-                if (mask[maskOff++] === 0) {
+                if (src[srcOff++] === 0) {
                     dstOff++;
                 } else {
                     const dstRgb: number = dst[dstOff];
-                    dst[dstOff++] = (((((dstRgb & 0xff00ff) * invAlpha) & 0xff00ff00) + (((dstRgb & 0xff00) * invAlpha) & 0xff0000)) >> 8) + rgb;
+                    dst[dstOff++] = (((((dstRgb & 0xff00ff) * invAlpha) & 0xff00ff00) + (((dstRgb & 0xff00) * invAlpha) & 0xff0000)) >> 8) + mixed;
                 }
             }
 
             dstOff += dstStep;
-            maskOff += maskStep;
+            srcOff += srcStep;
         }
     }
 }

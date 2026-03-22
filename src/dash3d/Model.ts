@@ -1,4 +1,4 @@
-import AnimBase from '#/dash3d/AnimBase.js';
+import AnimBase, { AnimTransform } from '#/dash3d/AnimBase.js';
 import AnimFrame from '#/dash3d/AnimFrame.js';
 import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/dash3d/Pix3D.js';
@@ -262,7 +262,7 @@ export default class Model extends Linkable2 {
     }
 
     static load(id: number): Model {
-        const meta: Metadata | null = Model.meta[id];
+        const meta = Model.meta[id];
         if (!meta) {
             console.error(`Error model:${id} not found!`);
             throw new Error();
@@ -387,7 +387,6 @@ export default class Model extends Linkable2 {
         let b = 0;
         let c = 0;
         let last = 0;
-
         for (let f = 0; f < model.numFaces; f++) {
             const order = Model.vertex2.g1();
 
@@ -1137,24 +1136,27 @@ export default class Model extends Linkable2 {
     }
 
     animate(id: number): void {
-        if (!this.labelVertices || id === -1 || !AnimFrame.list[id]) {
+        if (!this.labelVertices || id === -1) {
             return;
         }
 
         const transform: AnimFrame = AnimFrame.list[id];
-        const skeleton: AnimBase | null = transform.base;
+        if (!transform) {
+            return;
+        }
 
+        const base: AnimBase | null = transform.base;
         Model.oX = 0;
         Model.oY = 0;
         Model.oZ = 0;
 
         for (let i: number = 0; i < transform.size; i++) {
-            if (!transform.ti || !transform.tx || !transform.ty || !transform.tz || !skeleton || !skeleton.labels || !skeleton.type) {
+            if (!transform.ti || !transform.tx || !transform.ty || !transform.tz || !base || !base.labels || !base.type) {
                 continue;
             }
 
-            const base: number = transform.ti[i];
-            this.animate2(transform.tx[i], transform.ty[i], transform.tz[i], skeleton.labels[base], skeleton.type[base]);
+            const ti: number = transform.ti[i];
+            this.animate2(transform.tx[i], transform.ty[i], transform.tz[i], base.labels[ti], base.type[ti]);
         }
     }
 
@@ -1169,7 +1171,16 @@ export default class Model extends Linkable2 {
         }
 
         const primary: AnimFrame = AnimFrame.list[primaryId];
+        if (!primary) {
+            return;
+        }
+
         const secondary: AnimFrame = AnimFrame.list[secondaryId];
+        if (!secondary) {
+            this.animate(primaryId);
+            return;
+        }
+
         const skeleton: AnimBase | null = primary.base;
 
         Model.oX = 0;
@@ -1224,7 +1235,7 @@ export default class Model extends Linkable2 {
 
         const labelCount: number = labels.length;
 
-        if (type === 0) {
+        if (type === AnimTransform.ORIGIN) {
             let count: number = 0;
             Model.oX = 0;
             Model.oY = 0;
@@ -1258,7 +1269,7 @@ export default class Model extends Linkable2 {
                 Model.oY = y;
                 Model.oZ = z;
             }
-        } else if (type === 1) {
+        } else if (type === AnimTransform.TRANSLATE) {
             for (let g: number = 0; g < labelCount; g++) {
                 const group: number = labels[g];
                 if (!this.labelVertices || group >= this.labelVertices.length) {
@@ -1275,7 +1286,7 @@ export default class Model extends Linkable2 {
                     }
                 }
             }
-        } else if (type === 2) {
+        } else if (type === AnimTransform.ROTATE) {
             for (let g: number = 0; g < labelCount; g++) {
                 const label: number = labels[g];
                 if (!this.labelVertices || label >= this.labelVertices.length) {
@@ -1327,7 +1338,7 @@ export default class Model extends Linkable2 {
                     }
                 }
             }
-        } else if (type === 3) {
+        } else if (type === AnimTransform.SCALE) {
             for (let g: number = 0; g < labelCount; g++) {
                 const label: number = labels[g];
                 if (!this.labelVertices || label >= this.labelVertices.length) {
@@ -1353,7 +1364,7 @@ export default class Model extends Linkable2 {
                     }
                 }
             }
-        } else if (type === 5 && this.labelFaces && this.faceAlpha) {
+        } else if (type === AnimTransform.TRANSPARENCY && this.labelFaces && this.faceAlpha) {
             for (let g: number = 0; g < labelCount; g++) {
                 const label: number = labels[g];
                 if (label >= this.labelFaces.length) {
@@ -1438,9 +1449,9 @@ export default class Model extends Linkable2 {
         }
     }
 
-    calculateNormals(lightAmbient: number, lightAttenuation: number, lightSrcX: number, lightSrcY: number, lightSrcZ: number, applyLighting: boolean): void {
-        const lightMagnitude: number = Math.sqrt(lightSrcX * lightSrcX + lightSrcY * lightSrcY + lightSrcZ * lightSrcZ) | 0;
-        const attenuation: number = (lightAttenuation * lightMagnitude) >> 8;
+    calculateNormals(ambient: number, contrast: number, x: number, y: number, z: number, doNotShareLight: boolean): void {
+        const lightMagnitude: number = Math.sqrt(x * x + y * y + z * z) | 0;
+        const scale: number = (contrast * lightMagnitude) >> 8;
 
         if (!this.faceColourA || !this.faceColourB || !this.faceColourC) {
             this.faceColourA = new Int32Array(this.numFaces);
@@ -1513,15 +1524,16 @@ export default class Model extends Linkable2 {
                     n.w++;
                 }
             } else {
-                const lightness: number = lightAmbient + (((lightSrcX * nx + lightSrcY * ny + lightSrcZ * nz) / (attenuation + ((attenuation / 2) | 0))) | 0);
+                // face normal
+                const lightness: number = ambient + (((x * nx + y * ny + z * nz) / (scale + ((scale / 2) | 0))) | 0);
                 if (this.faceColour) {
                     this.faceColourA[f] = Model.getColour(this.faceColour[f], lightness, this.faceRenderType[f]);
                 }
             }
         }
 
-        if (applyLighting) {
-            this.light(lightAmbient, attenuation, lightSrcX, lightSrcY, lightSrcZ);
+        if (doNotShareLight) {
+            this.light(ambient, scale, x, y, z);
         } else {
             this.sharedPointNormal = new TypedArray1d(this.numPoints, null);
 
@@ -1540,14 +1552,14 @@ export default class Model extends Linkable2 {
             }
         }
 
-        if (applyLighting) {
+        if (doNotShareLight) {
             this.calcBoundingCylinder();
         } else {
             this.calcBoundingCube();
         }
     }
 
-    light(lightAmbient: number, lightAttenuation: number, lightSrcX: number, lightSrcY: number, lightSrcZ: number): void {
+    light(ambient: number, contrast: number, x: number, y: number, z: number): void {
         for (let f: number = 0; f < this.numFaces; f++) {
             const a: number = this.faceVertexA[f];
             const b: number = this.faceVertexB[f];
@@ -1558,17 +1570,17 @@ export default class Model extends Linkable2 {
 
                 const va: PointNormal | null = this.pointNormal[a];
                 if (va) {
-                    this.faceColourA[f] = Model.getColour(colour, lightAmbient + (((lightSrcX * va.x + lightSrcY * va.y + lightSrcZ * va.z) / (lightAttenuation * va.w)) | 0), 0);
+                    this.faceColourA[f] = Model.getColour(colour, ambient + (((x * va.x + y * va.y + z * va.z) / (contrast * va.w)) | 0), 0);
                 }
 
                 const vb: PointNormal | null = this.pointNormal[b];
                 if (vb) {
-                    this.faceColourB[f] = Model.getColour(colour, lightAmbient + (((lightSrcX * vb.x + lightSrcY * vb.y + lightSrcZ * vb.z) / (lightAttenuation * vb.w)) | 0), 0);
+                    this.faceColourB[f] = Model.getColour(colour, ambient + (((x * vb.x + y * vb.y + z * vb.z) / (contrast * vb.w)) | 0), 0);
                 }
 
                 const vc: PointNormal | null = this.pointNormal[c];
                 if (vc) {
-                    this.faceColourC[f] = Model.getColour(colour, lightAmbient + (((lightSrcX * vc.x + lightSrcY * vc.y + lightSrcZ * vc.z) / (lightAttenuation * vc.w)) | 0), 0);
+                    this.faceColourC[f] = Model.getColour(colour, ambient + (((x * vc.x + y * vc.y + z * vc.z) / (contrast * vc.w)) | 0), 0);
                 }
             } else if (this.faceRenderType && (this.faceRenderType[f] & 0x1) === 0 && this.faceColour && this.pointNormal && this.faceColourA && this.faceColourB && this.faceColourC) {
                 const colour: number = this.faceColour[f];
@@ -1576,17 +1588,17 @@ export default class Model extends Linkable2 {
 
                 const va: PointNormal | null = this.pointNormal[a];
                 if (va) {
-                    this.faceColourA[f] = Model.getColour(colour, lightAmbient + (((lightSrcX * va.x + lightSrcY * va.y + lightSrcZ * va.z) / (lightAttenuation * va.w)) | 0), info);
+                    this.faceColourA[f] = Model.getColour(colour, ambient + (((x * va.x + y * va.y + z * va.z) / (contrast * va.w)) | 0), info);
                 }
 
                 const vb: PointNormal | null = this.pointNormal[b];
                 if (vb) {
-                    this.faceColourB[f] = Model.getColour(colour, lightAmbient + (((lightSrcX * vb.x + lightSrcY * vb.y + lightSrcZ * vb.z) / (lightAttenuation * vb.w)) | 0), info);
+                    this.faceColourB[f] = Model.getColour(colour, ambient + (((x * vb.x + y * vb.y + z * vb.z) / (contrast * vb.w)) | 0), info);
                 }
 
                 const vc: PointNormal | null = this.pointNormal[c];
                 if (vc) {
-                    this.faceColourC[f] = Model.getColour(colour, lightAmbient + (((lightSrcX * vc.x + lightSrcY * vc.y + lightSrcZ * vc.z) / (lightAttenuation * vc.w)) | 0), info);
+                    this.faceColourC[f] = Model.getColour(colour, ambient + (((x * vc.x + y * vc.y + z * vc.z) / (contrast * vc.w)) | 0), info);
                 }
             }
         }
@@ -1607,8 +1619,9 @@ export default class Model extends Linkable2 {
         this.faceColour = null;
     }
 
-    static getColour(hsl: number, scalar: number, faceInfo: number): number {
-        if ((faceInfo & 0x2) === 2) {
+    static getColour(hsl: number, scalar: number, faceRenderType: number): number {
+        if ((faceRenderType & 0x2) === 2) {
+            // getTexLight
             if (scalar < 0) {
                 scalar = 0;
             } else if (scalar > 127) {
@@ -1616,17 +1629,18 @@ export default class Model extends Linkable2 {
             }
 
             return 127 - scalar;
+        } else {
+            // getColour
+            scalar = (scalar * (hsl & 0x7f)) >> 7;
+
+            if (scalar < 2) {
+                scalar = 2;
+            } else if (scalar > 126) {
+                scalar = 126;
+            }
+
+            return (hsl & 0xff80) + scalar;
         }
-
-        scalar = (scalar * (hsl & 0x7f)) >> 7;
-
-        if (scalar < 2) {
-            scalar = 2;
-        } else if (scalar > 126) {
-            scalar = 126;
-        }
-
-        return (hsl & 0xff80) + scalar;
     }
 
     objRender(pitch: number, yaw: number, roll: number, eyePitch: number, eyeX: number, eyeY: number, eyeZ: number): void {
@@ -1676,13 +1690,11 @@ export default class Model extends Linkable2 {
             z = (y * sinEyePitch + z * cosEyePitch) >> 16;
             y = tmp;
 
-            if (Model.vertexScreenX && Model.vertexScreenY && Model.vertexScreenZ) {
-                Model.vertexScreenZ[v] = z - midZ;
-                Model.vertexScreenX[v] = Pix3D.originX + (((x << 9) / z) | 0);
-                Model.vertexScreenY[v] = Pix3D.originY + (((y << 9) / z) | 0);
-            }
+            Model.vertexScreenZ[v] = z - midZ;
+            Model.vertexScreenX[v] = Pix3D.originX + (((x << 9) / z) | 0);
+            Model.vertexScreenY[v] = Pix3D.originY + (((y << 9) / z) | 0);
 
-            if (this.numT > 0 && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+            if (this.numT > 0) {
                 Model.vertexViewSpaceX[v] = x;
                 Model.vertexViewSpaceY[v] = y;
                 Model.vertexViewSpaceZ[v] = z;
@@ -1692,8 +1704,8 @@ export default class Model extends Linkable2 {
         try {
             // try catch for example a model being drawn from 3d can crash like at baxtorian falls
             this.render2(false, false, 0);
-        } catch (err) {
-            /* empty */
+        } catch (_e) {
+            // empty
         }
     }
 
@@ -1804,19 +1816,17 @@ export default class Model extends Linkable2 {
             z = (y * sinEyePitch + z * cosEyePitch) >> 16;
             y = temp;
 
-            if (Model.vertexScreenZ) {
-                Model.vertexScreenZ[v] = z - midZ;
-            }
+            Model.vertexScreenZ[v] = z - midZ;
 
-            if (z >= 50 && Model.vertexScreenX && Model.vertexScreenY) {
+            if (z >= 50) {
                 Model.vertexScreenX[v] = centerX + (((x << 9) / z) | 0);
                 Model.vertexScreenY[v] = centerY + (((y << 9) / z) | 0);
-            } else if (Model.vertexScreenX) {
+            } else {
                 Model.vertexScreenX[v] = -5000;
                 clipped = true;
             }
 
-            if ((clipped || this.numT > 0) && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
+            if (clipped || this.numT > 0) {
                 Model.vertexViewSpaceX[v] = x;
                 Model.vertexViewSpaceY[v] = y;
                 Model.vertexViewSpaceZ[v] = z;
@@ -1826,16 +1836,14 @@ export default class Model extends Linkable2 {
         try {
             // try catch for example a model being drawn from 3d can crash like at baxtorian falls
             this.render2(clipped, picking, typecode);
-        } catch (err) {
-            /* empty */
+        } catch (_e) {
+            // empty
         }
     }
 
     private render2(clipped: boolean, picking: boolean, typecode: number): void {
         for (let depth: number = 0; depth < this.maxDepth; depth++) {
-            if (Model.tmpDepthFaceCount) {
-                Model.tmpDepthFaceCount[depth] = 0;
-            }
+            Model.tmpDepthFaceCount[depth] = 0;
         }
 
         for (let f: number = 0; f < this.numFaces; f++) {
@@ -1843,77 +1851,63 @@ export default class Model extends Linkable2 {
                 continue;
             }
 
-            if (Model.vertexScreenX && Model.vertexScreenY && Model.vertexScreenZ && Model.tmpDepthFaces && Model.tmpDepthFaceCount) {
-                const a: number = this.faceVertexA[f];
-                const b: number = this.faceVertexB[f];
-                const c: number = this.faceVertexC[f];
+            const a: number = this.faceVertexA[f];
+            const b: number = this.faceVertexB[f];
+            const c: number = this.faceVertexC[f];
 
-                const xA: number = Model.vertexScreenX[a];
-                const xB: number = Model.vertexScreenX[b];
-                const xC: number = Model.vertexScreenX[c];
+            const xA: number = Model.vertexScreenX[a];
+            const xB: number = Model.vertexScreenX[b];
+            const xC: number = Model.vertexScreenX[c];
 
-                const yA: number = Model.vertexScreenY[a];
-                const yB: number = Model.vertexScreenY[b];
-                const yC: number = Model.vertexScreenY[c];
+            const yA: number = Model.vertexScreenY[a];
+            const yB: number = Model.vertexScreenY[b];
+            const yC: number = Model.vertexScreenY[c];
 
-                const zA: number = Model.vertexScreenZ[a];
-                const zB: number = Model.vertexScreenZ[b];
-                const zC: number = Model.vertexScreenZ[c];
+            const zA: number = Model.vertexScreenZ[a];
+            const zB: number = Model.vertexScreenZ[b];
+            const zC: number = Model.vertexScreenZ[c];
 
-                if (clipped && (xA === -5000 || xB === -5000 || xC === -5000)) {
-                    if (Model.faceNearClipped) {
-                        Model.faceNearClipped[f] = true;
-                    }
+            if (clipped && (xA === -5000 || xB === -5000 || xC === -5000)) {
+                Model.faceNearClipped[f] = true;
 
-                    if (Model.tmpDepthFaces && Model.tmpDepthFaceCount) {
-                        const depthAverage: number = (((zA + zB + zC) / 3) | 0) + this.minDepth;
-                        Model.tmpDepthFaces[depthAverage][Model.tmpDepthFaceCount[depthAverage]++] = f;
-                    }
-                } else {
-                    if (picking && this.isMouseRoughlyInsideTriangle(Model.mouseX, Model.mouseY, yA, yB, yC, xA, xB, xC)) {
-                        Model.pickedEntityTypecode[Model.pickedCount++] = typecode;
-                        picking = false;
-                    }
-
-                    const dxAB: number = xA - xB;
-                    const dyAB: number = yA - yB;
-                    const dxCB: number = xC - xB;
-                    const dyCB: number = yC - yB;
-
-                    if (dxAB * dyCB - dyAB * dxCB <= 0) {
-                        continue;
-                    }
-
-                    if (Model.faceNearClipped) {
-                        Model.faceNearClipped[f] = false;
-                    }
-                    if (Model.faceClippedX) {
-                        Model.faceClippedX[f] = xA < 0 || xB < 0 || xC < 0 || xA > Pix2D.sizeX || xB > Pix2D.sizeX || xC > Pix2D.sizeX;
-                    }
-
-                    if (Model.tmpDepthFaces && Model.tmpDepthFaceCount) {
-                        const depthAverage: number = (((zA + zB + zC) / 3) | 0) + this.minDepth;
-                        Model.tmpDepthFaces[depthAverage][Model.tmpDepthFaceCount[depthAverage]++] = f;
-                    }
+                const depthAverage: number = (((zA + zB + zC) / 3) | 0) + this.minDepth;
+                Model.tmpDepthFaces[depthAverage][Model.tmpDepthFaceCount[depthAverage]++] = f;
+            } else {
+                if (picking && this.isMouseRoughlyInsideTriangle(Model.mouseX, Model.mouseY, yA, yB, yC, xA, xB, xC)) {
+                    Model.pickedEntityTypecode[Model.pickedCount++] = typecode;
+                    picking = false;
                 }
+
+                const dxAB: number = xA - xB;
+                const dyAB: number = yA - yB;
+                const dxCB: number = xC - xB;
+                const dyCB: number = yC - yB;
+
+                if (dxAB * dyCB - dyAB * dxCB <= 0) {
+                    continue;
+                }
+
+                Model.faceNearClipped[f] = false;
+                Model.faceClippedX[f] = xA < 0 || xB < 0 || xC < 0 || xA > Pix2D.sizeX || xB > Pix2D.sizeX || xC > Pix2D.sizeX;
+
+                const depthAverage: number = (((zA + zB + zC) / 3) | 0) + this.minDepth;
+                Model.tmpDepthFaces[depthAverage][Model.tmpDepthFaceCount[depthAverage]++] = f;
             }
         }
 
-        if (!this.facePriority && Model.tmpDepthFaceCount) {
+        if (!this.facePriority) {
             for (let depth: number = this.maxDepth - 1; depth >= 0; depth--) {
                 const count: number = Model.tmpDepthFaceCount[depth];
                 if (count <= 0) {
                     continue;
                 }
 
-                if (Model.tmpDepthFaces) {
-                    const faces: Int32Array = Model.tmpDepthFaces[depth];
-                    for (let f: number = 0; f < count; f++) {
-                        try {
-                            this.render3(faces[f]);
-                        } catch (e) {
-                            // chrome's V8 optimizer hates us
-                        }
+                const faces: Int32Array = Model.tmpDepthFaces[depth];
+                for (let f: number = 0; f < count; f++) {
+                    try {
+                        this.render3(faces[f]);
+                    } catch (_e) {
+                        // chrome's V8 optimizer hates us
                     }
                 }
             }
@@ -1922,159 +1916,77 @@ export default class Model extends Linkable2 {
         }
 
         for (let priority: number = 0; priority < 12; priority++) {
-            if (Model.tmpPriorityFaceCount && Model.tmpPriorityDepthSum) {
-                Model.tmpPriorityFaceCount[priority] = 0;
-                Model.tmpPriorityDepthSum[priority] = 0;
-            }
+            Model.tmpPriorityFaceCount[priority] = 0;
+            Model.tmpPriorityDepthSum[priority] = 0;
         }
 
-        if (Model.tmpDepthFaceCount) {
-            for (let depth: number = this.maxDepth - 1; depth >= 0; depth--) {
-                const faceCount: number = Model.tmpDepthFaceCount[depth];
+        for (let depth: number = this.maxDepth - 1; depth >= 0; depth--) {
+            const faceCount: number = Model.tmpDepthFaceCount[depth];
 
-                if (faceCount > 0 && Model.tmpDepthFaces) {
-                    const faces: Int32Array = Model.tmpDepthFaces[depth];
+            if (faceCount > 0) {
+                const faces: Int32Array = Model.tmpDepthFaces[depth];
 
-                    for (let i: number = 0; i < faceCount; i++) {
-                        if (this.facePriority && Model.tmpPriorityFaceCount && Model.tmpPriorityFaces) {
-                            const priorityDepth: number = faces[i];
-                            const priorityFace: number = this.facePriority[priorityDepth];
-                            const priorityFaceCount: number = Model.tmpPriorityFaceCount[priorityFace]++;
+                for (let i: number = 0; i < faceCount; i++) {
+                    const priorityDepth: number = faces[i];
+                    const priorityFace: number = this.facePriority[priorityDepth];
+                    const priorityFaceCount: number = Model.tmpPriorityFaceCount[priorityFace]++;
 
-                            Model.tmpPriorityFaces[priorityFace][priorityFaceCount] = priorityDepth;
+                    Model.tmpPriorityFaces[priorityFace][priorityFaceCount] = priorityDepth;
 
-                            if (priorityFace < 10 && Model.tmpPriorityDepthSum) {
-                                Model.tmpPriorityDepthSum[priorityFace] += depth;
-                            } else if (priorityFace === 10 && Model.tmpPriority10FaceDepth) {
-                                Model.tmpPriority10FaceDepth[priorityFaceCount] = depth;
-                            } else if (Model.tmpPriority11FaceDepth) {
-                                Model.tmpPriority11FaceDepth[priorityFaceCount] = depth;
-                            }
-                        }
+                    if (priorityFace < 10) {
+                        Model.tmpPriorityDepthSum[priorityFace] += depth;
+                    } else if (priorityFace === 10) {
+                        Model.tmpPriority10FaceDepth[priorityFaceCount] = depth;
+                    } else {
+                        Model.tmpPriority11FaceDepth[priorityFaceCount] = depth;
                     }
                 }
             }
         }
 
         let averagePriorityDepthSum1_2: number = 0;
-        if (Model.tmpPriorityFaceCount && Model.tmpPriorityDepthSum && (Model.tmpPriorityFaceCount[1] > 0 || Model.tmpPriorityFaceCount[2] > 0)) {
+        if (Model.tmpPriorityFaceCount[1] > 0 || Model.tmpPriorityFaceCount[2] > 0) {
             averagePriorityDepthSum1_2 = ((Model.tmpPriorityDepthSum[1] + Model.tmpPriorityDepthSum[2]) / (Model.tmpPriorityFaceCount[1] + Model.tmpPriorityFaceCount[2])) | 0;
         }
 
         let averagePriorityDepthSum3_4: number = 0;
-        if (Model.tmpPriorityFaceCount && Model.tmpPriorityDepthSum && (Model.tmpPriorityFaceCount[3] > 0 || Model.tmpPriorityFaceCount[4] > 0)) {
+        if (Model.tmpPriorityFaceCount[3] > 0 || Model.tmpPriorityFaceCount[4] > 0) {
             averagePriorityDepthSum3_4 = ((Model.tmpPriorityDepthSum[3] + Model.tmpPriorityDepthSum[4]) / (Model.tmpPriorityFaceCount[3] + Model.tmpPriorityFaceCount[4])) | 0;
         }
 
         let averagePriorityDepthSum6_8: number = 0;
-        if (Model.tmpPriorityFaceCount && Model.tmpPriorityDepthSum && (Model.tmpPriorityFaceCount[6] > 0 || Model.tmpPriorityFaceCount[8] > 0)) {
+        if (Model.tmpPriorityFaceCount[6] > 0 || Model.tmpPriorityFaceCount[8] > 0) {
             averagePriorityDepthSum6_8 = ((Model.tmpPriorityDepthSum[6] + Model.tmpPriorityDepthSum[8]) / (Model.tmpPriorityFaceCount[6] + Model.tmpPriorityFaceCount[8])) | 0;
         }
 
-        if (Model.tmpPriorityFaceCount && Model.tmpPriorityFaces) {
-            let priorityFace: number = 0;
-            let priorityFaceCount: number = Model.tmpPriorityFaceCount[10];
+        let priorityFace: number = 0;
+        let priorityFaceCount: number = Model.tmpPriorityFaceCount[10];
 
-            let priorityFaces: Int32Array = Model.tmpPriorityFaces[10];
-            let priorityFaceDepths: Int32Array | null = Model.tmpPriority10FaceDepth;
-            if (priorityFace === priorityFaceCount) {
-                priorityFace = 0;
-                priorityFaceCount = Model.tmpPriorityFaceCount[11];
-                priorityFaces = Model.tmpPriorityFaces[11];
-                priorityFaceDepths = Model.tmpPriority11FaceDepth;
-            }
+        let priorityFaces: Int32Array = Model.tmpPriorityFaces[10];
+        let priorityFaceDepths: Int32Array | null = Model.tmpPriority10FaceDepth;
+        if (priorityFace === priorityFaceCount) {
+            priorityFace = 0;
+            priorityFaceCount = Model.tmpPriorityFaceCount[11];
+            priorityFaces = Model.tmpPriorityFaces[11];
+            priorityFaceDepths = Model.tmpPriority11FaceDepth;
+        }
 
-            let priorityDepth: number;
-            if (priorityFace < priorityFaceCount && priorityFaceDepths) {
-                priorityDepth = priorityFaceDepths[priorityFace];
-            } else {
-                priorityDepth = -1000;
-            }
+        let priorityDepth: number;
+        if (priorityFace < priorityFaceCount && priorityFaceDepths) {
+            priorityDepth = priorityFaceDepths[priorityFace];
+        } else {
+            priorityDepth = -1000;
+        }
 
-            for (let priority: number = 0; priority < 10; priority++) {
-                while (priority === 0 && priorityDepth > averagePriorityDepthSum1_2) {
-                    try {
-                        this.render3(priorityFaces[priorityFace++]);
-
-                        if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
-                            priorityFace = 0;
-                            priorityFaceCount = Model.tmpPriorityFaceCount[11];
-                            priorityFaces = Model.tmpPriorityFaces[11];
-                            priorityFaceDepths = Model.tmpPriority11FaceDepth;
-                        }
-
-                        if (priorityFace < priorityFaceCount && priorityFaceDepths) {
-                            priorityDepth = priorityFaceDepths[priorityFace];
-                        } else {
-                            priorityDepth = -1000;
-                        }
-                    } catch (e) {
-                        // chrome's V8 optimizer hates us
-                    }
-                }
-
-                while (priority === 3 && priorityDepth > averagePriorityDepthSum3_4) {
-                    try {
-                        this.render3(priorityFaces[priorityFace++]);
-
-                        if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
-                            priorityFace = 0;
-                            priorityFaceCount = Model.tmpPriorityFaceCount[11];
-                            priorityFaces = Model.tmpPriorityFaces[11];
-                            priorityFaceDepths = Model.tmpPriority11FaceDepth;
-                        }
-
-                        if (priorityFace < priorityFaceCount && priorityFaceDepths) {
-                            priorityDepth = priorityFaceDepths[priorityFace];
-                        } else {
-                            priorityDepth = -1000;
-                        }
-                    } catch (e) {
-                        // chrome's V8 optimizer hates us
-                    }
-                }
-
-                while (priority === 5 && priorityDepth > averagePriorityDepthSum6_8) {
-                    try {
-                        this.render3(priorityFaces[priorityFace++]);
-
-                        if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
-                            priorityFace = 0;
-                            priorityFaceCount = Model.tmpPriorityFaceCount[11];
-                            priorityFaces = Model.tmpPriorityFaces[11];
-                            priorityFaceDepths = Model.tmpPriority11FaceDepth;
-                        }
-
-                        if (priorityFace < priorityFaceCount && priorityFaceDepths) {
-                            priorityDepth = priorityFaceDepths[priorityFace];
-                        } else {
-                            priorityDepth = -1000;
-                        }
-                    } catch (e) {
-                        // chrome's V8 optimizer hates us
-                    }
-                }
-
-                const count: number = Model.tmpPriorityFaceCount[priority];
-                const faces: Int32Array = Model.tmpPriorityFaces[priority];
-
-                for (let i: number = 0; i < count; i++) {
-                    try {
-                        this.render3(faces[i]);
-                    } catch (e) {
-                        // chrome's V8 optimizer hates us
-                    }
-                }
-            }
-
-            while (priorityDepth !== -1000) {
+        for (let priority: number = 0; priority < 10; priority++) {
+            while (priority === 0 && priorityDepth > averagePriorityDepthSum1_2) {
                 try {
                     this.render3(priorityFaces[priorityFace++]);
 
                     if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
                         priorityFace = 0;
-                        priorityFaces = Model.tmpPriorityFaces[11];
                         priorityFaceCount = Model.tmpPriorityFaceCount[11];
+                        priorityFaces = Model.tmpPriorityFaces[11];
                         priorityFaceDepths = Model.tmpPriority11FaceDepth;
                     }
 
@@ -2083,15 +1995,89 @@ export default class Model extends Linkable2 {
                     } else {
                         priorityDepth = -1000;
                     }
-                } catch (e) {
+                } catch (_e) {
                     // chrome's V8 optimizer hates us
                 }
+            }
+
+            while (priority === 3 && priorityDepth > averagePriorityDepthSum3_4) {
+                try {
+                    this.render3(priorityFaces[priorityFace++]);
+
+                    if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
+                        priorityFace = 0;
+                        priorityFaceCount = Model.tmpPriorityFaceCount[11];
+                        priorityFaces = Model.tmpPriorityFaces[11];
+                        priorityFaceDepths = Model.tmpPriority11FaceDepth;
+                    }
+
+                    if (priorityFace < priorityFaceCount && priorityFaceDepths) {
+                        priorityDepth = priorityFaceDepths[priorityFace];
+                    } else {
+                        priorityDepth = -1000;
+                    }
+                } catch (_e) {
+                    // chrome's V8 optimizer hates us
+                }
+            }
+
+            while (priority === 5 && priorityDepth > averagePriorityDepthSum6_8) {
+                try {
+                    this.render3(priorityFaces[priorityFace++]);
+
+                    if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
+                        priorityFace = 0;
+                        priorityFaceCount = Model.tmpPriorityFaceCount[11];
+                        priorityFaces = Model.tmpPriorityFaces[11];
+                        priorityFaceDepths = Model.tmpPriority11FaceDepth;
+                    }
+
+                    if (priorityFace < priorityFaceCount && priorityFaceDepths) {
+                        priorityDepth = priorityFaceDepths[priorityFace];
+                    } else {
+                        priorityDepth = -1000;
+                    }
+                } catch (_e) {
+                    // chrome's V8 optimizer hates us
+                }
+            }
+
+            const count: number = Model.tmpPriorityFaceCount[priority];
+            const faces: Int32Array = Model.tmpPriorityFaces[priority];
+
+            for (let i: number = 0; i < count; i++) {
+                try {
+                    this.render3(faces[i]);
+                } catch (_e) {
+                    // chrome's V8 optimizer hates us
+                }
+            }
+        }
+
+        while (priorityDepth !== -1000) {
+            try {
+                this.render3(priorityFaces[priorityFace++]);
+
+                if (priorityFace === priorityFaceCount && priorityFaces !== Model.tmpPriorityFaces[11]) {
+                    priorityFace = 0;
+                    priorityFaces = Model.tmpPriorityFaces[11];
+                    priorityFaceCount = Model.tmpPriorityFaceCount[11];
+                    priorityFaceDepths = Model.tmpPriority11FaceDepth;
+                }
+
+                if (priorityFace < priorityFaceCount && priorityFaceDepths) {
+                    priorityDepth = priorityFaceDepths[priorityFace];
+                } else {
+                    priorityDepth = -1000;
+                }
+            } catch (_e) {
+                // chrome's V8 optimizer hates us
             }
         }
     }
 
     private render3(face: number): void {
-        if (Model.faceNearClipped && Model.faceNearClipped[face]) {
+        if (Model.faceNearClipped[face]) {
             this.render3ZClip(face);
             return;
         }
@@ -2117,71 +2103,49 @@ export default class Model extends Linkable2 {
             type = this.faceRenderType[face] & 0x3;
         }
 
-        if (type === 0 && this.faceColourA && this.faceColourB && this.faceColourC && Model.vertexScreenX && Model.vertexScreenY) {
+        if (type === 0) {
             Pix3D.gouraudTriangle(
-                Model.vertexScreenX[a],
-                Model.vertexScreenX[b],
-                Model.vertexScreenX[c],
-                Model.vertexScreenY[a],
-                Model.vertexScreenY[b],
-                Model.vertexScreenY[c],
-                this.faceColourA[face],
-                this.faceColourB[face],
-                this.faceColourC[face]
+                Model.vertexScreenX[a], Model.vertexScreenX[b], Model.vertexScreenX[c],
+                Model.vertexScreenY[a], Model.vertexScreenY[b], Model.vertexScreenY[c],
+                this.faceColourA![face], this.faceColourB![face], this.faceColourC![face]
             );
-        } else if (type === 1 && this.faceColourA && Model.vertexScreenX && Model.vertexScreenY) {
-            Pix3D.flatTriangle(Model.vertexScreenX[a], Model.vertexScreenX[b], Model.vertexScreenX[c], Model.vertexScreenY[a], Model.vertexScreenY[b], Model.vertexScreenY[c], Pix3D.colourTable[this.faceColourA[face]]);
-        } else if (type === 2 && this.faceRenderType && this.faceColour && this.faceColourA && this.faceColourB && this.faceColourC && Model.vertexScreenX && Model.vertexScreenY && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
-            const texturedFace: number = this.faceRenderType[face] >> 2;
+        } else if (type === 1) {
+            Pix3D.flatTriangle(
+                Model.vertexScreenX[a], Model.vertexScreenX[b], Model.vertexScreenX[c],
+                Model.vertexScreenY[a], Model.vertexScreenY[b], Model.vertexScreenY[c],
+                Pix3D.colourTable[this.faceColourA![face]]
+            );
+        } else if (type === 2) {
+            const texturedFace: number = this.faceRenderType![face] >> 2;
             const tA: number = this.faceTextureP![texturedFace];
             const tB: number = this.faceTextureM![texturedFace];
             const tC: number = this.faceTextureN![texturedFace];
+
             Pix3D.textureTriangle(
-                Model.vertexScreenX[a],
-                Model.vertexScreenX[b],
-                Model.vertexScreenX[c],
-                Model.vertexScreenY[a],
-                Model.vertexScreenY[b],
-                Model.vertexScreenY[c],
-                this.faceColourA[face],
-                this.faceColourB[face],
-                this.faceColourC[face],
-                Model.vertexViewSpaceX[tA],
-                Model.vertexViewSpaceY[tA],
-                Model.vertexViewSpaceZ[tA],
-                Model.vertexViewSpaceX[tB],
-                Model.vertexViewSpaceX[tC],
-                Model.vertexViewSpaceY[tB],
-                Model.vertexViewSpaceY[tC],
-                Model.vertexViewSpaceZ[tB],
-                Model.vertexViewSpaceZ[tC],
-                this.faceColour[face]
+                Model.vertexScreenX[a], Model.vertexScreenX[b], Model.vertexScreenX[c],
+                Model.vertexScreenY[a], Model.vertexScreenY[b], Model.vertexScreenY[c],
+                this.faceColourA![face], this.faceColourB![face], this.faceColourC![face],
+                Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                this.faceColour![face]
             );
-        } else if (type === 3 && this.faceRenderType && this.faceColour && this.faceColourA && Model.vertexScreenX && Model.vertexScreenY && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
-            const texturedFace: number = this.faceRenderType[face] >> 2;
+        } else if (type === 3) {
+            const texturedFace: number = this.faceRenderType![face] >> 2;
             const tA: number = this.faceTextureP![texturedFace];
             const tB: number = this.faceTextureM![texturedFace];
             const tC: number = this.faceTextureN![texturedFace];
+
             Pix3D.textureTriangle(
-                Model.vertexScreenX[a],
-                Model.vertexScreenX[b],
-                Model.vertexScreenX[c],
-                Model.vertexScreenY[a],
-                Model.vertexScreenY[b],
-                Model.vertexScreenY[c],
-                this.faceColourA[face],
-                this.faceColourA[face],
-                this.faceColourA[face],
-                Model.vertexViewSpaceX[tA],
-                Model.vertexViewSpaceY[tA],
-                Model.vertexViewSpaceZ[tA],
-                Model.vertexViewSpaceX[tB],
-                Model.vertexViewSpaceX[tC],
-                Model.vertexViewSpaceY[tB],
-                Model.vertexViewSpaceY[tC],
-                Model.vertexViewSpaceZ[tB],
-                Model.vertexViewSpaceZ[tC],
-                this.faceColour[face]
+                Model.vertexScreenX[a], Model.vertexScreenX[b], Model.vertexScreenX[c],
+                Model.vertexScreenY[a], Model.vertexScreenY[b], Model.vertexScreenY[c],
+                this.faceColourA![face], this.faceColourA![face], this.faceColourA![face],
+                Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                this.faceColour![face]
             );
         }
     }
@@ -2189,88 +2153,86 @@ export default class Model extends Linkable2 {
     private render3ZClip(face: number): void {
         let elements: number = 0;
 
-        if (Model.vertexViewSpaceZ) {
-            const centerX: number = Pix3D.originX;
-            const centerY: number = Pix3D.originY;
+        const centerX: number = Pix3D.originX;
+        const centerY: number = Pix3D.originY;
 
-            const a: number = this.faceVertexA[face];
-            const b: number = this.faceVertexB[face];
-            const c: number = this.faceVertexC[face];
+        const a: number = this.faceVertexA[face];
+        const b: number = this.faceVertexB[face];
+        const c: number = this.faceVertexC[face];
 
-            const zA: number = Model.vertexViewSpaceZ[a];
-            const zB: number = Model.vertexViewSpaceZ[b];
-            const zC: number = Model.vertexViewSpaceZ[c];
+        const zA: number = Model.vertexViewSpaceZ[a];
+        const zB: number = Model.vertexViewSpaceZ[b];
+        const zC: number = Model.vertexViewSpaceZ[c];
 
-            if (zA >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColourA) {
-                Model.clippedX[elements] = Model.vertexScreenX[a];
-                Model.clippedY[elements] = Model.vertexScreenY[a];
-                Model.clippedColour[elements++] = this.faceColourA[face];
-            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColourA) {
-                const xA: number = Model.vertexViewSpaceX[a];
-                const yA: number = Model.vertexViewSpaceY[a];
-                const colorA: number = this.faceColourA[face];
+        if (zA >= 50) {
+            Model.clippedX[elements] = Model.vertexScreenX[a];
+            Model.clippedY[elements] = Model.vertexScreenY[a];
+            Model.clippedColour[elements++] = this.faceColourA![face];
+        } else {
+            const xA: number = Model.vertexViewSpaceX[a];
+            const yA: number = Model.vertexViewSpaceY[a];
+            const colourA: number = this.faceColourA![face];
 
-                if (zC >= 50 && this.faceColourC) {
-                    const scalar: number = (50 - zA) * Pix3D.divTable2[zC - zA];
-                    Model.clippedX[elements] = centerX + ((((xA + (((Model.vertexViewSpaceX[c] - xA) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedY[elements] = centerY + ((((yA + (((Model.vertexViewSpaceY[c] - yA) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColour[elements++] = colorA + (((this.faceColourC[face] - colorA) * scalar) >> 16);
-                }
-
-                if (zB >= 50 && this.faceColourB) {
-                    const scalar: number = (50 - zA) * Pix3D.divTable2[zB - zA];
-                    Model.clippedX[elements] = centerX + ((((xA + (((Model.vertexViewSpaceX[b] - xA) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedY[elements] = centerY + ((((yA + (((Model.vertexViewSpaceY[b] - yA) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColour[elements++] = colorA + (((this.faceColourB[face] - colorA) * scalar) >> 16);
-                }
+            if (zC >= 50) {
+                const scalar: number = (50 - zA) * Pix3D.divTable2[zC - zA];
+                Model.clippedX[elements] = centerX + ((((xA + (((Model.vertexViewSpaceX[c] - xA) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedY[elements] = centerY + ((((yA + (((Model.vertexViewSpaceY[c] - yA) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedColour[elements++] = colourA + (((this.faceColourC![face] - colourA) * scalar) >> 16);
             }
 
-            if (zB >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColourB) {
-                Model.clippedX[elements] = Model.vertexScreenX[b];
-                Model.clippedY[elements] = Model.vertexScreenY[b];
-                Model.clippedColour[elements++] = this.faceColourB[face];
-            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColourB) {
-                const xB: number = Model.vertexViewSpaceX[b];
-                const yB: number = Model.vertexViewSpaceY[b];
-                const colorB: number = this.faceColourB[face];
+            if (zB >= 50) {
+                const scalar: number = (50 - zA) * Pix3D.divTable2[zB - zA];
+                Model.clippedX[elements] = centerX + ((((xA + (((Model.vertexViewSpaceX[b] - xA) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedY[elements] = centerY + ((((yA + (((Model.vertexViewSpaceY[b] - yA) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedColour[elements++] = colourA + (((this.faceColourB![face] - colourA) * scalar) >> 16);
+            }
+        }
 
-                if (zA >= 50 && this.faceColourA) {
-                    const scalar: number = (50 - zB) * Pix3D.divTable2[zA - zB];
-                    Model.clippedX[elements] = centerX + ((((xB + (((Model.vertexViewSpaceX[a] - xB) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedY[elements] = centerY + ((((yB + (((Model.vertexViewSpaceY[a] - yB) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColour[elements++] = colorB + (((this.faceColourA[face] - colorB) * scalar) >> 16);
-                }
+        if (zB >= 50) {
+            Model.clippedX[elements] = Model.vertexScreenX[b];
+            Model.clippedY[elements] = Model.vertexScreenY[b];
+            Model.clippedColour[elements++] = this.faceColourB![face];
+        } else {
+            const xB: number = Model.vertexViewSpaceX[b];
+            const yB: number = Model.vertexViewSpaceY[b];
+            const colourB: number = this.faceColourB![face];
 
-                if (zC >= 50 && this.faceColourC) {
-                    const scalar: number = (50 - zB) * Pix3D.divTable2[zC - zB];
-                    Model.clippedX[elements] = centerX + ((((xB + (((Model.vertexViewSpaceX[c] - xB) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedY[elements] = centerY + ((((yB + (((Model.vertexViewSpaceY[c] - yB) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColour[elements++] = colorB + (((this.faceColourC[face] - colorB) * scalar) >> 16);
-                }
+            if (zA >= 50) {
+                const scalar: number = (50 - zB) * Pix3D.divTable2[zA - zB];
+                Model.clippedX[elements] = centerX + ((((xB + (((Model.vertexViewSpaceX[a] - xB) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedY[elements] = centerY + ((((yB + (((Model.vertexViewSpaceY[a] - yB) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedColour[elements++] = colourB + (((this.faceColourA![face] - colourB) * scalar) >> 16);
             }
 
-            if (zC >= 50 && Model.vertexScreenX && Model.vertexScreenY && this.faceColourC) {
-                Model.clippedX[elements] = Model.vertexScreenX[c];
-                Model.clippedY[elements] = Model.vertexScreenY[c];
-                Model.clippedColour[elements++] = this.faceColourC[face];
-            } else if (Model.vertexViewSpaceX && Model.vertexViewSpaceY && this.faceColourC) {
-                const xC: number = Model.vertexViewSpaceX[c];
-                const yC: number = Model.vertexViewSpaceY[c];
-                const colorC: number = this.faceColourC[face];
+            if (zC >= 50) {
+                const scalar: number = (50 - zB) * Pix3D.divTable2[zC - zB];
+                Model.clippedX[elements] = centerX + ((((xB + (((Model.vertexViewSpaceX[c] - xB) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedY[elements] = centerY + ((((yB + (((Model.vertexViewSpaceY[c] - yB) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedColour[elements++] = colourB + (((this.faceColourC![face] - colourB) * scalar) >> 16);
+            }
+        }
 
-                if (zB >= 50 && this.faceColourB) {
-                    const scalar: number = (50 - zC) * Pix3D.divTable2[zB - zC];
-                    Model.clippedX[elements] = centerX + ((((xC + (((Model.vertexViewSpaceX[b] - xC) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedY[elements] = centerY + ((((yC + (((Model.vertexViewSpaceY[b] - yC) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColour[elements++] = colorC + (((this.faceColourB[face] - colorC) * scalar) >> 16);
-                }
+        if (zC >= 50) {
+            Model.clippedX[elements] = Model.vertexScreenX[c];
+            Model.clippedY[elements] = Model.vertexScreenY[c];
+            Model.clippedColour[elements++] = this.faceColourC![face];
+        } else {
+            const xC: number = Model.vertexViewSpaceX[c];
+            const yC: number = Model.vertexViewSpaceY[c];
+            const colourC: number = this.faceColourC![face];
 
-                if (zA >= 50 && this.faceColourA) {
-                    const scalar: number = (50 - zC) * Pix3D.divTable2[zA - zC];
-                    Model.clippedX[elements] = centerX + ((((xC + (((Model.vertexViewSpaceX[a] - xC) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedY[elements] = centerY + ((((yC + (((Model.vertexViewSpaceY[a] - yC) * scalar) >> 16)) << 9) / 50) | 0);
-                    Model.clippedColour[elements++] = colorC + (((this.faceColourA[face] - colorC) * scalar) >> 16);
-                }
+            if (zB >= 50) {
+                const scalar: number = (50 - zC) * Pix3D.divTable2[zB - zC];
+                Model.clippedX[elements] = centerX + ((((xC + (((Model.vertexViewSpaceX[b] - xC) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedY[elements] = centerY + ((((yC + (((Model.vertexViewSpaceY[b] - yC) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedColour[elements++] = colourC + (((this.faceColourB![face] - colourC) * scalar) >> 16);
+            }
+
+            if (zA >= 50) {
+                const scalar: number = (50 - zC) * Pix3D.divTable2[zA - zC];
+                Model.clippedX[elements] = centerX + ((((xC + (((Model.vertexViewSpaceX[a] - xC) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedY[elements] = centerY + ((((yC + (((Model.vertexViewSpaceY[a] - yC) * scalar) >> 16)) << 9) / 50) | 0);
+                Model.clippedColour[elements++] = colourC + (((this.faceColourA![face] - colourC) * scalar) >> 16);
             }
         }
 
@@ -2300,60 +2262,48 @@ export default class Model extends Linkable2 {
             }
 
             if (type === 0) {
-                Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]);
-            } else if (type === 1 && this.faceColourA) {
-                Pix3D.flatTriangle(x0, x1, x2, y0, y1, y2, Pix3D.colourTable[this.faceColourA[face]]);
-            } else if (type === 2 && this.faceRenderType && this.faceColour && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
-                const texturedFace: number = this.faceRenderType[face] >> 2;
-                const tA: number = this.faceTextureP![texturedFace];
-                const tB: number = this.faceTextureM![texturedFace];
-                const tC: number = this.faceTextureN![texturedFace];
-                Pix3D.textureTriangle(
-                    x0,
-                    x1,
-                    x2,
-                    y0,
-                    y1,
-                    y2,
-                    Model.clippedColour[0],
-                    Model.clippedColour[1],
-                    Model.clippedColour[2],
-                    Model.vertexViewSpaceX[tA],
-                    Model.vertexViewSpaceY[tA],
-                    Model.vertexViewSpaceZ[tA],
-                    Model.vertexViewSpaceX[tB],
-                    Model.vertexViewSpaceX[tC],
-                    Model.vertexViewSpaceY[tB],
-                    Model.vertexViewSpaceY[tC],
-                    Model.vertexViewSpaceZ[tB],
-                    Model.vertexViewSpaceZ[tC],
-                    this.faceColour[face]
+                Pix3D.gouraudTriangle(
+                    x0, x1, x2,
+                    y0, y1, y2,
+                    Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]
                 );
-            } else if (type === 3 && this.faceRenderType && this.faceColour && this.faceColourA && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
-                const texturedFace: number = this.faceRenderType[face] >> 2;
+            } else if (type === 1 && this.faceColourA) {
+                Pix3D.flatTriangle(
+                    x0, x1, x2,
+                    y0, y1, y2,
+                    Pix3D.colourTable[this.faceColourA[face]]
+                );
+            } else if (type === 2) {
+                const texturedFace: number = this.faceRenderType![face] >> 2;
                 const tA: number = this.faceTextureP![texturedFace];
                 const tB: number = this.faceTextureM![texturedFace];
                 const tC: number = this.faceTextureN![texturedFace];
+
                 Pix3D.textureTriangle(
-                    x0,
-                    x1,
-                    x2,
-                    y0,
-                    y1,
-                    y2,
-                    this.faceColourA[face],
-                    this.faceColourA[face],
-                    this.faceColourA[face],
-                    Model.vertexViewSpaceX[tA],
-                    Model.vertexViewSpaceY[tA],
-                    Model.vertexViewSpaceZ[tA],
-                    Model.vertexViewSpaceX[tB],
-                    Model.vertexViewSpaceX[tC],
-                    Model.vertexViewSpaceY[tB],
-                    Model.vertexViewSpaceY[tC],
-                    Model.vertexViewSpaceZ[tB],
-                    Model.vertexViewSpaceZ[tC],
-                    this.faceColour[face]
+                    x0, x1, x2,
+                    y0, y1, y2,
+                    Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2],
+                    Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                    Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                    Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                    Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                    this.faceColour![face]
+                );
+            } else if (type === 3) {
+                const texturedFace: number = this.faceRenderType![face] >> 2;
+                const tA: number = this.faceTextureP![texturedFace];
+                const tB: number = this.faceTextureM![texturedFace];
+                const tC: number = this.faceTextureN![texturedFace];
+
+                Pix3D.textureTriangle(
+                    x0, x1, x2,
+                    y0, y1, y2,
+                    this.faceColourA![face], this.faceColourA![face], this.faceColourA![face],
+                    Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                    Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                    Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                    Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                    this.faceColour![face]
                 );
             }
         } else if (elements === 4) {
@@ -2369,121 +2319,102 @@ export default class Model extends Linkable2 {
             }
 
             if (type === 0) {
-                Pix3D.gouraudTriangle(x0, x1, x2, y0, y1, y2, Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]);
-                Pix3D.gouraudTriangle(x0, x2, Model.clippedX[3], y0, y2, Model.clippedY[3], Model.clippedColour[0], Model.clippedColour[2], Model.clippedColour[3]);
+                Pix3D.gouraudTriangle(
+                    x0, x1, x2,
+                    y0, y1, y2,
+                    Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2]
+                );
+
+                Pix3D.gouraudTriangle(
+                    x0, x2, Model.clippedX[3],
+                    y0, y2, Model.clippedY[3],
+                    Model.clippedColour[0], Model.clippedColour[2], Model.clippedColour[3]
+                );
             } else if (type === 1) {
                 if (this.faceColourA) {
-                    const colorA: number = Pix3D.colourTable[this.faceColourA[face]];
-                    Pix3D.flatTriangle(x0, x1, x2, y0, y1, y2, colorA);
-                    Pix3D.flatTriangle(x0, x2, Model.clippedX[3], y0, y2, Model.clippedY[3], colorA);
+                    const colour: number = Pix3D.colourTable[this.faceColourA[face]];
+
+                    Pix3D.flatTriangle(
+                        x0, x1, x2,
+                        y0, y1, y2,
+                        colour
+                    );
+
+                    Pix3D.flatTriangle(
+                        x0, x2, Model.clippedX[3],
+                        y0, y2, Model.clippedY[3],
+                        colour
+                    );
                 }
-            } else if (type === 2 && this.faceRenderType && this.faceColour && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
-                const texturedFace: number = this.faceRenderType[face] >> 2;
+            } else if (type === 2) {
+                const texturedFace: number = this.faceRenderType![face] >> 2;
                 const tA: number = this.faceTextureP![texturedFace];
                 const tB: number = this.faceTextureM![texturedFace];
                 const tC: number = this.faceTextureN![texturedFace];
+
                 Pix3D.textureTriangle(
-                    x0,
-                    x1,
-                    x2,
-                    y0,
-                    y1,
-                    y2,
-                    Model.clippedColour[0],
-                    Model.clippedColour[1],
-                    Model.clippedColour[2],
-                    Model.vertexViewSpaceX[tA],
-                    Model.vertexViewSpaceY[tA],
-                    Model.vertexViewSpaceZ[tA],
-                    Model.vertexViewSpaceX[tB],
-                    Model.vertexViewSpaceX[tC],
-                    Model.vertexViewSpaceY[tB],
-                    Model.vertexViewSpaceY[tC],
-                    Model.vertexViewSpaceZ[tB],
-                    Model.vertexViewSpaceZ[tC],
-                    this.faceColour[face]
+                    x0, x1, x2,
+                    y0, y1, y2,
+                    Model.clippedColour[0], Model.clippedColour[1], Model.clippedColour[2],
+                    Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                    Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                    Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                    Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                    this.faceColour![face]
                 );
+
                 Pix3D.textureTriangle(
-                    x0,
-                    x2,
-                    Model.clippedX[3],
-                    y0,
-                    y2,
-                    Model.clippedY[3],
-                    Model.clippedColour[0],
-                    Model.clippedColour[2],
-                    Model.clippedColour[3],
-                    Model.vertexViewSpaceX[tA],
-                    Model.vertexViewSpaceY[tA],
-                    Model.vertexViewSpaceZ[tA],
-                    Model.vertexViewSpaceX[tB],
-                    Model.vertexViewSpaceX[tC],
-                    Model.vertexViewSpaceY[tB],
-                    Model.vertexViewSpaceY[tC],
-                    Model.vertexViewSpaceZ[tB],
-                    Model.vertexViewSpaceZ[tC],
-                    this.faceColour[face]
+                    x0, x2, Model.clippedX[3],
+                    y0, y2, Model.clippedY[3],
+                    Model.clippedColour[0], Model.clippedColour[2], Model.clippedColour[3],
+                    Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                    Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                    Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                    Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                    this.faceColour![face]
                 );
-            } else if (type === 3 && this.faceRenderType && this.faceColour && this.faceColourA && Model.vertexViewSpaceX && Model.vertexViewSpaceY && Model.vertexViewSpaceZ) {
-                const texturedFace: number = this.faceRenderType[face] >> 2;
+            } else if (type === 3) {
+                const texturedFace: number = this.faceRenderType![face] >> 2;
                 const tA: number = this.faceTextureP![texturedFace];
                 const tB: number = this.faceTextureM![texturedFace];
                 const tC: number = this.faceTextureN![texturedFace];
+
                 Pix3D.textureTriangle(
-                    x0,
-                    x1,
-                    x2,
-                    y0,
-                    y1,
-                    y2,
-                    this.faceColourA[face],
-                    this.faceColourA[face],
-                    this.faceColourA[face],
-                    Model.vertexViewSpaceX[tA],
-                    Model.vertexViewSpaceY[tA],
-                    Model.vertexViewSpaceZ[tA],
-                    Model.vertexViewSpaceX[tB],
-                    Model.vertexViewSpaceX[tC],
-                    Model.vertexViewSpaceY[tB],
-                    Model.vertexViewSpaceY[tC],
-                    Model.vertexViewSpaceZ[tB],
-                    Model.vertexViewSpaceZ[tC],
-                    this.faceColour[face]
+                    x0, x1, x2,
+                    y0, y1, y2,
+                    this.faceColourA![face], this.faceColourA![face], this.faceColourA![face],
+                    Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                    Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                    Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                    Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                    this.faceColour![face]
                 );
+
                 Pix3D.textureTriangle(
-                    x0,
-                    x2,
-                    Model.clippedX[3],
-                    y0,
-                    y2,
-                    Model.clippedY[3],
-                    this.faceColourA[face],
-                    this.faceColourA[face],
-                    this.faceColourA[face],
-                    Model.vertexViewSpaceX[tA],
-                    Model.vertexViewSpaceY[tA],
-                    Model.vertexViewSpaceZ[tA],
-                    Model.vertexViewSpaceX[tB],
-                    Model.vertexViewSpaceX[tC],
-                    Model.vertexViewSpaceY[tB],
-                    Model.vertexViewSpaceY[tC],
-                    Model.vertexViewSpaceZ[tB],
-                    Model.vertexViewSpaceZ[tC],
-                    this.faceColour[face]
+                    x0, x2, Model.clippedX[3],
+                    y0, y2, Model.clippedY[3],
+                    this.faceColourA![face], this.faceColourA![face], this.faceColourA![face],
+                    Model.vertexViewSpaceX[tA], Model.vertexViewSpaceY[tA], Model.vertexViewSpaceZ[tA],
+                    Model.vertexViewSpaceX[tB], Model.vertexViewSpaceX[tC],
+                    Model.vertexViewSpaceY[tB], Model.vertexViewSpaceY[tC],
+                    Model.vertexViewSpaceZ[tB], Model.vertexViewSpaceZ[tC],
+                    this.faceColour![face]
                 );
             }
         }
     }
 
-    private isMouseRoughlyInsideTriangle(x: number, y: number, yA: number, yB: number, yC: number, xA: number, xB: number, xC: number): boolean {
+    isMouseRoughlyInsideTriangle(x: number, y: number, yA: number, yB: number, yC: number, xA: number, xB: number, xC: number): boolean {
         if (y < yA && y < yB && y < yC) {
             return false;
         } else if (y > yA && y > yB && y > yC) {
             return false;
         } else if (x < xA && x < xB && x < xC) {
             return false;
+        } else if (x > xA && x > xB && x > xC) {
+            return false;
         } else {
-            return x <= xA || x <= xB || x <= xC;
+            return true;
         }
     }
 }

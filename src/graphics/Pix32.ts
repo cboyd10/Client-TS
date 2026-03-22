@@ -7,12 +7,12 @@ import Packet from '#/io/Packet.js';
 
 export default class Pix32 extends Pix2D {
     data: Int32Array;
-    wi: number;
-    hi: number;
-    xof: number;
-    yof: number;
-    owi: number;
-    ohi: number;
+    wi: number; // width
+    hi: number; // height
+    xof: number; // x offset
+    yof: number; // y offset
+    owi: number; // original width
+    ohi: number; // original height
 
     constructor(width: number, height: number) {
         super();
@@ -33,38 +33,32 @@ export default class Pix32 extends Pix2D {
         const image: Pix32 = new Pix32(jpeg.width, jpeg.height);
 
         const data: Uint32Array = new Uint32Array(jpeg.data.buffer);
-        const pixels: Int32Array = image.data;
-        for (let i: number = 0; i < pixels.length; i++) {
+        for (let i: number = 0; i < image.data.length; i++) {
             const pixel: number = data[i];
-            pixels[i] = (((pixel >> 24) & 0xff) << 24) | ((pixel & 0xff) << 16) | (((pixel >> 8) & 0xff) << 8) | ((pixel >> 16) & 0xff);
+            image.data[i] = (((pixel >> 24) & 0xff) << 24) | ((pixel & 0xff) << 16) | (((pixel >> 8) & 0xff) << 8) | ((pixel >> 16) & 0xff);
         }
         return image;
     }
 
-    static depack(archive: JagFile, name: string, sprite: number = 0): Pix32 {
-        const dat: Packet = new Packet(archive.read(name + '.dat'));
-        const index: Packet = new Packet(archive.read('index.dat'));
+    static depack(jag: JagFile, name: string, sprite: number = 0): Pix32 {
+        const dat: Packet = new Packet(jag.read(name + '.dat'));
+        const index: Packet = new Packet(jag.read('index.dat'));
 
-        // cropW/cropH are shared across all sprites in a single image
         index.pos = dat.g2();
-        const cropW: number = index.g2();
-        const cropH: number = index.g2();
+        const owi: number = index.g2();
+        const ohi: number = index.g2();
 
-        // palette is shared across all images in a single archive
-        const paletteCount: number = index.g1();
-        const palette: number[] = [];
-        const length: number = paletteCount - 1;
-        for (let i: number = 0; i < length; i++) {
-            // the first color (0) is reserved for transparency
-            palette[i + 1] = index.g3();
+        const bpalCount: number = index.g1();
+        const bpal: Int32Array = new Int32Array(bpalCount);
 
-            // black (0) will become transparent, make it black (1) so it's visible
-            if (palette[i + 1] === 0) {
-                palette[i + 1] = 1;
+        for (let i: number = 0; i < bpalCount - 1; i++) {
+            bpal[i + 1] = index.g3();
+
+            if (bpal[i + 1] === 0) {
+                bpal[i + 1] = 1;
             }
         }
 
-        // advance to sprite
         for (let i: number = 0; i < sprite; i++) {
             index.pos += 2;
             dat.pos += index.g2() * index.g2();
@@ -75,30 +69,26 @@ export default class Pix32 extends Pix2D {
             throw new Error();
         }
 
-        // read sprite
-        const cropX: number = index.g1();
-        const cropY: number = index.g1();
-        const width: number = index.g2();
-        const height: number = index.g2();
+        const xof: number = index.g1();
+        const yof: number = index.g1();
+        const wi: number = index.g2();
+        const hi: number = index.g2();
 
-        const image: Pix32 = new Pix32(width, height);
-        image.xof = cropX;
-        image.yof = cropY;
-        image.owi = cropW;
-        image.ohi = cropH;
+        const image: Pix32 = new Pix32(wi, hi);
+        image.xof = xof;
+        image.yof = yof;
+        image.owi = owi;
+        image.ohi = ohi;
 
-        const pixelOrder: number = index.g1();
-        if (pixelOrder === 0) {
-            const length: number = image.wi * image.hi;
-            for (let i: number = 0; i < length; i++) {
-                image.data[i] = palette[dat.g1()];
+        const encoding: number = index.g1();
+        if (encoding === 0) {
+            for (let i: number = 0; i < image.wi * image.hi; i++) {
+                image.data[i] = bpal[dat.g1()];
             }
-        } else if (pixelOrder === 1) {
-            const width: number = image.wi;
-            for (let x: number = 0; x < width; x++) {
-                const height: number = image.hi;
-                for (let y: number = 0; y < height; y++) {
-                    image.data[x + y * width] = palette[dat.g1()];
+        } else if (encoding === 1) {
+            for (let x: number = 0; x < image.wi; x++) {
+                for (let y: number = 0; y < image.hi; y++) {
+                    image.data[x + y * image.wi] = bpal[dat.g1()];
                 }
             }
         }
@@ -452,8 +442,8 @@ export default class Pix32 extends Pix2D {
                 leftY += cosZoom;
                 leftOff += Pix2D.width;
             }
-        } catch (e) {
-            /* empty */
+        } catch (_e) {
+            // empty
         }
     }
 

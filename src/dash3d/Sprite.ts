@@ -2,6 +2,8 @@ import ModelSource from '#/dash3d/ModelSource.js';
 
 import Model from '#/dash3d/Model.js';
 
+// Sprites are an abstract entity - a model to be rendered.
+// It can be a Loc, Player, NPC, or another renderable class
 export default class Sprite {
     readonly level: number;
     readonly y: number;

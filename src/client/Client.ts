@@ -63,8 +63,8 @@ import JagFile from '#/io/JagFile.js';
 import Packet from '#/io/Packet.js';
 import { ServerProt, ServerProtSizes } from '#/io/ServerProt.js';
 
-import WordFilter from '#/wordenc/WordFilter.js';
-import WordPack from '#/wordenc/WordPack.js';
+import WordFilter from '#/wordfilter/WordFilter.js';
+import WordPack from '#/wordfilter/WordPack.js';
 
 import JagFX from '#/sound/JagFX.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
@@ -3625,9 +3625,9 @@ export class Client extends GameShell {
         this.b12?.centreString((x / 2) | 0, ((y / 2) | 0) - offsetY - 26, 'RuneScape is loading - please wait...', Colour.WHITE);
 
         const midY: number = ((y / 2) | 0) - 18 - offsetY;
-        Pix2D.drawRect(((x / 2) | 0) - 152, midY, 304, 34, Colour.PROGRESS_RED);
+        Pix2D.drawRect(((x / 2) | 0) - 152, midY, 304, 34, 0x8c1111);
         Pix2D.drawRect(((x / 2) | 0) - 151, midY + 1, 302, 32, Colour.BLACK);
-        Pix2D.fillRect(((x / 2) | 0) - 150, midY + 2, percent * 3, 30, Colour.PROGRESS_RED);
+        Pix2D.fillRect(((x / 2) | 0) - 150, midY + 2, percent * 3, 30, 0x8c1111);
         Pix2D.fillRect(((x / 2) | 0) - 150 + percent * 3, midY + 2, 300 - percent * 3, 30, Colour.BLACK);
         this.b12?.centreString((x / 2) | 0, ((y / 2) | 0) + 5 - offsetY, message, Colour.WHITE);
 
@@ -3714,7 +3714,7 @@ export class Client extends GameShell {
 
         if (this.chatComId === -1) {
             this.chatInterface.scrollPos = this.chatScrollHeight - this.chatScrollPos - 77;
- 
+
             if (this.mouseX > 453 && this.mouseX < 565 && this.mouseY > 350) {
                 this.doScrollbar(this.mouseX - 22, this.mouseY - 375, this.chatScrollHeight, 77, false, 463, 0, this.chatInterface);
             }
@@ -7318,7 +7318,7 @@ export class Client extends GameShell {
             const otherAngle: number = otherInfo >> 6;
 
             if (layer === LocLayer.WALL) {
-                this.world?.delWall(level, x, z, 1);
+                this.world?.delWall(level, x, z);
 
                 const type: LocType = LocType.list(otherId);
                 if (type.blockwalk) {
@@ -10738,7 +10738,7 @@ export class Client extends GameShell {
                     line++;
                 } else if (type === 4 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.chatUsername[i])))) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, this.chatUsername[i] + ' ' + this.chatText[i], Colour.TRADE_MESSAGE);
+                        font?.drawString(4, y, this.chatUsername[i] + ' ' + this.chatText[i], 0x800080);
                     }
 
                     line++;
@@ -10757,7 +10757,7 @@ export class Client extends GameShell {
                     line++;
                 } else if (type === 8 && (this.chatTradeMode === 0 || (this.chatTradeMode === 1 && this.isFriend(this.chatUsername[i])))) {
                     if (y > 0 && y < 110) {
-                        font?.drawString(4, y, this.chatUsername[i] + ' ' + this.chatText[i], Colour.DUEL_MESSAGE);
+                        font?.drawString(4, y, this.chatUsername[i] + ' ' + this.chatText[i], 0xcbb789);
                     }
 
                     line++;

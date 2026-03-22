@@ -18,6 +18,7 @@ export default class MapSpotAnim extends ModelSource {
 
     constructor(id: number, level: number, x: number, z: number, y: number, cycle: number, delay: number) {
         super();
+
         this.type = SpotType.list[id];
         this.level = level;
         this.x = x;
@@ -44,7 +45,9 @@ export default class MapSpotAnim extends ModelSource {
 
     override getTempModel(): Model {
         const tmp: Model = this.type.getTempModel2();
+
         const model: Model = Model.copyForAnim(tmp, true, !this.type.animateTransparencies, false);
+
         if (!this.animComplete && this.type.seq && this.type.seq.frames) {
             model.prepareAnim();
             model.animate(this.type.seq.frames[this.animFrame]);

@@ -28,36 +28,38 @@ export default class ClientNpc extends ClientEntity {
             return this.getTempModel2();
         }
 
-        const model: Model | null = this.getTempModel2();
-        if (!model) {
+        let model = this.getTempModel2();
+        if (model == null) {
             return null;
         }
 
-        const spotanim: SpotType = SpotType.list[this.spotanimId];
+        const spot = SpotType.list[this.spotanimId];
+        const spotModel = spot.getTempModel2();
 
-        const model1: Model = Model.copyForAnim(spotanim.getTempModel2(), true, !spotanim.animateTransparencies, false);
-        model1.translate(-this.spotanimHeight, 0, 0);
-        model1.prepareAnim();
-        if (spotanim.seq && spotanim.seq.frames) {
-            model1.animate(spotanim.seq.frames[this.spotanimFrame]);
-        }
-        model1.labelFaces = null;
-        model1.labelVertices = null;
-
-        if (spotanim.resizeh !== 128 || spotanim.resizev !== 128) {
-            model1.resize(spotanim.resizeh, spotanim.resizev, spotanim.resizeh);
+        const temp: Model = Model.copyForAnim(spotModel, true, !spot.animateTransparencies, false);
+        temp.translate(-this.spotanimHeight, 0, 0);
+        temp.prepareAnim();
+        if (spot.seq && spot.seq.frames) {
+            temp.animate(spot.seq.frames[this.spotanimFrame]);
         }
 
-        model1.calculateNormals(64 + spotanim.ambient, 850 + spotanim.contrast, -30, -50, -30, true);
+        temp.labelFaces = null;
+        temp.labelVertices = null;
 
-        const models: Model[] = [model, model1];
-        const tmp: Model = Model.combine(models, 2);
-
-        if (this.type.size === 1) {
-            tmp.useAABBMouseCheck = true;
+        if (spot.resizeh != 128 || spot.resizev != 128) {
+            temp.resize(spot.resizeh, spot.resizev, spot.resizeh);
         }
 
-        return tmp;
+        temp.calculateNormals(spot.ambient + 64, spot.contrast + 850, -30, -50, -30, true);
+
+        const models: Model[] = [model, temp];
+        model = Model.combine(models, 2);
+
+        if (this.type.size == 1) {
+            model.useAABBMouseCheck = true;
+        }
+
+        return model;
     }
 
     private getTempModel2(): Model | null {
@@ -65,36 +67,35 @@ export default class ClientNpc extends ClientEntity {
             return null;
         }
 
-        if (this.primaryAnim >= 0 && this.primaryAnimDelay === 0) {
-            const frames: Int16Array | null = SeqType.list[this.primaryAnim].frames;
-            if (frames) {
-                const primaryTransformId: number = frames[this.primaryAnimFrame];
-                let secondaryTransformId: number = -1;
-                if (this.secondaryAnim >= 0 && this.secondaryAnim !== this.readyanim) {
-                    const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
-                    if (secondFrames) {
-                        secondaryTransformId = secondFrames[this.secondaryAnimFrame];
-                    }
-                }
-                return this.type.getTempModel(primaryTransformId, secondaryTransformId, SeqType.list[this.primaryAnim].walkmerge);
+        if (this.primaryAnim < 0 || this.primaryAnimDelay != 0) {
+            const secondarySeq = SeqType.list[this.secondaryAnim];
+            let secondaryTransform = -1;
+            if (this.secondaryAnim >= 0 && secondarySeq.frames) {
+                secondaryTransform = secondarySeq.frames[this.secondaryAnimFrame];
             }
-        }
 
-        let transformId: number = -1;
-        if (this.secondaryAnim >= 0) {
-            const secondFrames: Int16Array | null = SeqType.list[this.secondaryAnim].frames;
-            if (secondFrames) {
-                transformId = secondFrames[this.secondaryAnimFrame];
+            const model: Model | null = this.type.getTempModel(secondaryTransform, -1, null);
+            if (!model) {
+                return null;
             }
-        }
 
-        const model: Model | null = this.type.getTempModel(transformId, -1, null);
-        if (!model) {
-            return null;
-        }
+            this.height = model.minY;
+            return model;
+        } else {
+            const primarySeq = SeqType.list[this.primaryAnim];
+            let primaryTransform = -1;
+            if (primarySeq.frames) {
+                primaryTransform = primarySeq.frames[this.primaryAnimFrame];
+            }
 
-        this.height = model.minY;
-        return model;
+            const secondarySeq = SeqType.list[this.secondaryAnim];
+            let secondaryTransform = -1;
+            if (this.secondaryAnim >= 0 && this.secondaryAnim != this.readyanim && secondarySeq.frames) {
+                secondaryTransform = secondarySeq.frames[this.secondaryAnimFrame];
+            }
+
+            return this.type.getTempModel(primaryTransform, secondaryTransform, primarySeq.walkmerge);
+        }
     }
 
     isReady(): boolean {

@@ -30,20 +30,21 @@ export default class ClientProj extends ModelSource {
     animFrame: number = 0;
     animCycle: number = 0;
 
-    constructor(spotanim: number, level: number, srcX: number, srcY: number, srcZ: number, startCycle: number, lastCycle: number, peakPitch: number, arc: number, target: number, offsetY: number) {
+    constructor(spotanim: number, level: number, srcX: number, h1: number, srcZ: number, t1: number, t2: number, angle: number, startpos: number, target: number, h2: number) {
         super();
 
         this.spotanim = SpotType.list[spotanim];
         this.level = level;
         this.srcX = srcX;
         this.srcZ = srcZ;
-        this.h1 = srcY;
-        this.t1 = startCycle;
-        this.t2 = lastCycle;
-        this.angle = peakPitch;
-        this.startpos = arc;
+        this.h1 = h1;
+        this.t1 = t1;
+        this.t2 = t2;
+        this.angle = angle;
+        this.startpos = startpos;
         this.target = target;
-        this.h2 = offsetY;
+        this.h2 = h2;
+        this.mobile = false;
     }
 
     setTarget(dstX: number, dstY: number, dstZ: number, cycle: number): void {
@@ -76,22 +77,23 @@ export default class ClientProj extends ModelSource {
         this.yaw = ((Math.atan2(this.velocityX, this.velocityZ) * 325.949 + 1024) | 0) & 0x7ff;
         this.pitch = ((Math.atan2(this.velocityY, this.velocity) * 325.949) | 0) & 0x7ff;
 
-        if (!this.spotanim.seq || !this.spotanim.seq.delay) {
-            return;
-        }
-        this.animCycle += delta;
-        while (this.animCycle > this.spotanim.seq.delay[this.animFrame]) {
-            this.animCycle -= this.spotanim.seq.delay[this.animFrame] + 1;
-            this.animFrame++;
-            if (this.animFrame >= this.spotanim.seq.numFrames) {
-                this.animFrame = 0;
+        if (this.spotanim.seq && this.spotanim.seq.delay) {
+            this.animCycle += delta;
+
+            while (this.animCycle > this.spotanim.seq.delay[this.animFrame]) {
+                this.animCycle -= this.spotanim.seq.delay[this.animFrame] + 1;
+                this.animFrame++;
+                if (this.animFrame >= this.spotanim.seq.numFrames) {
+                    this.animFrame = 0;
+                }
             }
         }
     }
 
     override getTempModel(): Model | null {
-        const tmp: Model = this.spotanim.getTempModel2();
-        const model: Model = Model.copyForAnim(tmp, true, !this.spotanim.animateTransparencies, false);
+        const spotModel: Model = this.spotanim.getTempModel2();
+
+        const model: Model = Model.copyForAnim(spotModel, true, !this.spotanim.animateTransparencies, false);
 
         if (this.spotanim.seq && this.spotanim.seq.frames) {
             model.prepareAnim();
