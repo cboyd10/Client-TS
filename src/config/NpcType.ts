@@ -425,11 +425,11 @@ export default class NpcType extends Linkable2 {
         if (arg3 !== null && arg0 !== null) {
             var14 = arg3.splitAnimateModel(arg2, arg0, arg1, var6);
         } else if (arg3 !== null) {
-            var14 = arg3.animateModel2(arg2, var6);
+            var14 = arg3.animateModel(arg2, var6);
         } else if (arg0 === null) {
             var14 = var6.copyForAnim(true, true);
         } else {
-            var14 = arg0.animateModel2(arg1, var6);
+            var14 = arg0.animateModel(arg1, var6);
         }
 
         if (this.resizeh !== 128 || this.resizev !== 128) {

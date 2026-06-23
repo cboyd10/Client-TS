@@ -144,7 +144,7 @@ export default class SpotType extends Linkable2 {
         if (this.anim === -1 || arg0 === -1) {
             var6 = var2.copyForAnim2(true, true);
         } else {
-            var6 = SeqType.list(this.anim).animateModel(var2, arg0);
+            var6 = SeqType.list(this.anim).animateModel2(var2, arg0);
         }
 
         if (this.resizeh !== 128 || this.resizev !== 128) {

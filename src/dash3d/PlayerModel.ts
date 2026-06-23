@@ -135,9 +135,9 @@ export default class PlayerModel {
         if (arg3 !== null && arg0 !== null) {
             var30 = arg3.splitAnimateModel(arg1, arg0, arg2, var9);
         } else if (arg3 === null) {
-            var30 = arg0!.animateModel2(arg2, var9);
+            var30 = arg0!.animateModel(arg2, var9);
         } else {
-            var30 = arg3.animateModel2(arg1, var9);
+            var30 = arg3.animateModel(arg1, var9);
         }
         return var30;
     }

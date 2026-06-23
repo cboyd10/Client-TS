@@ -6,55 +6,64 @@ import LruCache from '#/datastruct/LruCache.js';
 import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
+// jag::oldscape::configdecoder::SeqType
 export default class SeqType extends Linkable2 {
-    static readonly recentUse: LruCache<SeqType> = new LruCache(64);
-    static readonly framesetCache: LruCache<AnimFrameSet> = new LruCache(100);
-
+	// jag::oldscape::configdecoder::SeqType::m_pConfigClient
     static configClient: Js5;
+
+    // jag::oldscape::configdecoder::SeqType::m_pAnims
     static anims: Js5;
+
+	// jag::oldscape::configdecoder::SeqType::m_pBases
     static bases: Js5;
 
-    preanim_move: number = -1;
-    walkmerge: Int32Array | null = null;
+	// jag::oldscape::configdecoder::SeqType::m_recentUse
+    static readonly recentUse: LruCache<SeqType> = new LruCache(64);
+
+    // jag::oldscape::configdecoder::SeqType::m_framesetCache
+    static readonly framesetCache: LruCache<AnimFrameSet> = new LruCache(100);
+
+    frames: Int32Array | null = null;
+    iframes: Int32Array | null = null;
     delay: Int32Array | null = null;
-    field1993: boolean = false;
+    sound: Int32Array[] | null = null;
+    loops: number = -1;
+    walkmerge: Int32Array | null = null;
+    reachforward: boolean = false;
     priority: number = 5;
     replaceheldleft: number = -1;
-    sound: Int32Array[] | null = null;
-    iframes: Int32Array | null = null;
-    reachforward: boolean = false;
-    loops: number = -1;
     replaceheldright: number = -1;
+    maxloops: number = 99;
+    preanim_move: number = -1;
     postanim_move: number = -1;
     duplicatebehaviour: number = 2;
-    maxloops: number = 99;
-    frames: Int32Array | null = null;
 
-    static list(arg0: number): SeqType {
-        const var1 = SeqType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
+    // todo: identify
+    field1993: boolean = false;
 
-        const var2 = SeqType.configClient.getFile(SeqType.getGroupId(arg0), SeqType.getFileId(arg0));
-        const var3 = new SeqType();
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        var3.postDecode();
-        SeqType.recentUse.put(BigInt(arg0), var3);
-        return var3;
+	// jag::oldscape::configdecoder::SeqType::Init
+    static init(config: Js5, anims: Js5, bases: Js5): void {
+        SeqType.anims = anims;
+        SeqType.configClient = config;
+        SeqType.bases = bases;
     }
 
-    static resetCache(): void {
-        SeqType.recentUse.clear();
-        SeqType.framesetCache.clear();
-    }
+	// jag::oldscape::configdecoder::SeqType::List
+    static list(id: number): SeqType {
+        const cached = SeqType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
+        }
 
-    static init(arg0: Js5, arg1: Js5, arg2: Js5): void {
-        SeqType.anims = arg1;
-        SeqType.configClient = arg0;
-        SeqType.bases = arg2;
+        const data = SeqType.configClient.getFile(SeqType.getGroupId(id), SeqType.getFileId(id));
+        const type = new SeqType();
+        if (data !== null) {
+            type.decode(new Packet(data));
+        }
+        type.postDecode();
+
+        SeqType.recentUse.put(BigInt(id), type);
+        return type;
     }
 
     static loadFrameset(arg0: Js5, arg1: number, arg2: Js5): AnimFrameSet | null {
@@ -103,100 +112,121 @@ export default class SeqType extends Linkable2 {
         return arg0 >>> 7;
     }
 
-    animateModel(arg0: ModelLit, arg1: number): ModelLit {
-        const var3 = this.frames![arg1];
-        const var4 = SeqType.get(var3 >> 16);
-        const var5 = var3 & 0xffff;
-        if (var4 === null) {
-            return arg0.copyForAnim2(true, true);
-        } else {
-            const var6 = arg0.copyForAnim2(!var4.getAnimateTransparencies(var5), !this.field1993);
-            var6.animate(var4, var5, this.field1993);
-            return var6;
-        }
-    }
-
-    decode(dat: Packet): void;
-    decode(dat: Packet, code: number): void;
-    decode(dat: Packet, code?: number): void {
-        if (typeof code === 'number') {
-            if (code === 1) {
-                const var3 = dat.g2();
-                this.delay = new Int32Array(var3);
-                for (let i = 0; i < var3; i++) {
-                    this.delay[i] = dat.g2();
-                }
-
-                this.frames = new Int32Array(var3);
-                for (let i = 0; i < var3; i++) {
-                    this.frames[i] = dat.g2();
-                }
-                for (let i = 0; i < var3; i++) {
-                    this.frames[i] += dat.g2() << 16;
-                }
-            } else if (code === 2) {
-                this.loops = dat.g2();
-            } else if (code === 3) {
-                const count = dat.g1();
-                this.walkmerge = new Int32Array(count + 1);
-                for (let i = 0; i < count; i++) {
-                    this.walkmerge[i] = dat.g1();
-                }
-                this.walkmerge[count] = 9999999;
-            } else if (code === 4) {
-                this.reachforward = true;
-            } else if (code === 5) {
-                this.priority = dat.g1();
-            } else if (code === 6) {
-                this.replaceheldleft = dat.g2();
-            } else if (code === 7) {
-                this.replaceheldright = dat.g2();
-            } else if (code === 8) {
-                this.maxloops = dat.g1();
-            } else if (code === 9) {
-                this.preanim_move = dat.g1();
-            } else if (code === 10) {
-                this.postanim_move = dat.g1();
-            } else if (code === 11) {
-                this.duplicatebehaviour = dat.g1();
-            } else if (code === 12) {
-                const count = dat.g1();
-                this.iframes = new Int32Array(count);
-                for (let i = 0; i < count; i++) {
-                    this.iframes[i] = dat.g2();
-                }
-                for (let i = 0; i < count; i++) {
-                    this.iframes[i] += dat.g2() << 16;
-                }
-            } else if (code === 13) {
-                const count = dat.g2();
-                this.sound = new Array(count);
-                for (let i = 0; i < count; i++) {
-                    const len = dat.g1();
-                    if (len > 0) {
-                        const sound = new Int32Array(len);
-                        sound[0] = dat.g3();
-                        for (let j = 1; j < len; j++) {
-                            sound[j] = dat.g2();
-                        }
-                        this.sound[i] = sound;
-                    }
-                }
-            } else if (code === 14) {
-                this.field1993 = true;
-            }
-            return;
-        }
-
+	// jag::oldscape::configdecoder::SeqType::Decode
+    decode(dat: Packet): void {
         while (true) {
             const code = dat.g1();
             if (code === 0) {
                 return;
             }
-            this.decode(dat, code);
+
+            this.decodeInner(dat, code);
         }
     }
 
+    // jag::oldscape::configdecoder::SeqType::Decode
+    decodeInner(dat: Packet, code: number): void {
+        if (code === 1) {
+            const count = dat.g2();
+            this.delay = new Int32Array(count);
+            for (let i = 0; i < count; i++) {
+                this.delay[i] = dat.g2();
+            }
+
+            this.frames = new Int32Array(count);
+            for (let i = 0; i < count; i++) {
+                this.frames[i] = dat.g2();
+            }
+            for (let i = 0; i < count; i++) {
+                this.frames[i] += dat.g2() << 16;
+            }
+        } else if (code === 2) {
+            this.loops = dat.g2();
+        } else if (code === 3) {
+            const count = dat.g1();
+            this.walkmerge = new Int32Array(count + 1);
+            for (let i = 0; i < count; i++) {
+                this.walkmerge[i] = dat.g1();
+            }
+            this.walkmerge[count] = 9999999;
+        } else if (code === 4) {
+            this.reachforward = true;
+        } else if (code === 5) {
+            this.priority = dat.g1();
+        } else if (code === 6) {
+            this.replaceheldleft = dat.g2();
+        } else if (code === 7) {
+            this.replaceheldright = dat.g2();
+        } else if (code === 8) {
+            this.maxloops = dat.g1();
+        } else if (code === 9) {
+            this.preanim_move = dat.g1();
+        } else if (code === 10) {
+            this.postanim_move = dat.g1();
+        } else if (code === 11) {
+            this.duplicatebehaviour = dat.g1();
+        } else if (code === 12) {
+            const count = dat.g1();
+            this.iframes = new Int32Array(count);
+            for (let i = 0; i < count; i++) {
+                this.iframes[i] = dat.g2();
+            }
+            for (let i = 0; i < count; i++) {
+                this.iframes[i] += dat.g2() << 16;
+            }
+        } else if (code === 13) {
+            const count = dat.g2();
+            this.sound = new Array(count);
+            for (let i = 0; i < count; i++) {
+                const len = dat.g1();
+                if (len > 0) {
+                    const sound = new Int32Array(len);
+                    sound[0] = dat.g3();
+                    for (let j = 1; j < len; j++) {
+                        sound[j] = dat.g2();
+                    }
+                    this.sound[i] = sound;
+                }
+            }
+        } else if (code === 14) {
+            this.field1993 = true;
+        }
+    }
+
+	// jag::oldscape::configdecoder::SeqType::PostDecode
+    postDecode(): void {
+        if (this.preanim_move === -1) {
+            if (this.walkmerge === null) {
+                this.preanim_move = 0;
+            } else {
+                this.preanim_move = 2;
+            }
+        }
+
+        if (this.postanim_move === -1) {
+            if (this.walkmerge === null) {
+                this.postanim_move = 0;
+            } else {
+                this.postanim_move = 2;
+            }
+        }
+    }
+
+	// jag::oldscape::configdecoder::SeqType::AnimateModel
+    animateModel(arg0: number, arg1: ModelLit): ModelLit {
+        const var3 = this.frames![arg0];
+        const var4 = SeqType.get(var3 >> 16);
+        const var5 = var3 & 0xffff;
+        if (var4 === null) {
+            return arg1.copyForAnim(true, true);
+        } else {
+            const var6 = arg1.copyForAnim(!var4.getAnimateTransparencies(var5), !this.field1993);
+            var6.animate(var4, var5, this.field1993);
+            return var6;
+        }
+    }
+
+	// jag::oldscape::configdecoder::SeqType::AnimateModel90
     animateModel90(arg0: number, arg1: ModelLit, arg2: number): ModelLit {
         const var4 = this.frames![arg2];
         const var5 = SeqType.get(var4 >> 16);
@@ -224,25 +254,26 @@ export default class SeqType extends Linkable2 {
         return var8;
     }
 
-    animateModel2(arg0: number, arg1: ModelLit): ModelLit {
-        const var3 = this.frames![arg0];
+    animateModel2(arg0: ModelLit, arg1: number): ModelLit {
+        const var3 = this.frames![arg1];
         const var4 = SeqType.get(var3 >> 16);
         const var5 = var3 & 0xffff;
         if (var4 === null) {
-            return arg1.copyForAnim(true, true);
+            return arg0.copyForAnim2(true, true);
         } else {
-            const var6 = arg1.copyForAnim(!var4.getAnimateTransparencies(var5), !this.field1993);
+            const var6 = arg0.copyForAnim2(!var4.getAnimateTransparencies(var5), !this.field1993);
             var6.animate(var4, var5, this.field1993);
             return var6;
         }
     }
 
+	// jag::oldscape::configdecoder::SeqType::SplitAnimateModel
     splitAnimateModel(arg0: number, arg1: SeqType, arg2: number, arg3: ModelLit): ModelLit {
         const var5 = this.frames![arg0];
         const var6 = SeqType.get(var5 >> 16);
         const var7 = var5 & 0xffff;
         if (var6 === null) {
-            return arg1.animateModel2(arg2, arg3);
+            return arg1.animateModel(arg2, arg3);
         }
         const var8 = arg1.frames![arg2];
         const var9 = SeqType.get(var8 >> 16);
@@ -258,25 +289,7 @@ export default class SeqType extends Linkable2 {
         }
     }
 
-    postDecode(): void {
-        if (this.preanim_move === -1) {
-            if (this.walkmerge === null) {
-                this.preanim_move = 0;
-            } else {
-                this.preanim_move = 2;
-            }
-        }
-
-        if (this.postanim_move !== -1) {
-            return;
-        }
-        if (this.walkmerge === null) {
-            this.postanim_move = 0;
-        } else {
-            this.postanim_move = 2;
-        }
-    }
-
+	// jag::oldscape::configdecoder::SeqType::AnimateModelWithExtra
     animateModelWithExtra(arg0: number, arg1: ModelLit): ModelLit {
         const var3 = this.frames![arg0];
         const var4 = SeqType.get(var3 >> 16);
@@ -301,5 +314,11 @@ export default class SeqType extends Linkable2 {
             var10.animate(var6, var7, this.field1993);
             return var10;
         }
+    }
+
+	// jag::oldscape::configdecoder::SeqType::ResetCache
+    static resetCache(): void {
+        SeqType.recentUse.clear();
+        SeqType.framesetCache.clear();
     }
 }
