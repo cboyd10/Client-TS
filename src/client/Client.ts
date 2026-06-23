@@ -593,76 +593,7 @@ export class Client extends GameShell {
         } catch {}
         Client.settings = this.getParameter('settings') ?? '';
         Client.loginHost = this.getCodeBase().hostname;
-        void this.run();
-    }
-
-    static errorUsage(): never {
-        throw new Error('Usage: worldid, [live/office/local], [live/rc/wip], [lowmem/highmem], [free/members], [english/german], [game0/game1]');
-    }
-
-    static main(...args: string[]): void {
-        try {
-            if (args.length !== 7) {
-                Client.errorUsage();
-            }
-            Client.worldid = Number.parseInt(args[0], 10);
-            if (Number.isNaN(Client.worldid)) {
-                throw new Error();
-            }
-            if (args[1] === 'live') {
-                Client.modewhere = 0;
-            } else if (args[1] === 'office') {
-                Client.modewhere = 1;
-            } else if (args[1] === 'local') {
-                Client.modewhere = 2;
-            } else {
-                Client.errorUsage();
-            }
-            if (args[2] === 'live') {
-                Client.modewhat = 0;
-            } else if (args[2] === 'rc') {
-                Client.modewhat = 1;
-            } else if (args[2] === 'wip') {
-                Client.modewhat = 2;
-            } else {
-                Client.errorUsage();
-            }
-            if (args[3] === 'lowmem') {
-                Client.setLowMem();
-            } else if (args[3] === 'highmem') {
-                Client.setHighMem();
-            } else {
-                Client.errorUsage();
-            }
-            if (args[4] === 'free') {
-                Client.memServer = false;
-            } else if (args[4] === 'members') {
-                Client.memServer = true;
-            } else {
-                Client.errorUsage();
-            }
-            if (args[5] === 'english') {
-                Client.lang = 0;
-            } else if (args[5] === 'german') {
-                TextGerman.swapGerman();
-                Client.lang = 1;
-            } else {
-                Client.errorUsage();
-            }
-            if (args[6] === 'game0') {
-                Client.modegame = 0;
-            } else if (args[6] === 'game1') {
-                Client.modegame = 1;
-            } else {
-                Client.errorUsage();
-            }
-            Client.affid = 0;
-            Client.settings = '';
-            Client.loginHost = '127.0.0.1';
-            new Client().startApplication(27, 503, 765, 500, Client.modewhat + 32, 'runescape');
-        } catch (var3) {
-            JagException.report(null, var3);
-        }
+        this.startCommon();
     }
 
     static setLowMem(): void {
@@ -678,10 +609,6 @@ export class Client extends GameShell {
     static async setMainState(state: number): Promise<void> {
         if (Client.state === state) {
             return;
-        }
-
-        if (Client.state === ClientMainState.LOADING) {
-            Client.resetProgress();
         }
 
         if (state === ClientMainState.LOGIN || state === ClientMainState.RECONNECT) {
@@ -1467,7 +1394,7 @@ export class Client extends GameShell {
         }
 
         if (Client.state === ClientMainState.LOADING) {
-            this.drawProgress(TitleScreen.loadString, TitleScreen.loadPos);
+            GameShell.drawProgress(null, TitleScreen.loadString, redraw, TitleScreen.loadPos);
         } else if (Client.state === ClientMainState.TITLE_LOADING || Client.state === ClientMainState.TITLE || Client.state === ClientMainState.LOGIN) {
             TitleScreen.draw(Client.p11!, Client.b12!);
         } else if (Client.state === ClientMainState.MAP_BUILD) {
@@ -2469,7 +2396,7 @@ export class Client extends GameShell {
 
         // WorldMap.mapCom = null;
         if (Client.toplevelinterface !== -1) {
-            Client.loopInterface(0, this.sHei, 0, 0, this.sWid, Client.toplevelinterface, 0);
+            Client.loopInterface(0, GameShell.sHei, 0, 0, GameShell.sWid, Client.toplevelinterface, 0);
         }
 
         Client.transmitNum++;
@@ -3644,7 +3571,7 @@ export class Client extends GameShell {
         Client.menuMouseX = -1;
         if (Client.toplevelinterface !== -1) {
             Client.componentDrawCount = 0;
-            this.drawInterface(this.sHei, Client.toplevelinterface, 0, -1, 0, 0, 0, this.sWid);
+            this.drawInterface(GameShell.sHei, Client.toplevelinterface, 0, -1, 0, 0, 0, GameShell.sWid);
         }
         Pix2D.resetClipping();
         Client.sortMinimenu();
@@ -6220,7 +6147,7 @@ export class Client extends GameShell {
 
             if (Client.ptype === 235) {
                 Client.settings = Client.in.gjstr();
-                GameShell.method1132(Client.settings);
+                GameShell.setCookie(Client.settings);
                 Client.ptype = -1;
                 return true;
             }
@@ -8460,16 +8387,16 @@ export class Client extends GameShell {
         Client.menuHeight = Client.menuNumEntries * 15 + 22;
 
         let y: number = ClientMouseListener.mouseClickY;
-        if (height + y > this.sHei) {
-            y = this.sHei - height;
+        if (height + y > GameShell.sHei) {
+            y = GameShell.sHei - height;
         }
         if (y < 0) {
             y = 0;
         }
 
         let x: number = ClientMouseListener.mouseClickX - ((width / 2) | 0);
-        if (width + x > this.sWid) {
-            x = this.sWid - width;
+        if (width + x > GameShell.sWid) {
+            x = GameShell.sWid - width;
         }
         Client.menuY = y;
         if (x < 0) {

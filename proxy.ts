@@ -269,6 +269,10 @@ try {
                     return serverListResponse;
                 }
 
+                if (new URL(req.url).pathname === '/clienterror.ws') {
+                    return new Response(null, { status: 204 });
+                }
+
                 const staticResponse = await serveStatic(req);
                 if (staticResponse) {
                     return staticResponse;
