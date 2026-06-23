@@ -1,0 +1,10 @@
+/node_modules/
+package-lock.json
+.env
+
+/out/
+/public/client/client.js
+private.pem
+public.pem
+
+.idea
