@@ -1,6 +1,6 @@
-import type MouseWheelInterface from '#/client/MouseWheelInterface.js';
+import type MouseWheelListener from '#/client/MouseWheelListener.js';
 
-export default class ClientMouseWheelListener implements MouseWheelInterface {
+export default class ClientMouseWheelListener implements MouseWheelListener {
     rotation = 0;
 
     addListeners(target: HTMLElement): void {

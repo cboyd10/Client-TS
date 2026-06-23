@@ -11,7 +11,7 @@ import ClientMouseListener from '#/client/ClientMouseListener.js';
 import GameShell from '#/client/GameShell.js';
 import HookReq from '#/client/HookReq.js';
 import MouseTracking from '#/client/MouseTracking.js';
-import MouseWheelInterface from '#/client/MouseWheelInterface.js';
+import MouseWheelListener from '#/client/MouseWheelListener.js';
 import PrivilegedRequest from '#/client/PrivilegedRequest.js';
 import ScriptRunner from '#/client/ScriptRunner.js';
 import Skills from '#/constants/Skills.js';
@@ -365,7 +365,7 @@ export class Client extends GameShell {
     static friendTransmitNum: number = 0;
     static clanTransmitNum: number = 0;
     static miscTransmitNum: number = 0;
-    static mouseWheel: MouseWheelInterface | null = null;
+    static mouseWheel: MouseWheelListener | null = null;
     static mouseWheelRotation: number = 0;
     static hookRequests: LinkList<HookReq> = new LinkList();
     static hookRequestsTimer: LinkList<HookReq> = new LinkList();
@@ -657,7 +657,7 @@ export class Client extends GameShell {
         ClientKeyboardListener.setupKeyCodeMap();
         ClientKeyboardListener.addListeners(GameShell.canvas!);
         ClientMouseListener.addListeners(GameShell.canvas!);
-        Client.mouseWheel = MouseWheelInterface.create();
+        Client.mouseWheel = MouseWheelListener.getProvider();
         Client.mouseWheel?.addListeners(GameShell.canvas!);
 
         try {

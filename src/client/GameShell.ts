@@ -400,14 +400,17 @@ export default abstract class GameShell {
         ]);
     }
 
+    // custom
     public getCodeBase(): URL {
         return new URL(globalThis.location?.href ?? 'http://localhost/');
     }
 
+    // custom
     public getDocumentBase(): URL {
         return new URL(globalThis.location?.href ?? 'http://localhost/');
     }
 
+    // custom
     public getAppletContext(): { showDocument: (url: URL, target?: string) => void } | null {
         return {
             showDocument: (url: URL, target?: string): void => {
@@ -420,6 +423,7 @@ export default abstract class GameShell {
         };
     }
 
+    // custom
     public getParameter(name: string): string | null {
         try {
             return new URL(globalThis.location?.href ?? 'http://localhost/').searchParams.get(name);

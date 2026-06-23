@@ -11,15 +11,16 @@ type HTTPRequestState = {
     status: number;
 };
 
+// jag::http::HTTPRequest::HTTPRequest
 export default class HTTPRequest {
-    read1 = 0;
-    stream: BrowserDataInputStream | null = null;
-    data: Uint8Array | null = null;
     stage = 0;
-    readonly timeout: number;
-    readonly temp = new Uint8Array(4);
-    read2 = 0;
     readonly req: HTTPRequestState = { result: null, status: 0 };
+    stream: BrowserDataInputStream | null = null;
+    readonly temp = new Uint8Array(4);
+    read1 = 0;
+    data: Uint8Array | null = null;
+    read2 = 0;
+    readonly timeout: number;
 
     constructor(url: URL | string) {
         this.stage = 0;
@@ -51,6 +52,7 @@ export default class HTTPRequest {
         }
     }
 
+	// jag::http::HTTPRequest::GetData
     getData(): Uint8Array | null {
         if (this.timeout < MonotonicTime.currentTime()) {
             throw new Error('fdt');

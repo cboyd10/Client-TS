@@ -1,7 +1,7 @@
 import ClientMouseWheelListener from '#/client/ClientMouseWheelListener.js';
 
-export default abstract class MouseWheelInterface {
-    static create(): MouseWheelInterface | null {
+export default abstract class MouseWheelListener {
+    static getProvider(): MouseWheelListener | null {
         try {
             return new ClientMouseWheelListener();
         } catch {
@@ -10,8 +10,6 @@ export default abstract class MouseWheelInterface {
     }
 
     abstract addListeners(target: HTMLElement): void;
-
-    abstract getRotation(): number;
-
     abstract removeListeners(target: HTMLElement): void;
+    abstract getRotation(): number;
 }

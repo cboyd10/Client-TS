@@ -1276,14 +1276,6 @@ export default class ClientBuild {
         return ((var2 / 16) | 0) + ((var3 / 8) | 0) + ((var4 / 4) | 0);
     }
 
-    static interpolate(arg0: number, arg1: number, arg2: number, arg3: number): number {
-        if (arg0 === 0) {
-            throw new Error('/ by zero');
-        }
-        const var4: number = (65536 - Pix3D.cosTable[(Math.imul(arg2, 1024) / arg0) | 0]) >> 1;
-        return (Math.imul(arg1, 65536 - var4) >> 16) + (Math.imul(arg3, var4) >> 16);
-    }
-
     // jag::oldscape::ClientBuild::Noise
     static noise(arg0: number, arg1: number): number {
         const var2: number = Math.imul(arg0, 57) + arg1;
@@ -1404,5 +1396,14 @@ export default class ClientBuild {
         } else {
             return 0;
         }
+    }
+
+    // todo: placement
+    static interpolate(arg0: number, arg1: number, arg2: number, arg3: number): number {
+        if (arg0 === 0) {
+            throw new Error('/ by zero');
+        }
+        const var4: number = (65536 - Pix3D.cosTable[(Math.imul(arg2, 1024) / arg0) | 0]) >> 1;
+        return (Math.imul(arg1, 65536 - var4) >> 16) + (Math.imul(arg3, var4) >> 16);
     }
 }
