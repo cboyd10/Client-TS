@@ -1,23 +1,25 @@
 import MonotonicTime from '#/util/MonotonicTime.js';
 
+// jag::oldscape::input::ClientMouseListener
 export default class ClientMouseListener {
     static instance: ClientMouseListener | null = new ClientMouseListener();
     static idleTimer: number = 0;
+    static nextMouseButton: number = 0;
     static nextMouseX: number = -1;
     static nextMouseY: number = -1;
-    static nextMouseButton: number = 0;
+    static mouseButton: number = 0;
+    static mouseX: number = 0;
+    static mouseY: number = 0;
+    static nextMouseClickButton: number = 0;
     static nextMouseClickX: number = 0;
     static nextMouseClickY: number = 0;
     static nextMouseClickTime: number = 0;
-    static nextMouseClickButton: number = 0;
-    static mouseY: number = 0;
-    static mouseX: number = 0;
+    static mouseClickButton: number = 0;
     static mouseClickX: number = 0;
     static mouseClickY: number = 0;
-    static mouseButton: number = 0;
-    static mouseClickButton: number = 0;
     static mouseClickTime: number = 0;
 
+    // todo: inline?
     private static readonly blur = (event: FocusEvent): void => ClientMouseListener.instance?.focusLost(event);
     private static readonly focus = (event: FocusEvent): void => ClientMouseListener.instance?.focusGained(event);
 
@@ -32,20 +34,8 @@ export default class ClientMouseListener {
         target.addEventListener('focus', ClientMouseListener.focus, false);
     }
 
-    static removeListeners(target: HTMLElement): void {
-        target.onmousedown = null;
-        target.onmouseup = null;
-        target.onmousemove = null;
-        target.onmouseenter = null;
-        target.onmouseleave = null;
-        target.onclick = null;
-        target.removeEventListener('blur', ClientMouseListener.blur, false);
-        target.removeEventListener('focus', ClientMouseListener.focus, false);
-        ClientMouseListener.nextMouseButton = 0;
-    }
-
-    static shutdown(): void {
-        ClientMouseListener.instance = null;
+    static setIdleTimer(value: number): void {
+        ClientMouseListener.idleTimer = value;
     }
 
     static cycle(): void {
@@ -58,20 +48,6 @@ export default class ClientMouseListener {
         ClientMouseListener.mouseClickY = ClientMouseListener.nextMouseClickY;
         ClientMouseListener.mouseClickTime = ClientMouseListener.nextMouseClickTime;
         ClientMouseListener.nextMouseClickButton = 0;
-    }
-
-    static getIdleTimer(): number {
-        return ClientMouseListener.idleTimer;
-    }
-
-    static setIdleTimer(value: number): void {
-        ClientMouseListener.idleTimer = value;
-    }
-
-    mouseClicked(event: MouseEvent): void {
-        if (event.button === 2) {
-            event.preventDefault();
-        }
     }
 
     mousePressed(event: MouseEvent): void {
@@ -135,6 +111,12 @@ export default class ClientMouseListener {
             ClientMouseListener.idleTimer = 0;
             ClientMouseListener.nextMouseButton = 0;
         }
+        if (event.button === 2) {
+            event.preventDefault();
+        }
+    }
+
+    mouseClicked(event: MouseEvent): void {
         if (event.button === 2) {
             event.preventDefault();
         }
@@ -295,11 +277,31 @@ export default class ClientMouseListener {
         }
     }
 
+    focusGained(_event: FocusEvent): void {}
+
     focusLost(_event: FocusEvent): void {
         if (ClientMouseListener.instance) {
             ClientMouseListener.nextMouseButton = 0;
         }
     }
 
-    focusGained(_event: FocusEvent): void {}
+    static removeListeners(target: HTMLElement): void {
+        target.onmousedown = null;
+        target.onmouseup = null;
+        target.onmousemove = null;
+        target.onmouseenter = null;
+        target.onmouseleave = null;
+        target.onclick = null;
+        target.removeEventListener('blur', ClientMouseListener.blur, false);
+        target.removeEventListener('focus', ClientMouseListener.focus, false);
+        ClientMouseListener.nextMouseButton = 0;
+    }
+
+    static shutdown(): void {
+        ClientMouseListener.instance = null;
+    }
+
+    static getIdleTimer(): number {
+        return ClientMouseListener.idleTimer;
+    }
 }

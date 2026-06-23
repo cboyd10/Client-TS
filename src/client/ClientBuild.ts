@@ -15,56 +15,311 @@ import Pix3D from '#/dash3d/Pix3D.js';
 
 import Packet from '#/io/Packet.js';
 
+// jag::oldscape::ClientBuild
 export default class ClientBuild {
-    static mapl: Uint8Array[][] = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
-    static readonly zoneMapArchiveIds: Int32Array[][] = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: 13 }, () => new Int32Array(13)));
-    static readonly WSHAPE0: Int32Array = Int32Array.of(1, 2, 4, 8);
-    static readonly WSHAPE1: Int32Array = Int32Array.of(16, 32, 64, 128);
-    static readonly DECORXOF: Int32Array = Int32Array.of(1, 0, -1, 0);
-    static readonly DECORZOF: Int32Array = Int32Array.of(0, -1, 0, 1);
-    static readonly DECORXOF2: Int32Array = Int32Array.of(1, -1, -1, 1);
-    static readonly DECORZOF2: Int32Array = Int32Array.of(-1, -1, 1, 1);
-    static ligOff: number = ((Math.random() * 33.0) | 0) - 16;
-    static hueOff: number = ((Math.random() * 17.0) | 0) - 8;
-    static shadow: Uint8Array[][] | null = null;
+	// jag::oldscape::ClientBuild::m_groundh
     static groundh: Int32Array[][] | null = null;
-    static huetot: Int32Array | null = null;
-    static sattot: Int32Array | null = null;
-    static ligtot: Int32Array | null = null;
-    static tot: Int32Array | null = null;
-    static comtot: Int32Array | null = null;
-    static floort1: Uint8Array[][] | null = null;
+
+	// jag::oldscape::ClientBuild::m_mapl
+    static mapl: Uint8Array[][] = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
+
+	// jag::oldscape::ClientBuild::minusedlevel
     static minusedlevel: number = 99;
+
+	// jag::oldscape::ClientBuild::m_floort1
+    static floort1: Uint8Array[][] | null = null;
+
+	// jag::oldscape::ClientBuild::m_floort2
     static floort2: Uint8Array[][] | null = null;
-    static mapo: Int32Array[][] | null = null;
+
+	// jag::oldscape::ClientBuild::m_floors
     static floors: Uint8Array[][] | null = null;
+
+	// jag::oldscape::ClientBuild::m_floorr
     static floorr: Uint8Array[][] | null = null;
+
+	// jag::oldscape::ClientBuild::m_shadow
+    static shadow: Uint8Array[][] | null = null;
+
+	// jag::oldscape::ClientBuild::m_lightmap
     static lightmap: Int32Array[] | null = null;
+
+	// jag::oldscape::ClientBuild::m_huetot
+    static huetot: Int32Array | null = null;
+
+	// jag::oldscape::ClientBuild::m_sattot
+    static sattot: Int32Array | null = null;
+
+	// jag::oldscape::ClientBuild::m_ligtot
+    static ligtot: Int32Array | null = null;
+
+	// jag::oldscape::ClientBuild::m_comtot
+    static comtot: Int32Array | null = null;
+
+	// jag::oldscape::ClientBuild::m_tot
+    static tot: Int32Array | null = null;
+
+	// jag::oldscape::ClientBuild::m_mapo
+    static mapo: Int32Array[][] | null = null;
+
+	// jag::oldscape::ClientBuild::WSHAPE0
+    static readonly WSHAPE0: Int32Array = Int32Array.of(1, 2, 4, 8);
+
+	// jag::oldscape::ClientBuild::WSHAPE1
+    static readonly WSHAPE1: Int32Array = Int32Array.of(16, 32, 64, 128);
+
+	// jag::oldscape::ClientBuild::DECORXOF
+    static readonly DECORXOF: Int32Array = Int32Array.of(1, 0, -1, 0);
+
+	// jag::oldscape::ClientBuild::DECORZOF
+    static readonly DECORZOF: Int32Array = Int32Array.of(0, -1, 0, 1);
+
+	// jag::oldscape::ClientBuild::DECORXOF2
+    static readonly DECORXOF2: Int32Array = Int32Array.of(1, -1, -1, 1);
+
+	// jag::oldscape::ClientBuild::DECORZOF2
+    static readonly DECORZOF2: Int32Array = Int32Array.of(-1, -1, 1, 1);
+
+	// jag::oldscape::ClientBuild::m_hueOff
+    static hueOff: number = ((Math.random() * 17.0) | 0) - 8;
+
+	// jag::oldscape::ClientBuild::m_ligOff
+    static ligOff: number = ((Math.random() * 33.0) | 0) - 16;
+
+    // todo: move to client?
+    static readonly zoneMapArchiveIds: Int32Array[][] = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: 13 }, () => new Int32Array(13)));
     static field3221: (Uint8Array | null)[] | null = null;
     static field2731: Int32Array | null = null;
     static field774: (Uint8Array | null)[] | null = null;
 
-    static getOCol(arg0: number, arg1: number): number {
-        if (arg1 === -2) {
-            return 12345678;
-        } else if (arg1 === -1) {
-            if (arg0 < 2) {
-                arg0 = 2;
-            } else if (arg0 > 126) {
-                arg0 = 126;
+	// jag::oldscape::ClientBuild::Quit
+    static quit(): void {
+        ClientBuild.ligtot = null;
+        ClientBuild.comtot = null;
+        ClientBuild.floorr = null;
+        ClientBuild.sattot = null;
+        ClientBuild.mapo = null;
+        ClientBuild.tot = null;
+        ClientBuild.shadow = null;
+        ClientBuild.floors = null;
+        ClientBuild.floort1 = null;
+        ClientBuild.floort2 = null;
+        ClientBuild.huetot = null;
+    }
+
+	// jag::oldscape::ClientBuild::FadeAdjacent
+    static fadeAdjacent(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number): void {
+        for (let var5 = arg3; var5 <= arg1 + arg3; var5++) {
+            for (let var6 = arg4; var6 <= arg4 + arg2; var6++) {
+                if (var6 >= 0 && var6 < 104 && var5 >= 0 && var5 < 104) {
+                    ClientBuild.shadow![arg0][var6][var5] = 127;
+                }
             }
-            return arg0;
-        } else {
-            let var2 = ((arg1 & 0x7f) * arg0) >> 7;
-            if (var2 < 2) {
-                var2 = 2;
-            } else if (var2 > 126) {
-                var2 = 126;
+        }
+        for (let var7 = arg3; var7 < arg1 + arg3; var7++) {
+            for (let var8 = arg4; var8 < arg2 + arg4; var8++) {
+                if (var8 >= 0 && var8 < 104 && var7 >= 0 && var7 < 104) {
+                    ClientBuild.groundh![arg0][var8][var7] = arg0 <= 0 ? 0 : ClientBuild.groundh![arg0 - 1][var8][var7];
+                }
             }
-            return (arg1 & 0xff80) + var2;
+        }
+        if (arg4 > 0 && arg4 < 104) {
+            for (let var9 = arg3 + 1; var9 < arg1 + arg3; var9++) {
+                if (var9 >= 0 && var9 < 104) {
+                    ClientBuild.groundh![arg0][arg4][var9] = ClientBuild.groundh![arg0][arg4 - 1][var9];
+                }
+            }
+        }
+        if (arg3 > 0 && arg3 < 104) {
+            for (let var10 = arg4 + 1; var10 < arg2 + arg4; var10++) {
+                if (var10 >= 0 && var10 < 104) {
+                    ClientBuild.groundh![arg0][var10][arg3] = ClientBuild.groundh![arg0][var10][arg3 - 1];
+                }
+            }
+        }
+        if (arg4 >= 0 && arg3 >= 0 && arg4 < 104 && arg3 < 104) {
+            if (arg0 === 0) {
+                if (arg4 > 0 && ClientBuild.groundh![arg0][arg4 - 1][arg3] !== 0) {
+                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3];
+                } else if (arg3 > 0 && ClientBuild.groundh![arg0][arg4][arg3 - 1] !== 0) {
+                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4][arg3 - 1];
+                } else if (arg4 > 0 && arg3 > 0 && ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1] !== 0) {
+                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1];
+                }
+            } else {
+                if (arg4 > 0 && ClientBuild.groundh![arg0 - 1][arg4 - 1][arg3] !== ClientBuild.groundh![arg0][arg4 - 1][arg3]) {
+                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3];
+                } else if (arg3 > 0 && ClientBuild.groundh![arg0][arg4][arg3 - 1] !== ClientBuild.groundh![arg0 - 1][arg4][arg3 - 1]) {
+                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4][arg3 - 1];
+                } else if (arg4 > 0 && arg3 > 0 && ClientBuild.groundh![arg0 - 1][arg4 - 1][arg3 - 1] !== ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1]) {
+                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1];
+                }
+            }
         }
     }
 
+	// jag::oldscape::ClientBuild::LoadGround
+    static loadGround(): void;
+    static loadGround(originZ: number, xOffset: number, originX: number, collisions: Array<CollisionMap | null>, zOffset: number, src: Uint8Array): void;
+    static loadGround(arg0?: number, arg1?: number, arg2?: number, arg3?: Array<CollisionMap | null>, arg4?: number, arg5?: Uint8Array): void {
+        if (arg0 === undefined) {
+            const var0 = ClientBuild.field3221!;
+            const var1 = var0.length;
+            for (let var2 = 0; var2 < var1; var2++) {
+                const var3 = ((ClientBuild.field2731![var2] >> 8) * 64 - Client.mapBuildBaseX) | 0;
+                const var4 = var0[var2];
+                const var5 = ((ClientBuild.field2731![var2] & 0xff) * 64 - Client.mapBuildBaseZ) | 0;
+                if (var4 != null) {
+                    Client.doAudio();
+                    ClientBuild.loadGround(Client.mapBuildCentreZoneZ * 8 - 48, var3, (Client.mapBuildCentreZoneX - 6) * 8, Client.collision, var5, var4);
+                }
+            }
+            for (let var6 = 0; var6 < var1; var6++) {
+                const var7 = ((ClientBuild.field2731![var6] >> 8) * 64 - Client.mapBuildBaseX) | 0;
+                const var8 = ((ClientBuild.field2731![var6] & 0xff) * 64 - Client.mapBuildBaseZ) | 0;
+                const var9 = var0[var6];
+                if (var9 == null && Client.mapBuildCentreZoneZ < 800) {
+                    Client.doAudio();
+                    for (let var10 = 0; var10 < 4; var10++) {
+                        ClientBuild.fadeAdjacent(var10, 64, 64, var8, var7);
+                    }
+                }
+            }
+            return;
+        }
+        for (let var6 = 0; var6 < 4; var6++) {
+            for (let var7 = 0; var7 < 64; var7++) {
+                for (let var8 = 0; var8 < 64; var8++) {
+                    if (var7 + arg1! > 0 && var7 + arg1! < 103 && var8 + arg4! > 0 && arg4! + var8 < 103) {
+                        arg3![var6]!.flags[var7 + arg1!][var8 + arg4!] &= 0xfeffffff;
+                    }
+                }
+            }
+        }
+
+        const var9 = new Packet(arg5!);
+        for (let var10 = 0; var10 < 4; var10++) {
+            for (let var11 = 0; var11 < 64; var11++) {
+                for (let var12 = 0; var12 < 64; var12++) {
+                    ClientBuild.loadGroundSquare(var11 + arg1!, var9, arg0, arg2!, var12 + arg4!, 0, var10);
+                }
+            }
+        }
+    }
+
+	// jag::oldscape::ClientBuild::LoadGroundRegion
+    static loadGroundRegion(): void;
+    static loadGroundRegion(dstX: number, rotation: number, srcX: number, srcZ: number, collisions: Array<CollisionMap | null>, srcLevel: number, src: Uint8Array, dstZ: number, dstLevel: number): void;
+    static loadGroundRegion(arg0?: number, arg1?: number, arg2?: number, arg3?: number, arg4?: Array<CollisionMap | null>, arg5?: number, arg6?: Uint8Array, arg7?: number, arg8?: number): void {
+        if (arg0 === undefined) {
+            const var0 = ClientBuild.field3221!;
+            for (let var1 = 0; var1 < 4; var1++) {
+                Client.doAudio();
+                for (let var2 = 0; var2 < 13; var2++) {
+                    for (let var3 = 0; var3 < 13; var3++) {
+                        let var4 = false;
+                        const var5 = ClientBuild.zoneMapArchiveIds[var1][var2][var3];
+                        if (var5 !== -1) {
+                            const var6 = (var5 >> 24) & 0x3;
+                            const var7 = (var5 >> 14) & 0x3ff;
+                            const var8 = (var5 >> 1) & 0x3;
+                            const var9 = (var5 >> 3) & 0x7ff;
+                            const var10 = ((var9 / 8) | 0) + (((var7 / 8) | 0) << 8);
+                            for (let var11 = 0; var11 < ClientBuild.field2731!.length; var11++) {
+                                if (var10 === ClientBuild.field2731![var11] && var0[var11] != null) {
+                                    ClientBuild.loadGroundRegion(var2 * 8, var8, (var7 & 0x7) * 8, (var9 & 0x7) * 8, Client.collision, var6, var0[var11]!, var3 * 8, var1);
+                                    var4 = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!var4) {
+                            ClientBuild.fadeAdjacent(var1, 8, 8, var3 * 8, var2 * 8);
+                        }
+                    }
+                }
+            }
+            return;
+        }
+        for (let var9 = 0; var9 < 8; var9++) {
+            for (let var10 = 0; var10 < 8; var10++) {
+                if (var9 + arg0 > 0 && var9 + arg0 < 103 && arg7! + var10 > 0 && var10 + arg7! < 103) {
+                    arg4![arg8!]!.flags[arg0 + var9][arg7! + var10] &= 0xfeffffff;
+                }
+            }
+        }
+
+        const var11 = new Packet(arg6!);
+        for (let var12 = 0; var12 < 4; var12++) {
+            for (let var13 = 0; var13 < 64; var13++) {
+                for (let var14 = 0; var14 < 64; var14++) {
+                    if (var12 === arg5 && var13 >= arg2! && var13 < arg2! + 8 && var14 >= arg3! && var14 < arg3! + 8) {
+                        ClientBuild.loadGroundSquare(RegionRotate.DX(arg1!, var13 & 0x7, var14 & 0x7) + arg0, var11, 0, 0, arg7! + RegionRotate.DZ(var14 & 0x7, var13 & 0x7, arg1!), arg1!, arg8!);
+                    } else {
+                        ClientBuild.loadGroundSquare(-1, var11, 0, 0, -1, 0, 0);
+                    }
+                }
+            }
+        }
+    }
+
+	// jag::oldscape::ClientBuild::LoadGroundSquare
+    static loadGroundSquare(arg0: number, arg1: Packet, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number): void {
+        if (arg0 < 0 || arg0 >= 104 || arg4 < 0 || arg4 >= 104) {
+            while (true) {
+                const var7 = arg1.g1();
+                if (var7 === 0) {
+                    return;
+                }
+                if (var7 === 1) {
+                    arg1.g1();
+                    return;
+                }
+                if (var7 <= 49) {
+                    arg1.g1();
+                }
+            }
+        }
+
+        ClientBuild.mapl[arg6][arg0][arg4] = 0;
+        while (true) {
+            const var8 = arg1.g1();
+            if (var8 === 0) {
+                if (arg6 === 0) {
+                    ClientBuild.groundh![0][arg0][arg4] = -ClientBuild.perlinNoise(arg3 + arg0 + 932731, 556238 - -arg4 - -arg2) * 8;
+                    return;
+                } else {
+                    ClientBuild.groundh![arg6][arg0][arg4] = ClientBuild.groundh![arg6 - 1][arg0][arg4] - 240;
+                    return;
+                }
+            }
+
+            if (var8 === 1) {
+                let var9 = arg1.g1();
+                if (var9 === 1) {
+                    var9 = 0;
+                }
+                if (arg6 === 0) {
+                    ClientBuild.groundh![0][arg0][arg4] = -var9 * 8;
+                    return;
+                }
+                ClientBuild.groundh![arg6][arg0][arg4] = ClientBuild.groundh![arg6 - 1][arg0][arg4] - var9 * 8;
+                return;
+            }
+
+            if (var8 <= 49) {
+                ClientBuild.floort2![arg6][arg0][arg4] = arg1.g1b();
+                ClientBuild.floors![arg6][arg0][arg4] = (((var8 - 2) / 4) | 0) & 0xff;
+                ClientBuild.floorr![arg6][arg0][arg4] = (arg5 + var8 - 2) & 0x3 & 0xff;
+            } else if (var8 <= 81) {
+                ClientBuild.mapl[arg6][arg0][arg4] = (var8 - 49) & 0xff;
+            } else {
+                ClientBuild.floort1![arg6][arg0][arg4] = (var8 - 81) & 0xff;
+            }
+        }
+    }
+
+	// jag::oldscape::ClientBuild::CheckLocations
     static checkLocations(arg0: Uint8Array, arg1: number, arg2: number): boolean {
         const var3 = new Packet(arg0);
         let var4 = true;
@@ -119,6 +374,471 @@ export default class ClientBuild {
         }
     }
 
+	// jag::oldscape::ClientBuild::LoadLocations
+    static loadLocations(): void;
+    static loadLocations(collisions: Array<CollisionMap | null>, src: Uint8Array, xOffset: number, zOffset: number): void;
+    static loadLocations(arg0?: Array<CollisionMap | null>, arg1?: Uint8Array, arg2?: number, arg3?: number): void {
+        if (arg0 === undefined) {
+            const var1 = ClientBuild.field774!;
+            const var2 = ClientBuild.field3221!.length;
+            for (let var3 = 0; var3 < var2; var3++) {
+                const var4 = var1[var3];
+                if (var4 != null) {
+                    const var5 = ((ClientBuild.field2731![var3] >> 8) * 64 - Client.mapBuildBaseX) | 0;
+                    const var6 = ((ClientBuild.field2731![var3] & 0xff) * 64 - Client.mapBuildBaseZ) | 0;
+                    Client.doAudio();
+                    ClientBuild.loadLocations(Client.collision, var4, var5, var6);
+                }
+            }
+            return;
+        }
+        const var4 = new Packet(arg1!);
+        let var5 = -1;
+
+        while (true) {
+            const var6 = var4.gVarSmart();
+            if (var6 === 0) {
+                return;
+            }
+            var5 += var6;
+            let var7 = 0;
+            while (true) {
+                const var8 = var4.gsmart();
+                if (var8 === 0) {
+                    break;
+                }
+                var7 += var8 - 1;
+                const var9 = var7 & 0x3f;
+                const var10 = (var7 >> 6) & 0x3f;
+                const var11 = var4.g1();
+                const var12 = var7 >> 12;
+                const var13 = arg3! + var9;
+                const var14 = var11 & 0x3;
+                const var15 = var10 + arg2!;
+                const var16 = var11 >> 2;
+                if (var15 > 0 && var13 > 0 && var15 < 103 && var13 < 103) {
+                    let var17: CollisionMap | null = null;
+                    let var18 = var12;
+                    if ((ClientBuild.mapl[1][var15][var13] & 0x2) === 2) {
+                        var18 = var12 - 1;
+                    }
+                    if (var18 >= 0) {
+                        var17 = arg0[var18];
+                    }
+                    ClientBuild.addLoc(true, var12, var14, var16, Client.lowMem, var5, var12, var17, var13, var15);
+                }
+            }
+        }
+    }
+
+	// jag::oldscape::ClientBuild::LoadLocationsRegion
+    static loadLocationsRegion(): void;
+    static loadLocationsRegion(rotation: number, srcX: number, collisions: Array<CollisionMap | null>, srcZ: number, dstLevel: number, src: Uint8Array, srcLevel: number, dstZ: number, dstX: number): void;
+    static loadLocationsRegion(arg0?: number, arg1?: number, arg2?: Array<CollisionMap | null>, arg3?: number, arg4?: number, arg5?: Uint8Array, arg6?: number, arg7?: number, arg8?: number): void {
+        if (arg0 === undefined) {
+            const var0 = ClientBuild.field774!;
+            for (let var1 = 0; var1 < 4; var1++) {
+                Client.doAudio();
+                for (let var2 = 0; var2 < 13; var2++) {
+                    for (let var3 = 0; var3 < 13; var3++) {
+                        const var4 = ClientBuild.zoneMapArchiveIds[var1][var2][var3];
+                        if (var4 !== -1) {
+                            const var5 = (var4 >> 24) & 0x3;
+                            const var6 = (var4 >> 1) & 0x3;
+                            const var7 = (var4 >> 14) & 0x3ff;
+                            const var8 = (var4 >> 3) & 0x7ff;
+                            const var9 = (((var7 / 8) | 0) << 8) + ((var8 / 8) | 0);
+                            for (let var10 = 0; var10 < ClientBuild.field2731!.length; var10++) {
+                                if (var9 === ClientBuild.field2731![var10] && var0[var10] != null) {
+                                    ClientBuild.loadLocationsRegion(var6, (var7 & 0x7) * 8, Client.collision, (var8 & 0x7) * 8, var1, var0[var10]!, var5, var3 * 8, var2 * 8);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
+        let var9 = -1;
+        const var10 = new Packet(arg5!);
+
+        while (true) {
+            const var11 = var10.gVarSmart();
+            if (var11 === 0) {
+                return;
+            }
+            let var12 = 0;
+            var9 += var11;
+
+            while (true) {
+                const var13 = var10.gsmart();
+                if (var13 === 0) {
+                    break;
+                }
+                var12 += var13 - 1;
+                const var14 = (var12 >> 6) & 0x3f;
+                const var15 = var12 & 0x3f;
+                const var16 = var12 >> 12;
+                const var17 = var10.g1();
+                const var18 = var17 >> 2;
+                const var19 = var17 & 0x3;
+                if (arg6 === var16 && arg1! <= var14 && var14 < arg1! + 8 && arg3! <= var15 && var15 < arg3! + 8) {
+                    const var20 = LocType.list(var9);
+                    const var21 = RegionRotate.DX(var20.width, arg0, var15 & 0x7, var14 & 0x7, var20.length, var19) + arg8!;
+                    const var22 = RegionRotate.DZ(var15 & 0x7, var14 & 0x7, var19, var20.length, var20.width, arg0) + arg7!;
+                    if (var21 > 0 && var22 > 0 && var21 < 103 && var22 < 103) {
+                        let var23: CollisionMap | null = null;
+                        let var24 = arg4!;
+                        if ((ClientBuild.mapl[1][var21][var22] & 0x2) === 2) {
+                            var24 = arg4! - 1;
+                        }
+                        if (var24 >= 0) {
+                            var23 = arg2![var24];
+                        }
+                        ClientBuild.addLoc(true, arg4!, (arg0 + var19) & 0x3, var18, Client.lowMem, var9, arg4!, var23, var22, var21);
+                    }
+                }
+            }
+        }
+    }
+
+	// jag::oldscape::ClientBuild::AddLoc
+    static addLoc(arg0: boolean, arg1: number, arg2: number, arg3: number, arg4: boolean, arg5: number, arg6: number, arg7: CollisionMap | null, arg8: number, arg9: number): void {
+        if (arg4 && (ClientBuild.mapl[0][arg9][arg8] & 0x2) === 0) {
+            if ((ClientBuild.mapl[arg1][arg9][arg8] & 0x10) !== 0) {
+                return;
+            }
+            if (ClientBuild.getDrawLevel(arg8, arg9, arg1) !== Client.lastBuiltLevel) {
+                return;
+            }
+        }
+        if (arg1 < ClientBuild.minusedlevel) {
+            ClientBuild.minusedlevel = arg1;
+        }
+
+        const var10: LocType = LocType.list(arg5);
+        let var11: number;
+        let var12: number;
+        if (arg2 === 1 || arg2 === 3) {
+            var11 = var10.length;
+            var12 = var10.width;
+        } else {
+            var12 = var10.length;
+            var11 = var10.width;
+        }
+        let var13: number;
+        let var14: number;
+        if (var11 + arg9 <= 104) {
+            var13 = (var11 >> 1) + arg9;
+            var14 = ((var11 + 1) >> 1) + arg9;
+        } else {
+            var13 = arg9;
+            var14 = arg9 + 1;
+        }
+        let var15: number;
+        let var16: number;
+        if (arg8 + var12 > 104) {
+            var15 = arg8;
+            var16 = arg8 + 1;
+        } else {
+            var15 = (var12 >> 1) + arg8;
+            var16 = arg8 + ((var12 + 1) >> 1);
+        }
+        const var17 = ClientBuild.groundh![arg6];
+        const var18 = (var11 << 6) + (arg9 << 7);
+        const var19 = (var17[var14][var16] + var17[var13][var16] + var17[var14][var15] + var17[var13][var15]) >> 2;
+        const var20 = (var12 << 6) + (arg8 << 7);
+        let var21: Int32Array[] | null = null;
+        let var22 = (BigInt(arg2 | 0x400) << 20n) | BigInt((arg3 << 14) | (arg8 << 7) | arg9);
+        if (var10.active === 0) {
+            var22 |= -9223372036854775808n;
+        }
+        if (arg6 < 3) {
+            var21 = ClientBuild.groundh![arg6 + 1];
+        }
+        if (var10.raiseobject === 1) {
+            var22 |= 0x400000n;
+        }
+        const var24 = var22 | (BigInt(arg5) << 32n);
+        if (arg0 && var10.hasBgSound()) {
+            BgSound.addSound(arg9, arg1, arg2, arg8, var10);
+        }
+        if (arg3 === 22) {
+            if (!arg4 || var10.active !== 0 || var10.blockwalk === 1 || var10.forcedecor) {
+                let var27: ModelSource | null;
+                if (var10.anim === -1 && var10.multiloc === null) {
+                    const var26 = var10.getModel(22, var21, var17, var18, arg0, var20, arg2, var19);
+                    var27 = var26.field3984;
+                } else {
+                    var27 = new ClientLocAnim(arg5, 22, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+                }
+                World.setGroundDecor(arg1, arg9, arg8, var19, var27, var24, var10.field2799);
+                if (var10.blockwalk === 1 && arg7 !== null) {
+                    arg7.blockGroundDecor(arg8, arg9);
+                }
+            }
+        } else if (arg3 === 10 || arg3 === 11) {
+            let var29: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var28 = var10.getModel(10, var21, var17, var18, arg0, var20, arg2, var19);
+                var29 = var28.field3984;
+            } else {
+                var29 = new ClientLocAnim(arg5, 10, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            if (var29 !== null) {
+                const var30 = World.addScenery(arg1, arg9, arg8, var19, var11, var12, var29, arg3 === 11 ? 256 : 0, var24);
+                if (var10.shadow && var30 && arg0) {
+                    let var31 = 15;
+                    if (var29 instanceof ModelLit) {
+                        var31 = (var29.getRadiusCylinder() / 4) | 0;
+                        if (var31 > 30) {
+                            var31 = 30;
+                        }
+                    }
+                    for (let var32 = 0; var32 <= var11; var32++) {
+                        for (let var33 = 0; var33 <= var12; var33++) {
+                            if (var31 > ClientBuild.shadow![arg1][arg9 + var32][var33 + arg8]) {
+                                ClientBuild.shadow![arg1][arg9 + var32][var33 + arg8] = var31;
+                            }
+                        }
+                    }
+                }
+            }
+            if (var10.blockwalk !== 0 && arg7 !== null) {
+                arg7.addLoc(var11, var12, var10.blockrange, arg9, arg8);
+            }
+        } else if (arg3 >= 12) {
+            let var35: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var34 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
+                var35 = var34.field3984;
+            } else {
+                var35 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.addScenery(arg1, arg9, arg8, var19, 1, 1, var35, 0, var24);
+            if (arg0 && arg3 >= 12 && arg3 <= 17 && arg3 !== 13 && arg1 > 0) {
+                ClientBuild.mapo![arg1][arg9][arg8] |= 0x924;
+            }
+            if (var10.blockwalk !== 0 && arg7 !== null) {
+                arg7.addLoc(var11, var12, var10.blockrange, arg9, arg8);
+            }
+        } else if (arg3 === 0) {
+            let var36: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var37 = var10.getModel(0, var21, var17, var18, arg0, var20, arg2, var19);
+                var36 = var37.field3984;
+            } else {
+                var36 = new ClientLocAnim(arg5, 0, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setWall(arg1, arg9, arg8, var19, var36, null, ClientBuild.WSHAPE0[arg2], 0, var24);
+            if (arg0) {
+                if (arg2 === 0) {
+                    if (var10.shadow) {
+                        ClientBuild.shadow![arg1][arg9][arg8] = 50;
+                        ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
+                    }
+                    if (var10.occlude) {
+                        ClientBuild.mapo![arg1][arg9][arg8] |= 0x249;
+                    }
+                } else if (arg2 === 1) {
+                    if (var10.shadow) {
+                        ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
+                        ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
+                    }
+                    if (var10.occlude) {
+                        ClientBuild.mapo![arg1][arg9][arg8 + 1] |= 0x492;
+                    }
+                } else if (arg2 === 2) {
+                    if (var10.shadow) {
+                        ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
+                        ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
+                    }
+                    if (var10.occlude) {
+                        ClientBuild.mapo![arg1][arg9 + 1][arg8] |= 0x249;
+                    }
+                } else if (arg2 === 3) {
+                    if (var10.shadow) {
+                        ClientBuild.shadow![arg1][arg9][arg8] = 50;
+                        ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
+                    }
+                    if (var10.occlude) {
+                        ClientBuild.mapo![arg1][arg9][arg8] |= 0x492;
+                    }
+                }
+            }
+            if (var10.blockwalk !== 0 && arg7 !== null) {
+                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
+            }
+            if (var10.wallwidth !== 16) {
+                World.moveDecor(arg1, arg9, arg8, var10.wallwidth);
+            }
+        } else if (arg3 === 1) {
+            let var38: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var39 = var10.getModel(1, var21, var17, var18, arg0, var20, arg2, var19);
+                var38 = var39.field3984;
+            } else {
+                var38 = new ClientLocAnim(arg5, 1, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setWall(arg1, arg9, arg8, var19, var38, null, ClientBuild.WSHAPE1[arg2], 0, var24);
+            if (var10.shadow && arg0) {
+                if (arg2 === 0) {
+                    ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
+                } else if (arg2 === 1) {
+                    ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
+                } else if (arg2 === 2) {
+                    ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
+                } else if (arg2 === 3) {
+                    ClientBuild.shadow![arg1][arg9][arg8] = 50;
+                }
+            }
+            if (var10.blockwalk !== 0 && arg7 !== null) {
+                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
+            }
+        } else if (arg3 === 2) {
+            const var40 = (arg2 + 1) & 0x3;
+            let var41: ModelSource | null;
+            let var42: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var43 = var10.getModel(2, var21, var17, var18, arg0, var20, arg2 + 4, var19);
+                var41 = var43.field3984;
+                const var44 = var10.getModel(2, var21, var17, var18, arg0, var20, var40, var19);
+                var42 = var44.field3984;
+            } else {
+                var41 = new ClientLocAnim(arg5, 2, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+                var42 = new ClientLocAnim(arg5, 2, var40, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setWall(arg1, arg9, arg8, var19, var41, var42, ClientBuild.WSHAPE0[arg2], ClientBuild.WSHAPE0[var40], var24);
+            if (var10.occlude && arg0) {
+                if (arg2 === 0) {
+                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x249;
+                    ClientBuild.mapo![arg1][arg9][arg8 + 1] |= 0x492;
+                } else if (arg2 === 1) {
+                    ClientBuild.mapo![arg1][arg9][arg8 + 1] |= 0x492;
+                    ClientBuild.mapo![arg1][arg9 + 1][arg8] |= 0x249;
+                } else if (arg2 === 2) {
+                    ClientBuild.mapo![arg1][arg9 + 1][arg8] |= 0x249;
+                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x492;
+                } else if (arg2 === 3) {
+                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x492;
+                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x249;
+                }
+            }
+            if (var10.blockwalk !== 0 && arg7 !== null) {
+                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
+            }
+            if (var10.wallwidth !== 16) {
+                World.moveDecor(arg1, arg9, arg8, var10.wallwidth);
+            }
+        } else if (arg3 === 3) {
+            let var46: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var45 = var10.getModel(3, var21, var17, var18, arg0, var20, arg2, var19);
+                var46 = var45.field3984;
+            } else {
+                var46 = new ClientLocAnim(arg5, 3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setWall(arg1, arg9, arg8, var19, var46, null, ClientBuild.WSHAPE1[arg2], 0, var24);
+            if (var10.shadow && arg0) {
+                if (arg2 === 0) {
+                    ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
+                } else if (arg2 === 1) {
+                    ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
+                } else if (arg2 === 2) {
+                    ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
+                } else if (arg2 === 3) {
+                    ClientBuild.shadow![arg1][arg9][arg8] = 50;
+                }
+            }
+            if (var10.blockwalk !== 0 && arg7 !== null) {
+                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
+            }
+        } else if (arg3 === 9) {
+            let var47: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var48 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
+                var47 = var48.field3984;
+            } else {
+                var47 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.addScenery(arg1, arg9, arg8, var19, 1, 1, var47, 0, var24);
+            if (var10.blockwalk !== 0 && arg7 !== null) {
+                arg7.addLoc(var11, var12, var10.blockrange, arg9, arg8);
+            }
+            if (var10.wallwidth !== 16) {
+                World.moveDecor(arg1, arg9, arg8, var10.wallwidth);
+            }
+        } else if (arg3 === 4) {
+            let var49: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var50 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
+                var49 = var50.field3984;
+            } else {
+                var49 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setDecor(arg1, arg9, arg8, var19, var49, null, ClientBuild.WSHAPE0[arg2], 0, 0, 0, var24);
+        } else if (arg3 === 5) {
+            let var51 = 16;
+            const var52 = World.wallType(arg1, arg9, arg8);
+            if (var52 != 0) {
+                var51 = LocType.list(Number((BigInt(var52) >> 32n) & 0x7fffffffn)).wallwidth;
+            }
+            let var54: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var55 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
+                var54 = var55.field3984;
+            } else {
+                var54 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setDecor(arg1, arg9, arg8, var19, var54, null, ClientBuild.WSHAPE0[arg2], 0, var51 * ClientBuild.DECORXOF[arg2], var51 * ClientBuild.DECORZOF[arg2], var24);
+        } else if (arg3 === 6) {
+            let var56 = 8;
+            const var57 = World.wallType(arg1, arg9, arg8);
+            if (var57 != 0) {
+                var56 = (LocType.list(Number((BigInt(var57) >> 32n) & 0x7fffffffn)).wallwidth / 2) | 0;
+            }
+            let var59: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var60 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
+                var59 = var60.field3984;
+            } else {
+                var59 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setDecor(arg1, arg9, arg8, var19, var59, null, 256, arg2, ClientBuild.DECORXOF2[arg2] * var56, ClientBuild.DECORZOF2[arg2] * var56, var24);
+        } else if (arg3 === 7) {
+            const var61 = (arg2 + 2) & 0x3;
+            let var63: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var62 = var10.getModel(4, var21, var17, var18, arg0, var20, var61 + 4, var19);
+                var63 = var62.field3984;
+            } else {
+                var63 = new ClientLocAnim(arg5, 4, var61 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setDecor(arg1, arg9, arg8, var19, var63, null, 256, var61, 0, 0, var24);
+        } else if (arg3 === 8) {
+            let var64 = 8;
+            const var65 = World.wallType(arg1, arg9, arg8);
+            if (var65 != 0) {
+                var64 = (LocType.list(Number((BigInt(var65) >> 32n) & 0x7fffffffn)).wallwidth / 2) | 0;
+            }
+            const var67 = (arg2 + 2) & 0x3;
+            let var68: ModelSource | null;
+            let var69: ModelSource | null;
+            if (var10.anim === -1 && var10.multiloc === null) {
+                const var70 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
+                var68 = var70.field3984;
+                const var71 = var10.getModel(4, var21, var17, var18, arg0, var20, var67 + 4, var19);
+                var69 = var71.field3984;
+            } else {
+                var68 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+                var69 = new ClientLocAnim(arg5, 4, var67 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
+            }
+            World.setDecor(arg1, arg9, arg8, var19, var68, var69, 256, arg2, ClientBuild.DECORXOF2[arg2] * var64, var64 * ClientBuild.DECORZOF2[arg2], var24);
+        }
+    }
+
+	// jag::oldscape::ClientBuild::FinishBuild
     static finishBuild(arg0: Array<CollisionMap | null>): void {
         for (let var1: number = 0; var1 < 4; var1++) {
             for (let var2: number = 0; var2 < 104; var2++) {
@@ -518,6 +1238,113 @@ export default class ClientBuild {
         }
     }
 
+	// jag::oldscape::ClientBuild::PerlinNoise
+    static perlinNoise(arg0: number, arg1: number): number {
+        const var2: number = ClientBuild.interpolatedNoise(arg1 + 91923, 4, arg0 + 45365) + ((ClientBuild.interpolatedNoise(arg1 + 37821, 2, arg0 + 10294) - 128) >> 1) + ((ClientBuild.interpolatedNoise(arg1, 1, arg0) + -128) >> 2) - 128;
+        let var3: number = ((var2 * 0.3) | 0) + 35;
+        if (var3 < 10) {
+            var3 = 10;
+        } else if (var3 > 60) {
+            var3 = 60;
+        }
+        return var3;
+    }
+
+	// jag::oldscape::ClientBuild::InterpolatedNoise
+    static interpolatedNoise(arg0: number, arg1: number, arg2: number): number {
+        if (arg1 === 0) {
+            throw new Error('/ by zero');
+        }
+        const var3: number = (arg2 / arg1) | 0;
+        const var4: number = (arg1 - 1) & arg2;
+        const var5: number = (arg1 - 1) & arg0;
+        const var6: number = (arg0 / arg1) | 0;
+        const var7: number = ClientBuild.smoothNoise(var6, var3);
+        const var8: number = ClientBuild.smoothNoise(var6, var3 + 1);
+        const var9: number = ClientBuild.smoothNoise(var6 + 1, var3);
+        const var10: number = ClientBuild.smoothNoise(var6 + 1, var3 + 1);
+        const var11: number = ClientBuild.interpolate(arg1, var7, var4, var8);
+        const var12: number = ClientBuild.interpolate(arg1, var9, var4, var10);
+        return ClientBuild.interpolate(arg1, var11, var5, var12);
+    }
+
+	// jag::oldscape::ClientBuild::SmoothNoise
+    static smoothNoise(arg0: number, arg1: number): number {
+        const var2: number = ClientBuild.noise(arg0 - 1, arg1 + -1) + ClientBuild.noise(arg0 - 1, arg1 + 1) + ClientBuild.noise(arg0 + 1, arg1 + -1) + ClientBuild.noise(arg0 - -1, arg1 - -1);
+        const var3: number = ClientBuild.noise(arg0, arg1 - 1) + ClientBuild.noise(arg0, arg1 + 1) + ClientBuild.noise(arg0 + -1, arg1) + ClientBuild.noise(arg0 - -1, arg1);
+        const var4: number = ClientBuild.noise(arg0, arg1);
+        return ((var2 / 16) | 0) + ((var3 / 8) | 0) + ((var4 / 4) | 0);
+    }
+
+    static interpolate(arg0: number, arg1: number, arg2: number, arg3: number): number {
+        if (arg0 === 0) {
+            throw new Error('/ by zero');
+        }
+        const var4: number = (65536 - Pix3D.cosTable[(Math.imul(arg2, 1024) / arg0) | 0]) >> 1;
+        return (Math.imul(arg1, 65536 - var4) >> 16) + (Math.imul(arg3, var4) >> 16);
+    }
+
+	// jag::oldscape::ClientBuild::Noise
+    static noise(arg0: number, arg1: number): number {
+        const var2: number = Math.imul(arg0, 57) + arg1;
+        const var3: number = (var2 << 13) ^ var2;
+        const var4: number = 0x7fffffff & (Math.imul(var3, Math.imul(Math.imul(var3, var3), 15731) + 789221) + 1376312589);
+        return (var4 >> 19) & 0xff;
+    }
+
+	// jag::oldscape::ClientBuild::GetUCol
+    static getUCol(arg0: number, arg1: number): number {
+        if (arg1 === -1) {
+            return 12345678;
+        }
+
+        let var2 = (arg0 * (arg1 & 0x7f)) >> 7;
+        if (var2 < 2) {
+            var2 = 2;
+        } else if (var2 > 126) {
+            var2 = 126;
+        }
+
+        return var2 + (arg1 & 0xff80);
+    }
+
+	// jag::oldscape::ClientBuild::GetOCol
+    static getOCol(arg0: number, arg1: number): number {
+        if (arg1 === -2) {
+            return 12345678;
+        } else if (arg1 === -1) {
+            if (arg0 < 2) {
+                arg0 = 2;
+            } else if (arg0 > 126) {
+                arg0 = 126;
+            }
+            return arg0;
+        } else {
+            let var2 = ((arg1 & 0x7f) * arg0) >> 7;
+            if (var2 < 2) {
+                var2 = 2;
+            } else if (var2 > 126) {
+                var2 = 126;
+            }
+            return (arg1 & 0xff80) + var2;
+        }
+    }
+
+	// jag::oldscape::ClientBuild::GetTable
+    static getTable(arg0: number, arg1: number, arg2: number): number {
+        if (arg1 > 243) {
+            arg2 >>= 4;
+        } else if (arg1 > 217) {
+            arg2 >>= 3;
+        } else if (arg1 > 192) {
+            arg2 >>= 2;
+        } else if (arg1 > 179) {
+            arg2 >>= 1;
+        }
+        return (arg1 >> 1) + ((arg0 >> 2) << 10) + ((arg2 >> 5) << 7);
+    }
+
+	// jag::oldscape::ClientBuild::ChangeLocAvailable
     static changeLocAvailable(arg0: number, arg1: number): boolean {
         const var2 = LocType.list(arg1);
         if (arg0 == 11) {
@@ -529,149 +1356,7 @@ export default class ClientBuild {
         return var2.checkModel(arg0);
     }
 
-    static getDrawLevel(arg0: number, arg1: number, arg2: number): number {
-        if ((ClientBuild.mapl[arg2][arg1][arg0] & 0x8) === 0) {
-            return arg2 <= 0 || (ClientBuild.mapl[1][arg1][arg0] & 0x2) === 0 ? arg2 : arg2 - 1;
-        } else {
-            return 0;
-        }
-    }
-
-    static fadeAdjacent(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number): void {
-        for (let var5 = arg3; var5 <= arg1 + arg3; var5++) {
-            for (let var6 = arg4; var6 <= arg4 + arg2; var6++) {
-                if (var6 >= 0 && var6 < 104 && var5 >= 0 && var5 < 104) {
-                    ClientBuild.shadow![arg0][var6][var5] = 127;
-                }
-            }
-        }
-        for (let var7 = arg3; var7 < arg1 + arg3; var7++) {
-            for (let var8 = arg4; var8 < arg2 + arg4; var8++) {
-                if (var8 >= 0 && var8 < 104 && var7 >= 0 && var7 < 104) {
-                    ClientBuild.groundh![arg0][var8][var7] = arg0 <= 0 ? 0 : ClientBuild.groundh![arg0 - 1][var8][var7];
-                }
-            }
-        }
-        if (arg4 > 0 && arg4 < 104) {
-            for (let var9 = arg3 + 1; var9 < arg1 + arg3; var9++) {
-                if (var9 >= 0 && var9 < 104) {
-                    ClientBuild.groundh![arg0][arg4][var9] = ClientBuild.groundh![arg0][arg4 - 1][var9];
-                }
-            }
-        }
-        if (arg3 > 0 && arg3 < 104) {
-            for (let var10 = arg4 + 1; var10 < arg2 + arg4; var10++) {
-                if (var10 >= 0 && var10 < 104) {
-                    ClientBuild.groundh![arg0][var10][arg3] = ClientBuild.groundh![arg0][var10][arg3 - 1];
-                }
-            }
-        }
-        if (arg4 >= 0 && arg3 >= 0 && arg4 < 104 && arg3 < 104) {
-            if (arg0 === 0) {
-                if (arg4 > 0 && ClientBuild.groundh![arg0][arg4 - 1][arg3] !== 0) {
-                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3];
-                } else if (arg3 > 0 && ClientBuild.groundh![arg0][arg4][arg3 - 1] !== 0) {
-                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4][arg3 - 1];
-                } else if (arg4 > 0 && arg3 > 0 && ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1] !== 0) {
-                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1];
-                }
-            } else {
-                if (arg4 > 0 && ClientBuild.groundh![arg0 - 1][arg4 - 1][arg3] !== ClientBuild.groundh![arg0][arg4 - 1][arg3]) {
-                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3];
-                } else if (arg3 > 0 && ClientBuild.groundh![arg0][arg4][arg3 - 1] !== ClientBuild.groundh![arg0 - 1][arg4][arg3 - 1]) {
-                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4][arg3 - 1];
-                } else if (arg4 > 0 && arg3 > 0 && ClientBuild.groundh![arg0 - 1][arg4 - 1][arg3 - 1] !== ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1]) {
-                    ClientBuild.groundh![arg0][arg4][arg3] = ClientBuild.groundh![arg0][arg4 - 1][arg3 - 1];
-                }
-            }
-        }
-    }
-
-    static init(): void {
-        ClientBuild.tot = new Int32Array(BuildArea.SIZE);
-        ClientBuild.minusedlevel = 99;
-        ClientBuild.huetot = new Int32Array(BuildArea.SIZE);
-        ClientBuild.sattot = new Int32Array(BuildArea.SIZE);
-        ClientBuild.ligtot = new Int32Array(BuildArea.SIZE);
-        ClientBuild.comtot = new Int32Array(BuildArea.SIZE);
-        ClientBuild.shadow = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE + 1 }, () => new Uint8Array(BuildArea.SIZE + 1)));
-        ClientBuild.floort2 = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
-        ClientBuild.floort1 = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
-        ClientBuild.floorr = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
-        ClientBuild.mapo = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE + 1 }, () => new Int32Array(BuildArea.SIZE + 1)));
-        ClientBuild.floors = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
-    }
-
-    static loadLocations(): void;
-    static loadLocations(collisions: Array<CollisionMap | null>, src: Uint8Array, xOffset: number, zOffset: number): void;
-    static loadLocations(arg0?: Array<CollisionMap | null>, arg1?: Uint8Array, arg2?: number, arg3?: number): void {
-        if (arg0 === undefined) {
-            const var1 = ClientBuild.field774!;
-            const var2 = ClientBuild.field3221!.length;
-            for (let var3 = 0; var3 < var2; var3++) {
-                const var4 = var1[var3];
-                if (var4 != null) {
-                    const var5 = ((ClientBuild.field2731![var3] >> 8) * 64 - Client.mapBuildBaseX) | 0;
-                    const var6 = ((ClientBuild.field2731![var3] & 0xff) * 64 - Client.mapBuildBaseZ) | 0;
-                    Client.doAudio();
-                    ClientBuild.loadLocations(Client.collision, var4, var5, var6);
-                }
-            }
-            return;
-        }
-        const var4 = new Packet(arg1!);
-        let var5 = -1;
-
-        while (true) {
-            const var6 = var4.gVarSmart();
-            if (var6 === 0) {
-                return;
-            }
-            var5 += var6;
-            let var7 = 0;
-            while (true) {
-                const var8 = var4.gsmart();
-                if (var8 === 0) {
-                    break;
-                }
-                var7 += var8 - 1;
-                const var9 = var7 & 0x3f;
-                const var10 = (var7 >> 6) & 0x3f;
-                const var11 = var4.g1();
-                const var12 = var7 >> 12;
-                const var13 = arg3! + var9;
-                const var14 = var11 & 0x3;
-                const var15 = var10 + arg2!;
-                const var16 = var11 >> 2;
-                if (var15 > 0 && var13 > 0 && var15 < 103 && var13 < 103) {
-                    let var17: CollisionMap | null = null;
-                    let var18 = var12;
-                    if ((ClientBuild.mapl[1][var15][var13] & 0x2) === 2) {
-                        var18 = var12 - 1;
-                    }
-                    if (var18 >= 0) {
-                        var17 = arg0[var18];
-                    }
-                    ClientBuild.addLoc(true, var12, var14, var16, Client.lowMem, var5, var12, var17, var13, var15);
-                }
-            }
-        }
-    }
-
-    static quit(): void {
-        ClientBuild.ligtot = null;
-        ClientBuild.comtot = null;
-        ClientBuild.floorr = null;
-        ClientBuild.sattot = null;
-        ClientBuild.mapo = null;
-        ClientBuild.tot = null;
-        ClientBuild.shadow = null;
-        ClientBuild.floors = null;
-        ClientBuild.floort1 = null;
-        ClientBuild.floort2 = null;
-        ClientBuild.huetot = null;
-    }
-
+	// jag::oldscape::ClientBuild::ChangeLocUnchecked
     static changeLocUnchecked(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number): void {
         if (arg6 < 1 || arg2 < 1 || arg6 > 102 || arg2 > 102) {
             return;
@@ -696,644 +1381,28 @@ export default class ClientBuild {
         }
     }
 
-    static loadLocationsRegion(): void;
-    static loadLocationsRegion(rotation: number, srcX: number, collisions: Array<CollisionMap | null>, srcZ: number, dstLevel: number, src: Uint8Array, srcLevel: number, dstZ: number, dstX: number): void;
-    static loadLocationsRegion(arg0?: number, arg1?: number, arg2?: Array<CollisionMap | null>, arg3?: number, arg4?: number, arg5?: Uint8Array, arg6?: number, arg7?: number, arg8?: number): void {
-        if (arg0 === undefined) {
-            const var0 = ClientBuild.field774!;
-            for (let var1 = 0; var1 < 4; var1++) {
-                Client.doAudio();
-                for (let var2 = 0; var2 < 13; var2++) {
-                    for (let var3 = 0; var3 < 13; var3++) {
-                        const var4 = ClientBuild.zoneMapArchiveIds[var1][var2][var3];
-                        if (var4 !== -1) {
-                            const var5 = (var4 >> 24) & 0x3;
-                            const var6 = (var4 >> 1) & 0x3;
-                            const var7 = (var4 >> 14) & 0x3ff;
-                            const var8 = (var4 >> 3) & 0x7ff;
-                            const var9 = (((var7 / 8) | 0) << 8) + ((var8 / 8) | 0);
-                            for (let var10 = 0; var10 < ClientBuild.field2731!.length; var10++) {
-                                if (var9 === ClientBuild.field2731![var10] && var0[var10] != null) {
-                                    ClientBuild.loadLocationsRegion(var6, (var7 & 0x7) * 8, Client.collision, (var8 & 0x7) * 8, var1, var0[var10]!, var5, var3 * 8, var2 * 8);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return;
-        }
-        let var9 = -1;
-        const var10 = new Packet(arg5!);
-
-        while (true) {
-            const var11 = var10.gVarSmart();
-            if (var11 === 0) {
-                return;
-            }
-            let var12 = 0;
-            var9 += var11;
-
-            while (true) {
-                const var13 = var10.gsmart();
-                if (var13 === 0) {
-                    break;
-                }
-                var12 += var13 - 1;
-                const var14 = (var12 >> 6) & 0x3f;
-                const var15 = var12 & 0x3f;
-                const var16 = var12 >> 12;
-                const var17 = var10.g1();
-                const var18 = var17 >> 2;
-                const var19 = var17 & 0x3;
-                if (arg6 === var16 && arg1! <= var14 && var14 < arg1! + 8 && arg3! <= var15 && var15 < arg3! + 8) {
-                    const var20 = LocType.list(var9);
-                    const var21 = RegionRotate.DX(var20.width, arg0, var15 & 0x7, var14 & 0x7, var20.length, var19) + arg8!;
-                    const var22 = RegionRotate.DZ(var15 & 0x7, var14 & 0x7, var19, var20.length, var20.width, arg0) + arg7!;
-                    if (var21 > 0 && var22 > 0 && var21 < 103 && var22 < 103) {
-                        let var23: CollisionMap | null = null;
-                        let var24 = arg4!;
-                        if ((ClientBuild.mapl[1][var21][var22] & 0x2) === 2) {
-                            var24 = arg4! - 1;
-                        }
-                        if (var24 >= 0) {
-                            var23 = arg2![var24];
-                        }
-                        ClientBuild.addLoc(true, arg4!, (arg0 + var19) & 0x3, var18, Client.lowMem, var9, arg4!, var23, var22, var21);
-                    }
-                }
-            }
-        }
+	// jag::oldscape::ClientBuild::Init
+    static init(): void {
+        ClientBuild.tot = new Int32Array(BuildArea.SIZE);
+        ClientBuild.minusedlevel = 99;
+        ClientBuild.huetot = new Int32Array(BuildArea.SIZE);
+        ClientBuild.sattot = new Int32Array(BuildArea.SIZE);
+        ClientBuild.ligtot = new Int32Array(BuildArea.SIZE);
+        ClientBuild.comtot = new Int32Array(BuildArea.SIZE);
+        ClientBuild.shadow = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE + 1 }, () => new Uint8Array(BuildArea.SIZE + 1)));
+        ClientBuild.floort2 = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
+        ClientBuild.floort1 = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
+        ClientBuild.floorr = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
+        ClientBuild.mapo = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE + 1 }, () => new Int32Array(BuildArea.SIZE + 1)));
+        ClientBuild.floors = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
     }
 
-    static loadGround(): void;
-    static loadGround(originZ: number, xOffset: number, originX: number, collisions: Array<CollisionMap | null>, zOffset: number, src: Uint8Array): void;
-    static loadGround(arg0?: number, arg1?: number, arg2?: number, arg3?: Array<CollisionMap | null>, arg4?: number, arg5?: Uint8Array): void {
-        if (arg0 === undefined) {
-            const var0 = ClientBuild.field3221!;
-            const var1 = var0.length;
-            for (let var2 = 0; var2 < var1; var2++) {
-                const var3 = ((ClientBuild.field2731![var2] >> 8) * 64 - Client.mapBuildBaseX) | 0;
-                const var4 = var0[var2];
-                const var5 = ((ClientBuild.field2731![var2] & 0xff) * 64 - Client.mapBuildBaseZ) | 0;
-                if (var4 != null) {
-                    Client.doAudio();
-                    ClientBuild.loadGround(Client.mapBuildCentreZoneZ * 8 - 48, var3, (Client.mapBuildCentreZoneX - 6) * 8, Client.collision, var5, var4);
-                }
-            }
-            for (let var6 = 0; var6 < var1; var6++) {
-                const var7 = ((ClientBuild.field2731![var6] >> 8) * 64 - Client.mapBuildBaseX) | 0;
-                const var8 = ((ClientBuild.field2731![var6] & 0xff) * 64 - Client.mapBuildBaseZ) | 0;
-                const var9 = var0[var6];
-                if (var9 == null && Client.mapBuildCentreZoneZ < 800) {
-                    Client.doAudio();
-                    for (let var10 = 0; var10 < 4; var10++) {
-                        ClientBuild.fadeAdjacent(var10, 64, 64, var8, var7);
-                    }
-                }
-            }
-            return;
-        }
-        for (let var6 = 0; var6 < 4; var6++) {
-            for (let var7 = 0; var7 < 64; var7++) {
-                for (let var8 = 0; var8 < 64; var8++) {
-                    if (var7 + arg1! > 0 && var7 + arg1! < 103 && var8 + arg4! > 0 && arg4! + var8 < 103) {
-                        arg3![var6]!.flags[var7 + arg1!][var8 + arg4!] &= 0xfeffffff;
-                    }
-                }
-            }
-        }
-
-        const var9 = new Packet(arg5!);
-        for (let var10 = 0; var10 < 4; var10++) {
-            for (let var11 = 0; var11 < 64; var11++) {
-                for (let var12 = 0; var12 < 64; var12++) {
-                    ClientBuild.loadGroundSquare(var11 + arg1!, var9, arg0, arg2!, var12 + arg4!, 0, var10);
-                }
-            }
-        }
-    }
-
-    static addLoc(arg0: boolean, arg1: number, arg2: number, arg3: number, arg4: boolean, arg5: number, arg6: number, arg7: CollisionMap | null, arg8: number, arg9: number): void {
-        if (arg4 && (ClientBuild.mapl[0][arg9][arg8] & 0x2) === 0) {
-            if ((ClientBuild.mapl[arg1][arg9][arg8] & 0x10) !== 0) {
-                return;
-            }
-            if (ClientBuild.getDrawLevel(arg8, arg9, arg1) !== Client.lastBuiltLevel) {
-                return;
-            }
-        }
-        if (arg1 < ClientBuild.minusedlevel) {
-            ClientBuild.minusedlevel = arg1;
-        }
-
-        const var10: LocType = LocType.list(arg5);
-        let var11: number;
-        let var12: number;
-        if (arg2 === 1 || arg2 === 3) {
-            var11 = var10.length;
-            var12 = var10.width;
+    // todo: placement
+    static getDrawLevel(arg0: number, arg1: number, arg2: number): number {
+        if ((ClientBuild.mapl[arg2][arg1][arg0] & 0x8) === 0) {
+            return arg2 <= 0 || (ClientBuild.mapl[1][arg1][arg0] & 0x2) === 0 ? arg2 : arg2 - 1;
         } else {
-            var12 = var10.length;
-            var11 = var10.width;
+            return 0;
         }
-        let var13: number;
-        let var14: number;
-        if (var11 + arg9 <= 104) {
-            var13 = (var11 >> 1) + arg9;
-            var14 = ((var11 + 1) >> 1) + arg9;
-        } else {
-            var13 = arg9;
-            var14 = arg9 + 1;
-        }
-        let var15: number;
-        let var16: number;
-        if (arg8 + var12 > 104) {
-            var15 = arg8;
-            var16 = arg8 + 1;
-        } else {
-            var15 = (var12 >> 1) + arg8;
-            var16 = arg8 + ((var12 + 1) >> 1);
-        }
-        const var17 = ClientBuild.groundh![arg6];
-        const var18 = (var11 << 6) + (arg9 << 7);
-        const var19 = (var17[var14][var16] + var17[var13][var16] + var17[var14][var15] + var17[var13][var15]) >> 2;
-        const var20 = (var12 << 6) + (arg8 << 7);
-        let var21: Int32Array[] | null = null;
-        let var22 = (BigInt(arg2 | 0x400) << 20n) | BigInt((arg3 << 14) | (arg8 << 7) | arg9);
-        if (var10.active === 0) {
-            var22 |= -9223372036854775808n;
-        }
-        if (arg6 < 3) {
-            var21 = ClientBuild.groundh![arg6 + 1];
-        }
-        if (var10.raiseobject === 1) {
-            var22 |= 0x400000n;
-        }
-        const var24 = var22 | (BigInt(arg5) << 32n);
-        if (arg0 && var10.hasBgSound()) {
-            BgSound.addSound(arg9, arg1, arg2, arg8, var10);
-        }
-        if (arg3 === 22) {
-            if (!arg4 || var10.active !== 0 || var10.blockwalk === 1 || var10.forcedecor) {
-                let var27: ModelSource | null;
-                if (var10.anim === -1 && var10.multiloc === null) {
-                    const var26 = var10.getModel(22, var21, var17, var18, arg0, var20, arg2, var19);
-                    var27 = var26.field3984;
-                } else {
-                    var27 = new ClientLocAnim(arg5, 22, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-                }
-                World.setGroundDecor(arg1, arg9, arg8, var19, var27, var24, var10.field2799);
-                if (var10.blockwalk === 1 && arg7 !== null) {
-                    arg7.blockGroundDecor(arg8, arg9);
-                }
-            }
-        } else if (arg3 === 10 || arg3 === 11) {
-            let var29: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var28 = var10.getModel(10, var21, var17, var18, arg0, var20, arg2, var19);
-                var29 = var28.field3984;
-            } else {
-                var29 = new ClientLocAnim(arg5, 10, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            if (var29 !== null) {
-                const var30 = World.addScenery(arg1, arg9, arg8, var19, var11, var12, var29, arg3 === 11 ? 256 : 0, var24);
-                if (var10.shadow && var30 && arg0) {
-                    let var31 = 15;
-                    if (var29 instanceof ModelLit) {
-                        var31 = (var29.getRadiusCylinder() / 4) | 0;
-                        if (var31 > 30) {
-                            var31 = 30;
-                        }
-                    }
-                    for (let var32 = 0; var32 <= var11; var32++) {
-                        for (let var33 = 0; var33 <= var12; var33++) {
-                            if (var31 > ClientBuild.shadow![arg1][arg9 + var32][var33 + arg8]) {
-                                ClientBuild.shadow![arg1][arg9 + var32][var33 + arg8] = var31;
-                            }
-                        }
-                    }
-                }
-            }
-            if (var10.blockwalk !== 0 && arg7 !== null) {
-                arg7.addLoc(var11, var12, var10.blockrange, arg9, arg8);
-            }
-        } else if (arg3 >= 12) {
-            let var35: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var34 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
-                var35 = var34.field3984;
-            } else {
-                var35 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.addScenery(arg1, arg9, arg8, var19, 1, 1, var35, 0, var24);
-            if (arg0 && arg3 >= 12 && arg3 <= 17 && arg3 !== 13 && arg1 > 0) {
-                ClientBuild.mapo![arg1][arg9][arg8] |= 0x924;
-            }
-            if (var10.blockwalk !== 0 && arg7 !== null) {
-                arg7.addLoc(var11, var12, var10.blockrange, arg9, arg8);
-            }
-        } else if (arg3 === 0) {
-            let var36: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var37 = var10.getModel(0, var21, var17, var18, arg0, var20, arg2, var19);
-                var36 = var37.field3984;
-            } else {
-                var36 = new ClientLocAnim(arg5, 0, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setWall(arg1, arg9, arg8, var19, var36, null, ClientBuild.WSHAPE0[arg2], 0, var24);
-            if (arg0) {
-                if (arg2 === 0) {
-                    if (var10.shadow) {
-                        ClientBuild.shadow![arg1][arg9][arg8] = 50;
-                        ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
-                    }
-                    if (var10.occlude) {
-                        ClientBuild.mapo![arg1][arg9][arg8] |= 0x249;
-                    }
-                } else if (arg2 === 1) {
-                    if (var10.shadow) {
-                        ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
-                        ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
-                    }
-                    if (var10.occlude) {
-                        ClientBuild.mapo![arg1][arg9][arg8 + 1] |= 0x492;
-                    }
-                } else if (arg2 === 2) {
-                    if (var10.shadow) {
-                        ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
-                        ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
-                    }
-                    if (var10.occlude) {
-                        ClientBuild.mapo![arg1][arg9 + 1][arg8] |= 0x249;
-                    }
-                } else if (arg2 === 3) {
-                    if (var10.shadow) {
-                        ClientBuild.shadow![arg1][arg9][arg8] = 50;
-                        ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
-                    }
-                    if (var10.occlude) {
-                        ClientBuild.mapo![arg1][arg9][arg8] |= 0x492;
-                    }
-                }
-            }
-            if (var10.blockwalk !== 0 && arg7 !== null) {
-                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
-            }
-            if (var10.wallwidth !== 16) {
-                World.moveDecor(arg1, arg9, arg8, var10.wallwidth);
-            }
-        } else if (arg3 === 1) {
-            let var38: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var39 = var10.getModel(1, var21, var17, var18, arg0, var20, arg2, var19);
-                var38 = var39.field3984;
-            } else {
-                var38 = new ClientLocAnim(arg5, 1, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setWall(arg1, arg9, arg8, var19, var38, null, ClientBuild.WSHAPE1[arg2], 0, var24);
-            if (var10.shadow && arg0) {
-                if (arg2 === 0) {
-                    ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
-                } else if (arg2 === 1) {
-                    ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
-                } else if (arg2 === 2) {
-                    ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
-                } else if (arg2 === 3) {
-                    ClientBuild.shadow![arg1][arg9][arg8] = 50;
-                }
-            }
-            if (var10.blockwalk !== 0 && arg7 !== null) {
-                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
-            }
-        } else if (arg3 === 2) {
-            const var40 = (arg2 + 1) & 0x3;
-            let var41: ModelSource | null;
-            let var42: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var43 = var10.getModel(2, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-                var41 = var43.field3984;
-                const var44 = var10.getModel(2, var21, var17, var18, arg0, var20, var40, var19);
-                var42 = var44.field3984;
-            } else {
-                var41 = new ClientLocAnim(arg5, 2, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-                var42 = new ClientLocAnim(arg5, 2, var40, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setWall(arg1, arg9, arg8, var19, var41, var42, ClientBuild.WSHAPE0[arg2], ClientBuild.WSHAPE0[var40], var24);
-            if (var10.occlude && arg0) {
-                if (arg2 === 0) {
-                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x249;
-                    ClientBuild.mapo![arg1][arg9][arg8 + 1] |= 0x492;
-                } else if (arg2 === 1) {
-                    ClientBuild.mapo![arg1][arg9][arg8 + 1] |= 0x492;
-                    ClientBuild.mapo![arg1][arg9 + 1][arg8] |= 0x249;
-                } else if (arg2 === 2) {
-                    ClientBuild.mapo![arg1][arg9 + 1][arg8] |= 0x249;
-                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x492;
-                } else if (arg2 === 3) {
-                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x492;
-                    ClientBuild.mapo![arg1][arg9][arg8] |= 0x249;
-                }
-            }
-            if (var10.blockwalk !== 0 && arg7 !== null) {
-                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
-            }
-            if (var10.wallwidth !== 16) {
-                World.moveDecor(arg1, arg9, arg8, var10.wallwidth);
-            }
-        } else if (arg3 === 3) {
-            let var46: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var45 = var10.getModel(3, var21, var17, var18, arg0, var20, arg2, var19);
-                var46 = var45.field3984;
-            } else {
-                var46 = new ClientLocAnim(arg5, 3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setWall(arg1, arg9, arg8, var19, var46, null, ClientBuild.WSHAPE1[arg2], 0, var24);
-            if (var10.shadow && arg0) {
-                if (arg2 === 0) {
-                    ClientBuild.shadow![arg1][arg9][arg8 + 1] = 50;
-                } else if (arg2 === 1) {
-                    ClientBuild.shadow![arg1][arg9 + 1][arg8 + 1] = 50;
-                } else if (arg2 === 2) {
-                    ClientBuild.shadow![arg1][arg9 + 1][arg8] = 50;
-                } else if (arg2 === 3) {
-                    ClientBuild.shadow![arg1][arg9][arg8] = 50;
-                }
-            }
-            if (var10.blockwalk !== 0 && arg7 !== null) {
-                arg7.addWall(arg3, arg8, var10.blockrange, arg2, arg9);
-            }
-        } else if (arg3 === 9) {
-            let var47: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var48 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
-                var47 = var48.field3984;
-            } else {
-                var47 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.addScenery(arg1, arg9, arg8, var19, 1, 1, var47, 0, var24);
-            if (var10.blockwalk !== 0 && arg7 !== null) {
-                arg7.addLoc(var11, var12, var10.blockrange, arg9, arg8);
-            }
-            if (var10.wallwidth !== 16) {
-                World.moveDecor(arg1, arg9, arg8, var10.wallwidth);
-            }
-        } else if (arg3 === 4) {
-            let var49: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var50 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
-                var49 = var50.field3984;
-            } else {
-                var49 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setDecor(arg1, arg9, arg8, var19, var49, null, ClientBuild.WSHAPE0[arg2], 0, 0, 0, var24);
-        } else if (arg3 === 5) {
-            let var51 = 16;
-            const var52 = World.wallType(arg1, arg9, arg8);
-            if (var52 != 0) {
-                var51 = LocType.list(Number((BigInt(var52) >> 32n) & 0x7fffffffn)).wallwidth;
-            }
-            let var54: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var55 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
-                var54 = var55.field3984;
-            } else {
-                var54 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setDecor(arg1, arg9, arg8, var19, var54, null, ClientBuild.WSHAPE0[arg2], 0, var51 * ClientBuild.DECORXOF[arg2], var51 * ClientBuild.DECORZOF[arg2], var24);
-        } else if (arg3 === 6) {
-            let var56 = 8;
-            const var57 = World.wallType(arg1, arg9, arg8);
-            if (var57 != 0) {
-                var56 = (LocType.list(Number((BigInt(var57) >> 32n) & 0x7fffffffn)).wallwidth / 2) | 0;
-            }
-            let var59: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var60 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-                var59 = var60.field3984;
-            } else {
-                var59 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setDecor(arg1, arg9, arg8, var19, var59, null, 256, arg2, ClientBuild.DECORXOF2[arg2] * var56, ClientBuild.DECORZOF2[arg2] * var56, var24);
-        } else if (arg3 === 7) {
-            const var61 = (arg2 + 2) & 0x3;
-            let var63: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var62 = var10.getModel(4, var21, var17, var18, arg0, var20, var61 + 4, var19);
-                var63 = var62.field3984;
-            } else {
-                var63 = new ClientLocAnim(arg5, 4, var61 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setDecor(arg1, arg9, arg8, var19, var63, null, 256, var61, 0, 0, var24);
-        } else if (arg3 === 8) {
-            let var64 = 8;
-            const var65 = World.wallType(arg1, arg9, arg8);
-            if (var65 != 0) {
-                var64 = (LocType.list(Number((BigInt(var65) >> 32n) & 0x7fffffffn)).wallwidth / 2) | 0;
-            }
-            const var67 = (arg2 + 2) & 0x3;
-            let var68: ModelSource | null;
-            let var69: ModelSource | null;
-            if (var10.anim === -1 && var10.multiloc === null) {
-                const var70 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-                var68 = var70.field3984;
-                const var71 = var10.getModel(4, var21, var17, var18, arg0, var20, var67 + 4, var19);
-                var69 = var71.field3984;
-            } else {
-                var68 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-                var69 = new ClientLocAnim(arg5, 4, var67 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
-            }
-            World.setDecor(arg1, arg9, arg8, var19, var68, var69, 256, arg2, ClientBuild.DECORXOF2[arg2] * var64, var64 * ClientBuild.DECORZOF2[arg2], var24);
-        }
-    }
-
-    static loadGroundSquare(arg0: number, arg1: Packet, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number): void {
-        if (arg0 < 0 || arg0 >= 104 || arg4 < 0 || arg4 >= 104) {
-            while (true) {
-                const var7 = arg1.g1();
-                if (var7 === 0) {
-                    return;
-                }
-                if (var7 === 1) {
-                    arg1.g1();
-                    return;
-                }
-                if (var7 <= 49) {
-                    arg1.g1();
-                }
-            }
-        }
-
-        ClientBuild.mapl[arg6][arg0][arg4] = 0;
-        while (true) {
-            const var8 = arg1.g1();
-            if (var8 === 0) {
-                if (arg6 === 0) {
-                    ClientBuild.groundh![0][arg0][arg4] = -ClientBuild.perlinNoise(arg3 + arg0 + 932731, 556238 - -arg4 - -arg2) * 8;
-                    return;
-                } else {
-                    ClientBuild.groundh![arg6][arg0][arg4] = ClientBuild.groundh![arg6 - 1][arg0][arg4] - 240;
-                    return;
-                }
-            }
-
-            if (var8 === 1) {
-                let var9 = arg1.g1();
-                if (var9 === 1) {
-                    var9 = 0;
-                }
-                if (arg6 === 0) {
-                    ClientBuild.groundh![0][arg0][arg4] = -var9 * 8;
-                    return;
-                }
-                ClientBuild.groundh![arg6][arg0][arg4] = ClientBuild.groundh![arg6 - 1][arg0][arg4] - var9 * 8;
-                return;
-            }
-
-            if (var8 <= 49) {
-                ClientBuild.floort2![arg6][arg0][arg4] = arg1.g1b();
-                ClientBuild.floors![arg6][arg0][arg4] = (((var8 - 2) / 4) | 0) & 0xff;
-                ClientBuild.floorr![arg6][arg0][arg4] = (arg5 + var8 - 2) & 0x3 & 0xff;
-            } else if (var8 <= 81) {
-                ClientBuild.mapl[arg6][arg0][arg4] = (var8 - 49) & 0xff;
-            } else {
-                ClientBuild.floort1![arg6][arg0][arg4] = (var8 - 81) & 0xff;
-            }
-        }
-    }
-
-    static interpolatedNoise(arg0: number, arg1: number, arg2: number): number {
-        if (arg1 === 0) {
-            throw new Error('/ by zero');
-        }
-        const var3: number = (arg2 / arg1) | 0;
-        const var4: number = (arg1 - 1) & arg2;
-        const var5: number = (arg1 - 1) & arg0;
-        const var6: number = (arg0 / arg1) | 0;
-        const var7: number = ClientBuild.smoothNoise(var6, var3);
-        const var8: number = ClientBuild.smoothNoise(var6, var3 + 1);
-        const var9: number = ClientBuild.smoothNoise(var6 + 1, var3);
-        const var10: number = ClientBuild.smoothNoise(var6 + 1, var3 + 1);
-        const var11: number = ClientBuild.interpolate(arg1, var7, var4, var8);
-        const var12: number = ClientBuild.interpolate(arg1, var9, var4, var10);
-        return ClientBuild.interpolate(arg1, var11, var5, var12);
-    }
-
-    static smoothNoise(arg0: number, arg1: number): number {
-        const var2: number = ClientBuild.noise(arg0 - 1, arg1 + -1) + ClientBuild.noise(arg0 - 1, arg1 + 1) + ClientBuild.noise(arg0 + 1, arg1 + -1) + ClientBuild.noise(arg0 - -1, arg1 - -1);
-        const var3: number = ClientBuild.noise(arg0, arg1 - 1) + ClientBuild.noise(arg0, arg1 + 1) + ClientBuild.noise(arg0 + -1, arg1) + ClientBuild.noise(arg0 - -1, arg1);
-        const var4: number = ClientBuild.noise(arg0, arg1);
-        return ((var2 / 16) | 0) + ((var3 / 8) | 0) + ((var4 / 4) | 0);
-    }
-
-    static interpolate(arg0: number, arg1: number, arg2: number, arg3: number): number {
-        if (arg0 === 0) {
-            throw new Error('/ by zero');
-        }
-        const var4: number = (65536 - Pix3D.cosTable[(Math.imul(arg2, 1024) / arg0) | 0]) >> 1;
-        return (Math.imul(arg1, 65536 - var4) >> 16) + (Math.imul(arg3, var4) >> 16);
-    }
-
-    static loadGroundRegion(): void;
-    static loadGroundRegion(dstX: number, rotation: number, srcX: number, srcZ: number, collisions: Array<CollisionMap | null>, srcLevel: number, src: Uint8Array, dstZ: number, dstLevel: number): void;
-    static loadGroundRegion(arg0?: number, arg1?: number, arg2?: number, arg3?: number, arg4?: Array<CollisionMap | null>, arg5?: number, arg6?: Uint8Array, arg7?: number, arg8?: number): void {
-        if (arg0 === undefined) {
-            const var0 = ClientBuild.field3221!;
-            for (let var1 = 0; var1 < 4; var1++) {
-                Client.doAudio();
-                for (let var2 = 0; var2 < 13; var2++) {
-                    for (let var3 = 0; var3 < 13; var3++) {
-                        let var4 = false;
-                        const var5 = ClientBuild.zoneMapArchiveIds[var1][var2][var3];
-                        if (var5 !== -1) {
-                            const var6 = (var5 >> 24) & 0x3;
-                            const var7 = (var5 >> 14) & 0x3ff;
-                            const var8 = (var5 >> 1) & 0x3;
-                            const var9 = (var5 >> 3) & 0x7ff;
-                            const var10 = ((var9 / 8) | 0) + (((var7 / 8) | 0) << 8);
-                            for (let var11 = 0; var11 < ClientBuild.field2731!.length; var11++) {
-                                if (var10 === ClientBuild.field2731![var11] && var0[var11] != null) {
-                                    ClientBuild.loadGroundRegion(var2 * 8, var8, (var7 & 0x7) * 8, (var9 & 0x7) * 8, Client.collision, var6, var0[var11]!, var3 * 8, var1);
-                                    var4 = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!var4) {
-                            ClientBuild.fadeAdjacent(var1, 8, 8, var3 * 8, var2 * 8);
-                        }
-                    }
-                }
-            }
-            return;
-        }
-        for (let var9 = 0; var9 < 8; var9++) {
-            for (let var10 = 0; var10 < 8; var10++) {
-                if (var9 + arg0 > 0 && var9 + arg0 < 103 && arg7! + var10 > 0 && var10 + arg7! < 103) {
-                    arg4![arg8!]!.flags[arg0 + var9][arg7! + var10] &= 0xfeffffff;
-                }
-            }
-        }
-
-        const var11 = new Packet(arg6!);
-        for (let var12 = 0; var12 < 4; var12++) {
-            for (let var13 = 0; var13 < 64; var13++) {
-                for (let var14 = 0; var14 < 64; var14++) {
-                    if (var12 === arg5 && var13 >= arg2! && var13 < arg2! + 8 && var14 >= arg3! && var14 < arg3! + 8) {
-                        ClientBuild.loadGroundSquare(RegionRotate.DX(arg1!, var13 & 0x7, var14 & 0x7) + arg0, var11, 0, 0, arg7! + RegionRotate.DZ(var14 & 0x7, var13 & 0x7, arg1!), arg1!, arg8!);
-                    } else {
-                        ClientBuild.loadGroundSquare(-1, var11, 0, 0, -1, 0, 0);
-                    }
-                }
-            }
-        }
-    }
-
-    static noise(arg0: number, arg1: number): number {
-        const var2: number = Math.imul(arg0, 57) + arg1;
-        const var3: number = (var2 << 13) ^ var2;
-        const var4: number = 0x7fffffff & (Math.imul(var3, Math.imul(Math.imul(var3, var3), 15731) + 789221) + 1376312589);
-        return (var4 >> 19) & 0xff;
-    }
-
-    static getTable(arg0: number, arg1: number, arg2: number): number {
-        if (arg1 > 243) {
-            arg2 >>= 4;
-        } else if (arg1 > 217) {
-            arg2 >>= 3;
-        } else if (arg1 > 192) {
-            arg2 >>= 2;
-        } else if (arg1 > 179) {
-            arg2 >>= 1;
-        }
-        return (arg1 >> 1) + ((arg0 >> 2) << 10) + ((arg2 >> 5) << 7);
-    }
-
-    static getUCol(arg0: number, arg1: number): number {
-        if (arg1 === -1) {
-            return 12345678;
-        }
-
-        let var2 = (arg0 * (arg1 & 0x7f)) >> 7;
-        if (var2 < 2) {
-            var2 = 2;
-        } else if (var2 > 126) {
-            var2 = 126;
-        }
-
-        return var2 + (arg1 & 0xff80);
-    }
-
-    static perlinNoise(arg0: number, arg1: number): number {
-        const var2: number = ClientBuild.interpolatedNoise(arg1 + 91923, 4, arg0 + 45365) + ((ClientBuild.interpolatedNoise(arg1 + 37821, 2, arg0 + 10294) - 128) >> 1) + ((ClientBuild.interpolatedNoise(arg1, 1, arg0) + -128) >> 2) - 128;
-        let var3: number = ((var2 * 0.3) | 0) + 35;
-        if (var3 < 10) {
-            var3 = 10;
-        } else if (var3 > 60) {
-            var3 = 60;
-        }
-        return var3;
     }
 }

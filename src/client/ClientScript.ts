@@ -6,18 +6,18 @@ import Linkable2 from '#/datastruct/Linkable2.js';
 import LruCache from '#/datastruct/LruCache.js';
 import Packet from '#/io/Packet.js';
 
+// jag::oldscape::ClientScript
 export default class ClientScript extends Linkable2 {
     static readonly cache: LruCache<ClientScript> = new LruCache(128);
-
-    stringLocalCount: number = 0;
-    stringArgCount: number = 0;
-    intArgCount: number = 0;
-    intLocalCount: number = 0;
-    name: string | null = null;
     instructions: Int32Array | null = null;
     intOperands: Int32Array | null = null;
-    switchTables: HashTable<IntNode>[] | null = null;
     stringOperands: (string | null)[] | null = null;
+    intLocalCount: number = 0;
+    stringLocalCount: number = 0;
+    intArgCount: number = 0;
+    stringArgCount: number = 0;
+    name: string | null = null;
+    switchTables: HashTable<IntNode>[] | null = null;
 
     static get(arg0: number): ClientScript | null {
         const var1 = ClientScript.cache.find(BigInt(arg0));

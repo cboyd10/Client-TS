@@ -1,21 +1,144 @@
+// jag::oldscape::input::ClientKeyboardListener
 export default class ClientKeyboardListener {
     static instance: ClientKeyboardListener | null = new ClientKeyboardListener();
+    static keyHeld: boolean[] = new Array(112).fill(false);
+    static ch: number = 0;
+    static code: number = 0;
+    static keyHeldBuffer: Int32Array = new Int32Array(128);
+    static keyHeldWritePos: number = 0;
     static keyHeldReadPos: number = 0;
+    static keyChBuffer: Int32Array = new Int32Array(128);
+    static keyCodeBuffer: Int32Array = new Int32Array(128);
+    static keyReadPos: number = 0;
+    static keyWritePos: number = 0;
+    static lastKeyWritePos: number = 0;
     static idleTimer: number = 0;
     static KEY_CODE_MAP: number[] = new Array(600).fill(-1);
-    static keyHeldBuffer: Int32Array = new Int32Array(128);
-    static keyWritePos: number = 0;
-    static keyReadPos: number = 0;
-    static keyCodeBuffer: Int32Array = new Int32Array(128);
-    static keyChBuffer: Int32Array = new Int32Array(128);
-    static keyHeldWritePos: number = 0;
-    static lastKeyWritePos: number = 0;
-    static keyHeld: boolean[] = new Array(112).fill(false);
-    static code: number = 0;
-    static ch: number = 0;
 
+    // todo: inline?
     private static readonly blur = (event: FocusEvent): void => ClientKeyboardListener.instance?.focusLost(event);
     private static readonly focus = (event: FocusEvent): void => ClientKeyboardListener.instance?.focusGained(event);
+
+    static addListeners(target: HTMLElement): void {
+        target.onkeydown = (event: KeyboardEvent): void => ClientKeyboardListener.instance?.keyPressed(event);
+        target.onkeyup = (event: KeyboardEvent): void => ClientKeyboardListener.instance?.keyReleased(event);
+        target.onkeypress = (event: KeyboardEvent): void => ClientKeyboardListener.instance?.keyTyped(event);
+        target.addEventListener('blur', ClientKeyboardListener.blur, false);
+        target.addEventListener('focus', ClientKeyboardListener.focus, false);
+    }
+
+    static removeListeners(target: HTMLElement): void {
+        target.onkeydown = null;
+        target.onkeyup = null;
+        target.onkeypress = null;
+        target.removeEventListener('blur', ClientKeyboardListener.blur, false);
+        target.removeEventListener('focus', ClientKeyboardListener.focus, false);
+        ClientKeyboardListener.keyHeldWritePos = -1;
+    }
+
+    static shutdown(): void {
+        ClientKeyboardListener.instance = null;
+    }
+
+    static cycle(): void {
+        ClientKeyboardListener.idleTimer++;
+        ClientKeyboardListener.keyReadPos = ClientKeyboardListener.lastKeyWritePos;
+        if (ClientKeyboardListener.keyHeldWritePos < 0) {
+            for (let i = 0; i < 112; i++) {
+                ClientKeyboardListener.keyHeld[i] = false;
+            }
+            ClientKeyboardListener.keyHeldWritePos = ClientKeyboardListener.keyHeldReadPos;
+        } else {
+            while (ClientKeyboardListener.keyHeldReadPos !== ClientKeyboardListener.keyHeldWritePos) {
+                const key = ClientKeyboardListener.keyHeldBuffer[ClientKeyboardListener.keyHeldReadPos];
+                ClientKeyboardListener.keyHeldReadPos = (ClientKeyboardListener.keyHeldReadPos + 1) & 0x7f;
+                if (key < 0) {
+                    ClientKeyboardListener.keyHeld[~key] = false;
+                } else {
+                    ClientKeyboardListener.keyHeld[key] = true;
+                }
+            }
+        }
+        ClientKeyboardListener.lastKeyWritePos = ClientKeyboardListener.keyWritePos;
+    }
+
+    keyPressed(event: KeyboardEvent): void {
+        if (!ClientKeyboardListener.instance) {
+            return;
+        }
+
+        ClientKeyboardListener.idleTimer = 0;
+        const javaCode = event.keyCode;
+        let code = javaCode >= 0 && javaCode < ClientKeyboardListener.KEY_CODE_MAP.length ? ClientKeyboardListener.KEY_CODE_MAP[javaCode] : -1;
+        if ((code & 0x80) !== 0) {
+            code = -1;
+        }
+        if (ClientKeyboardListener.keyHeldWritePos >= 0 && code >= 0) {
+            ClientKeyboardListener.keyHeldBuffer[ClientKeyboardListener.keyHeldWritePos] = code;
+            ClientKeyboardListener.keyHeldWritePos = (ClientKeyboardListener.keyHeldWritePos + 1) & 0x7f;
+            if (ClientKeyboardListener.keyHeldWritePos === ClientKeyboardListener.keyHeldReadPos) {
+                ClientKeyboardListener.keyHeldWritePos = -1;
+            }
+        }
+
+        if (code >= 0) {
+            const next = (ClientKeyboardListener.keyWritePos + 1) & 0x7f;
+            if (next !== ClientKeyboardListener.keyReadPos) {
+                ClientKeyboardListener.keyCodeBuffer[ClientKeyboardListener.keyWritePos] = code;
+                ClientKeyboardListener.keyChBuffer[ClientKeyboardListener.keyWritePos] = -1;
+                ClientKeyboardListener.keyWritePos = next;
+            }
+        }
+
+        if (event.key !== 'F11' && event.key !== 'F12' && (event.ctrlKey || event.altKey || event.metaKey || code === 85 || code === 10)) {
+            event.preventDefault();
+        }
+    }
+
+    keyReleased(event: KeyboardEvent): void {
+        if (!ClientKeyboardListener.instance) {
+            return;
+        }
+
+        ClientKeyboardListener.idleTimer = 0;
+        const javaCode = event.keyCode;
+        const code = javaCode >= 0 && javaCode < ClientKeyboardListener.KEY_CODE_MAP.length ? ClientKeyboardListener.KEY_CODE_MAP[javaCode] & 0xffffff7f : -1;
+        if (ClientKeyboardListener.keyHeldWritePos >= 0 && code >= 0) {
+            ClientKeyboardListener.keyHeldBuffer[ClientKeyboardListener.keyHeldWritePos] = ~code;
+            ClientKeyboardListener.keyHeldWritePos = (ClientKeyboardListener.keyHeldWritePos + 1) & 0x7f;
+            if (ClientKeyboardListener.keyHeldReadPos === ClientKeyboardListener.keyHeldWritePos) {
+                ClientKeyboardListener.keyHeldWritePos = -1;
+            }
+        }
+
+        if (event.key !== 'F11' && event.key !== 'F12') {
+            event.preventDefault();
+        }
+    }
+
+	// jag::oldscape::input::ClientKeyboardListener::HandleKeyChar (?)
+    keyTyped(event: KeyboardEvent): void {
+        if (ClientKeyboardListener.instance) {
+            const ch = ClientKeyboardListener.getKeyChar(event);
+            if (ch >= 0) {
+                const next = (ClientKeyboardListener.keyWritePos + 1) & 0x7f;
+                if (ClientKeyboardListener.keyReadPos !== next) {
+                    ClientKeyboardListener.keyCodeBuffer[ClientKeyboardListener.keyWritePos] = -1;
+                    ClientKeyboardListener.keyChBuffer[ClientKeyboardListener.keyWritePos] = ch;
+                    ClientKeyboardListener.keyWritePos = next;
+                }
+            }
+        }
+        event.preventDefault();
+    }
+
+    focusGained(_event: FocusEvent): void {}
+
+    focusLost(_event: FocusEvent): void {
+        if (ClientKeyboardListener.instance) {
+            ClientKeyboardListener.keyHeldWritePos = -1;
+        }
+    }
 
     static setupKeyCodeMap(): void {
         const map = ClientKeyboardListener.KEY_CODE_MAP;
@@ -119,49 +242,6 @@ export default class ClientKeyboardListener {
         map[222] = 58;
     }
 
-    static addListeners(target: HTMLElement): void {
-        target.onkeydown = (event: KeyboardEvent): void => ClientKeyboardListener.instance?.keyPressed(event);
-        target.onkeyup = (event: KeyboardEvent): void => ClientKeyboardListener.instance?.keyReleased(event);
-        target.onkeypress = (event: KeyboardEvent): void => ClientKeyboardListener.instance?.keyTyped(event);
-        target.addEventListener('blur', ClientKeyboardListener.blur, false);
-        target.addEventListener('focus', ClientKeyboardListener.focus, false);
-    }
-
-    static removeListeners(target: HTMLElement): void {
-        target.onkeydown = null;
-        target.onkeyup = null;
-        target.onkeypress = null;
-        target.removeEventListener('blur', ClientKeyboardListener.blur, false);
-        target.removeEventListener('focus', ClientKeyboardListener.focus, false);
-        ClientKeyboardListener.keyHeldWritePos = -1;
-    }
-
-    static shutdown(): void {
-        ClientKeyboardListener.instance = null;
-    }
-
-    static cycle(): void {
-        ClientKeyboardListener.idleTimer++;
-        ClientKeyboardListener.keyReadPos = ClientKeyboardListener.lastKeyWritePos;
-        if (ClientKeyboardListener.keyHeldWritePos < 0) {
-            for (let i = 0; i < 112; i++) {
-                ClientKeyboardListener.keyHeld[i] = false;
-            }
-            ClientKeyboardListener.keyHeldWritePos = ClientKeyboardListener.keyHeldReadPos;
-        } else {
-            while (ClientKeyboardListener.keyHeldReadPos !== ClientKeyboardListener.keyHeldWritePos) {
-                const key = ClientKeyboardListener.keyHeldBuffer[ClientKeyboardListener.keyHeldReadPos];
-                ClientKeyboardListener.keyHeldReadPos = (ClientKeyboardListener.keyHeldReadPos + 1) & 0x7f;
-                if (key < 0) {
-                    ClientKeyboardListener.keyHeld[~key] = false;
-                } else {
-                    ClientKeyboardListener.keyHeld[key] = true;
-                }
-            }
-        }
-        ClientKeyboardListener.lastKeyWritePos = ClientKeyboardListener.keyWritePos;
-    }
-
     static pollKey(): boolean {
         if (ClientKeyboardListener.keyReadPos === ClientKeyboardListener.lastKeyWritePos) {
             return false;
@@ -195,83 +275,6 @@ export default class ClientKeyboardListener {
             ch = -1;
         }
         return ch;
-    }
-
-    keyTyped(event: KeyboardEvent): void {
-        if (ClientKeyboardListener.instance) {
-            const ch = ClientKeyboardListener.getKeyChar(event);
-            if (ch >= 0) {
-                const next = (ClientKeyboardListener.keyWritePos + 1) & 0x7f;
-                if (ClientKeyboardListener.keyReadPos !== next) {
-                    ClientKeyboardListener.keyCodeBuffer[ClientKeyboardListener.keyWritePos] = -1;
-                    ClientKeyboardListener.keyChBuffer[ClientKeyboardListener.keyWritePos] = ch;
-                    ClientKeyboardListener.keyWritePos = next;
-                }
-            }
-        }
-        event.preventDefault();
-    }
-
-    focusGained(_event: FocusEvent): void {}
-
-    focusLost(_event: FocusEvent): void {
-        if (ClientKeyboardListener.instance) {
-            ClientKeyboardListener.keyHeldWritePos = -1;
-        }
-    }
-
-    keyPressed(event: KeyboardEvent): void {
-        if (!ClientKeyboardListener.instance) {
-            return;
-        }
-
-        ClientKeyboardListener.idleTimer = 0;
-        const javaCode = event.keyCode;
-        let code = javaCode >= 0 && javaCode < ClientKeyboardListener.KEY_CODE_MAP.length ? ClientKeyboardListener.KEY_CODE_MAP[javaCode] : -1;
-        if ((code & 0x80) !== 0) {
-            code = -1;
-        }
-        if (ClientKeyboardListener.keyHeldWritePos >= 0 && code >= 0) {
-            ClientKeyboardListener.keyHeldBuffer[ClientKeyboardListener.keyHeldWritePos] = code;
-            ClientKeyboardListener.keyHeldWritePos = (ClientKeyboardListener.keyHeldWritePos + 1) & 0x7f;
-            if (ClientKeyboardListener.keyHeldWritePos === ClientKeyboardListener.keyHeldReadPos) {
-                ClientKeyboardListener.keyHeldWritePos = -1;
-            }
-        }
-
-        if (code >= 0) {
-            const next = (ClientKeyboardListener.keyWritePos + 1) & 0x7f;
-            if (next !== ClientKeyboardListener.keyReadPos) {
-                ClientKeyboardListener.keyCodeBuffer[ClientKeyboardListener.keyWritePos] = code;
-                ClientKeyboardListener.keyChBuffer[ClientKeyboardListener.keyWritePos] = -1;
-                ClientKeyboardListener.keyWritePos = next;
-            }
-        }
-
-        if (event.key !== 'F11' && event.key !== 'F12' && (event.ctrlKey || event.altKey || event.metaKey || code === 85 || code === 10)) {
-            event.preventDefault();
-        }
-    }
-
-    keyReleased(event: KeyboardEvent): void {
-        if (!ClientKeyboardListener.instance) {
-            return;
-        }
-
-        ClientKeyboardListener.idleTimer = 0;
-        const javaCode = event.keyCode;
-        const code = javaCode >= 0 && javaCode < ClientKeyboardListener.KEY_CODE_MAP.length ? ClientKeyboardListener.KEY_CODE_MAP[javaCode] & 0xffffff7f : -1;
-        if (ClientKeyboardListener.keyHeldWritePos >= 0 && code >= 0) {
-            ClientKeyboardListener.keyHeldBuffer[ClientKeyboardListener.keyHeldWritePos] = ~code;
-            ClientKeyboardListener.keyHeldWritePos = (ClientKeyboardListener.keyHeldWritePos + 1) & 0x7f;
-            if (ClientKeyboardListener.keyHeldReadPos === ClientKeyboardListener.keyHeldWritePos) {
-                ClientKeyboardListener.keyHeldWritePos = -1;
-            }
-        }
-
-        if (event.key !== 'F11' && event.key !== 'F12') {
-            event.preventDefault();
-        }
     }
 }
 
