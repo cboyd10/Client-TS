@@ -355,7 +355,7 @@ export default class JagString {
             JagString.internTable = new HashTable(4096);
         } else {
             for (let var5 = JagString.internTable.find(var2); var5 != null; var5 = JagString.internTable.method1054()) {
-                const var6 = var5.field4046 as JagString | null;
+                const var6 = var5.value as JagString | null;
                 if (this.strEquals(var6)) {
                     return var6;
                 }
@@ -365,7 +365,7 @@ export default class JagString {
             return null;
         }
         const var8 = new StringNode();
-        var8.field4046 = this;
+        var8.value = this;
         this.mutable = false;
         JagString.internTable.put(var2, var8);
         return this;

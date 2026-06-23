@@ -3,44 +3,90 @@ import LruCache from '#/datastruct/LruCache.js';
 import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
+// jag::oldscape::configdecoder::FloType
 export default class FloType extends Linkable2 {
-    static readonly recentUse: LruCache<FloType> = new LruCache(64);
-
+    // jag::oldscape::configdecoder::FloType::m_pConfigClient
     static configClient: Js5;
+
     static numDefinitions: number = 0;
-    static defaultWater: number = 0;
-
-    waterfogcolour: number = 1190717;
-    mapcolour: number = -1;
-    waterfogscale: number = 16;
-    texture: number = -1;
-    occlude: boolean = true;
+    static readonly recentUse: LruCache<FloType> = new LruCache(64);
     colour: number = 0;
+    material: number = -1;
+    occlude: boolean = true;
+    mapcolour: number = -1;
+    static defaultWater: number = 0;
+    waterfogcolour: number = 1190717;
+    waterfogscale: number = 16;
 
-    static list(arg0: number): FloType {
-        const var1 = FloType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
-
-        const var2 = FloType.configClient.getFile(arg0, 4);
-        const var3 = new FloType();
-        if (var2 !== null) {
-            var3.decode(new Packet(var2), arg0);
-        }
-        FloType.recentUse.put(BigInt(arg0), var3);
-        return var3;
-    }
-
-    static resetCache(): void {
-        FloType.recentUse.clear();
-    }
-
-    static init(arg0: Js5): void {
-        FloType.configClient = arg0;
+    static init(config: Js5): void {
+        FloType.configClient = config;
         FloType.numDefinitions = FloType.configClient.getFileIdLimit(4);
     }
 
+    // jag::oldscape::configdecoder::FloType::List
+    static list(id: number): FloType {
+        const cached = FloType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
+        }
+
+        const data = FloType.configClient.getFile(id, 4);
+        const type = new FloType();
+        if (data !== null) {
+            type.decode(new Packet(data), id);
+        }
+
+        FloType.recentUse.put(BigInt(id), type);
+        return type;
+    }
+
+    // jag::oldscape::configdecoder::FloType::Decode
+    decode(buf: Packet, id: number): void {
+        while (true) {
+            const code = buf.g1();
+            if (code === 0) {
+                return;
+            }
+
+            this.decodeInner(id, code, buf);
+        }
+    }
+
+    // jag::oldscape::configdecoder::FloType::Decode
+    decodeInner(id: number, code: number, buf: Packet): void {
+        if (code == 1) {
+            this.colour = FloType.getHsl(buf.g3());
+        } else if (code == 2) {
+            this.material = buf.g1();
+        } else if (code == 3) {
+            this.material = buf.g2();
+            if (this.material == 65535) {
+                this.material = -1;
+            }
+        } else if (code == 5) {
+            this.occlude = false;
+        } else if (code == 7) {
+            this.mapcolour = FloType.getHsl(buf.g3());
+        } else if (code == 8) {
+            FloType.defaultWater = id;
+        } else if (code == 9) {
+            // materialscale
+            buf.g2();
+        } else if (code == 10) {
+            // hardshadow
+        } else if (code == 11) {
+            // priority
+            buf.g1();
+        } else if (code == 12) {
+            // blend
+        } else if (code == 13) {
+            this.waterfogcolour = buf.g3();
+        } else if (code == 14) {
+            this.waterfogscale = buf.g1();
+        }
+    }
+
+    // jag::oldscape::configdecoder::FloType::GetHsl
     static getHsl(arg0: number): number {
         return arg0 == 16711935 ? -1 : FloType.getColour(arg0);
     }
@@ -107,45 +153,7 @@ export default class FloType extends Linkable2 {
         return ((var19 >> 5) << 7) + ((var20 >> 2) << 10) + (var21 >> 1);
     }
 
-    decode(arg0: Packet, arg1: number): void;
-    decode(arg0: number, arg1: number, arg2: Packet): void;
-    decode(arg0: Packet | number, arg1: Packet | number, arg2?: Packet): void {
-        if (typeof arg0 === 'number') {
-            if (arg1 == 1) {
-                this.colour = FloType.getHsl(arg2!.g3());
-            } else if (arg1 == 2) {
-                this.texture = arg2!.g1();
-            } else if (arg1 == 3) {
-                this.texture = arg2!.g2();
-                if (this.texture == 65535) {
-                    this.texture = -1;
-                }
-            } else if (arg1 == 5) {
-                this.occlude = false;
-            } else if (arg1 == 7) {
-                this.mapcolour = FloType.getHsl(arg2!.g3());
-            } else if (arg1 == 8) {
-                FloType.defaultWater = arg0;
-            } else if (arg1 == 9) {
-                arg2!.g2();
-            } else if (arg1 == 10) {
-            } else if (arg1 == 11) {
-                arg2!.g1();
-            } else if (arg1 == 12) {
-            } else if (arg1 == 13) {
-                this.waterfogcolour = arg2!.g3();
-            } else if (arg1 == 14) {
-                this.waterfogscale = arg2!.g1();
-            }
-            return;
-        }
-
-        while (true) {
-            const var3 = arg0.g1();
-            if (var3 === 0) {
-                return;
-            }
-            this.decode(arg1 as number, var3, arg0);
-        }
+    static resetCache(): void {
+        FloType.recentUse.clear();
     }
 }

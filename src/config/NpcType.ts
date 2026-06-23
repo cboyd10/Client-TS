@@ -293,7 +293,7 @@ export default class NpcType extends Linkable2 {
             return arg1;
         } else {
             const var3 = this.params.find(BigInt(arg0)) as StringNode | null;
-            return var3 === null ? arg1 : (var3.field4046 as string);
+            return var3 === null ? arg1 : (var3.value as string);
         }
     }
 

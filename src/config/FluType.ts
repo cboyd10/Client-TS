@@ -4,40 +4,68 @@ import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
 export default class FluType extends Linkable2 {
-    static readonly recentUse: LruCache<FluType> = new LruCache(64);
-
+    // jag::oldscape::configdecoder::FluType::m_pConfigClient
     static configClient: Js5;
 
+    static readonly recentUse: LruCache<FluType> = new LruCache(64);
     colour: number = 0;
-    texture: number = -1;
-    chroma: number = 0;
+    material: number = -1;
+    hue: number = 0;
     saturation: number = 0;
     lightness: number = 0;
-    hue: number = 0;
+    chroma: number = 0;
 
-    static list(arg0: number): FluType {
-        const var1 = FluType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
+    // jag::oldscape::configdecoder::FluType::Init
+    static init(config: Js5): void {
+        FluType.configClient = config;
+    }
+
+    // jag::oldscape::configdecoder::FluType::List
+    static list(id: number): FluType {
+        const cached = FluType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
         }
 
-        const var2 = FluType.configClient.getFile(arg0, 1);
-        const var3 = new FluType();
-        if (var2 !== null) {
-            var3.decode(arg0, new Packet(var2));
+        const data = FluType.configClient.getFile(id, 1);
+        const type = new FluType();
+        if (data !== null) {
+            type.decode(id, new Packet(data));
         }
-        FluType.recentUse.put(BigInt(arg0), var3);
-        return var3;
+
+        FluType.recentUse.put(BigInt(id), type);
+        return type;
     }
 
-    static resetCache(): void {
-        FluType.recentUse.clear();
+    // jag::oldscape::configdecoder::FluType::Decode
+    decode(id: number, buf: Packet): void {
+        while (true) {
+            const code = buf.g1();
+            if (code === 0) {
+                return;
+            }
+
+            this.decodeInner(code, buf, id);
+        }
     }
 
-    static init(arg0: Js5): void {
-        FluType.configClient = arg0;
+    // jag::oldscape::configdecoder::FluType::Decode
+    decodeInner(code: number, buf: Packet, id: number): void {
+        if (code == 1) {
+            this.colour = buf.g3();
+            this.getHsl(this.colour);
+        } else if (code == 2) {
+            this.material = buf.g2();
+            if (this.material == 65535) {
+                this.material = -1;
+            }
+        } else if (code == 3) {
+            // materialscale
+            buf.g2();
+        }
     }
 
+    // jag::oldscape::configdecoder::FluType::GetHsl
     getHsl(arg0: number): void {
         const var2 = ((arg0 >> 16) & 0xff) / 256.0;
         const var4 = ((arg0 >> 8) & 0xff) / 256.0;
@@ -98,30 +126,7 @@ export default class FluType extends Linkable2 {
         this.hue = Math.trunc(var18 * this.chroma);
     }
 
-    decode(arg0: number, arg1: Packet): void;
-    decode(arg0: number, arg1: Packet, arg2: number): void;
-    decode(arg0: number, arg1: Packet, arg2?: number): void {
-        if (typeof arg2 === 'number') {
-            if (arg0 == 1) {
-                this.colour = arg1.g3();
-                this.getHsl(this.colour);
-            } else if (arg0 == 2) {
-                this.texture = arg1.g2();
-                if (this.texture == 65535) {
-                    this.texture = -1;
-                }
-            } else if (arg0 == 3) {
-                arg1.g2();
-            }
-            return;
-        }
-
-        while (true) {
-            const var3 = arg1.g1();
-            if (var3 === 0) {
-                return;
-            }
-            this.decode(var3, arg1, arg0);
-        }
+    static resetCache(): void {
+        FluType.recentUse.clear();
     }
 }

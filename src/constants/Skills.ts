@@ -1,9 +1,9 @@
 // jag::oldscape::constants::skills
 export default class Skills {
-	// jag::oldscape::constants::skills::used
+    // jag::oldscape::constants::skills::used
     static readonly used: boolean[] = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false];
 
-	// jag::oldscape::constants::skills::skillxp
+    // jag::oldscape::constants::skills::skillxp
     static readonly skillxp: Int32Array = new Int32Array(99);
 
     static {

@@ -73,7 +73,7 @@ export default class StructType extends Linkable2 {
             return arg0;
         } else {
             const var3 = this.params.find(BigInt(arg1)) as StringNode | null;
-            return var3 === null ? arg0 : (var3.field4046 as string);
+            return var3 === null ? arg0 : (var3.value as string);
         }
     }
 

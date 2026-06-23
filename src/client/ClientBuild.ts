@@ -1032,7 +1032,7 @@ export default class ClientBuild {
                                 if (ClientBuild.lightmap !== null && var9 === 0) {
                                     ClientBuild.lightmap[var40][var41] = var59.waterfogcolour + (var59.waterfogscale << 24);
                                 }
-                                let var60: number = var59.texture;
+                                let var60: number = var59.material;
                                 if (var60 >= 0 && !Pix3D.textureManager!.isTextureEnabled(var60)) {
                                     var60 = -1;
                                 }

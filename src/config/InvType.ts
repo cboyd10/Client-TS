@@ -4,47 +4,54 @@ import LruCache from '#/datastruct/LruCache.js';
 import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
+// jag::oldscape::configdecoder::InvType
 export default class InvType extends Linkable2 {
-    static readonly recentUse: LruCache<InvType> = new LruCache(64);
+    // jag::oldscape::configdecoder::InvType::m_pConfigClient
     static configClient: Js5;
+
+    // jag::oldscape::configdecoder::InvType::m_recentUse
+    static readonly recentUse: LruCache<InvType> = new LruCache(64);
 
     size: number = 0;
 
-    static list(arg0: number): InvType {
-        const var1 = InvType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
-
-        const var2 = InvType.configClient.getFile(arg0, 5);
-        const var3 = new InvType();
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        InvType.recentUse.put(BigInt(arg0), var3);
-        return var3;
+    // jag::oldscape::configdecoder::InvType::Init
+    static init(config: Js5): void {
+        InvType.configClient = config;
     }
 
-    static init(arg0: Js5): void {
-        InvType.configClient = arg0;
-    }
-
-    decode(arg0: Packet): void;
-    decode(arg0: number, arg1: Packet): void;
-    decode(arg0: Packet | number, arg1?: Packet): void {
-        if (typeof arg0 === 'number') {
-            if (arg0 === 2) {
-                this.size = arg1!.g2();
-            }
-            return;
+    // jag::oldscape::configdecoder::InvType::List
+    static list(id: number): InvType {
+        const cached = InvType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
         }
 
+        const data = InvType.configClient.getFile(id, 5);
+        const type = new InvType();
+        if (data !== null) {
+            type.decode(new Packet(data));
+        }
+
+        InvType.recentUse.put(BigInt(id), type);
+        return type;
+    }
+
+    // jag::oldscape::configdecoder::InvType::Decode
+    decode(buf: Packet): void {
         while (true) {
-            const var2 = arg0.g1();
-            if (var2 === 0) {
+            const code = buf.g1();
+            if (code === 0) {
                 return;
             }
-            this.decode(var2, arg0);
+
+            this.decodeInner(code, buf);
+        }
+    }
+
+    // jag::oldscape::configdecoder::InvType::Decode
+    decodeInner(code: number, buf: Packet): void {
+        if (code === 2) {
+            this.size = buf.g2();
         }
     }
 }

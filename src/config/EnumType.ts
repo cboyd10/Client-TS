@@ -11,10 +11,10 @@ import IntMath from '#/util/IntMath.js';
 
 // jag::oldscape::configdecoder::EnumType
 export default class EnumType extends Linkable2 {
-	// jag::oldscape::configdecoder::EnumType::m_pConfigClient
+    // jag::oldscape::configdecoder::EnumType::m_pConfigClient
     static configClient: Js5;
 
-	// jag::oldscape::configdecoder::EnumType::m_recentUse
+    // jag::oldscape::configdecoder::EnumType::m_recentUse
     static readonly recentUse: LruCache<EnumType> = new LruCache(128);
 
     inputtype: number = 0;
@@ -22,6 +22,11 @@ export default class EnumType extends Linkable2 {
     defaultString: string = 'null';
     defaultInt: number = 0;
     values: HashTable<Linkable> | null = null;
+
+    // jag::oldscape::configdecoder::EnumType::Init
+    static init(config: Js5): void {
+        EnumType.configClient = config;
+    }
 
     static getGroupId(id: number): number {
         return id & 0xff;
@@ -47,7 +52,7 @@ export default class EnumType extends Linkable2 {
         return type;
     }
 
-	// jag::oldscape::configdecoder::EnumType::Decode
+    // jag::oldscape::configdecoder::EnumType::Decode
     decode(buf: Packet): void {
         while (true) {
             const code = buf.g1();
@@ -59,7 +64,7 @@ export default class EnumType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::EnumType::Decode
+    // jag::oldscape::configdecoder::EnumType::Decode
     decodeInner(code: number, buf: Packet): void {
         if (code === 1) {
             this.inputtype = buf.g1();
@@ -88,17 +93,12 @@ export default class EnumType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::EnumType::Init
-    static init(arg0: Js5): void {
-        EnumType.configClient = arg0;
-    }
-
     getValueInt(key: number): number {
         if (this.values === null) {
             return this.defaultInt;
         } else {
-            const value = this.values.find(BigInt(key)) as IntNode | null;
-            return value === null ? this.defaultInt : value.value;
+            const node = this.values.find(BigInt(key)) as IntNode | null;
+            return node === null ? this.defaultInt : node.value;
         }
     }
 
@@ -106,8 +106,8 @@ export default class EnumType extends Linkable2 {
         if (this.values === null) {
             return this.defaultString;
         } else {
-            const value = this.values.find(BigInt(key)) as StringNode | null;
-            return value === null ? this.defaultString : (value.field4046 as string);
+            const node = this.values.find(BigInt(key)) as StringNode | null;
+            return node === null ? this.defaultString : (node.value as string);
         }
     }
 }

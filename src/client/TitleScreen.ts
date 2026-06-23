@@ -21,10 +21,10 @@ import MidiManager from '#/midi2/MidiManager.js';
 
 // jag::oldscape::TitleScreen
 export default class TitleScreen {
-	// jag::oldscape::TitleScreen::m_open
+    // jag::oldscape::TitleScreen::m_open
     static opened: boolean = false;
 
-	// jag::oldscape::TitleScreen::m_titleBox
+    // jag::oldscape::TitleScreen::m_titleBox
     static titleBox: Pix8 | null = null;
 
     // jag::oldscape::TitleScreen::m_titleBut
@@ -65,7 +65,7 @@ export default class TitleScreen {
     // jag::oldscape::TitleScreen::m_loadPos
     static loadPos: number = 10;
 
-	// jag::oldscape::TitleScreen::m_loadString
+    // jag::oldscape::TitleScreen::m_loadString
     static loadString: string = '';
 
     // jag::oldscape::TitleScreen::m_loginscreen
@@ -86,13 +86,13 @@ export default class TitleScreen {
     // jag::oldscape::TitleScreen::m_loginPass
     static loginPass: string = '';
 
-	// // jag::oldscape::TitleScreen::m_loginSelect
+    // // jag::oldscape::TitleScreen::m_loginSelect
     static loginSelect: number = 0;
 
     // jag::oldscape::TitleScreen::m_charList
     static readonly charList: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!"£$%^&*()-_=+[{]};:\'@#~,<.>/?\\| ';
 
-	// jag::oldscape::TitleScreen::m_switchScreen
+    // jag::oldscape::TitleScreen::m_switchScreen
     static switchScreen: boolean = false;
 
     // m_gameworldListDownloadRequest
@@ -103,7 +103,7 @@ export default class TitleScreen {
 
     // note: worldlistUrl might have been inlined in 500?
 
-	// jag::oldscape::TitleScreen::m_slFlags
+    // jag::oldscape::TitleScreen::m_slFlags
     static slFlags: Pix8[] | null = null;
 
     // jag::oldscape::TitleScreen::m_slArrows
@@ -147,12 +147,12 @@ export default class TitleScreen {
     static slStarsId: number = -1;
     static slBackId: number = -1;
 
-	// jag::oldscape::TitleScreen::ReadyMax
+    // jag::oldscape::TitleScreen::ReadyMax
     static readyMax(): number {
         return 6;
     }
 
-	// jag::oldscape::TitleScreen::Close
+    // jag::oldscape::TitleScreen::Close
     static close(): void {
         if (!TitleScreen.opened) {
             return;
@@ -320,7 +320,7 @@ export default class TitleScreen {
         }
     }
 
-	// jag::oldscape::TitleScreen::Draw
+    // jag::oldscape::TitleScreen::Draw
     static draw(arg0: PixFont, arg1: PixFont): void {
         if (TitleScreen.switchScreen) {
             TitleScreen.worldSwitchRender(arg0, arg1);
@@ -396,14 +396,14 @@ export default class TitleScreen {
         }
     }
 
-	// jag::oldscape::TitleScreen::LoginMes
+    // jag::oldscape::TitleScreen::LoginMes
     static loginMes(arg0: string, arg1: string, arg2: string): void {
         TitleScreen.loginMes1 = arg1;
         TitleScreen.loginMes3 = arg0;
         TitleScreen.loginMes2 = arg2;
     }
 
-	// jag::oldscape::TitleFlames::GenerateFlameCoolingMap
+    // jag::oldscape::TitleFlames::GenerateFlameCoolingMap
     static generateFlameCoolingMap(arg0: SoftwarePix8 | null): void {
         for (let var1 = 0; var1 < TitleScreen.flameBuffer0!.length; var1++) {
             TitleScreen.flameBuffer0![var1] = 0;
@@ -439,13 +439,13 @@ export default class TitleScreen {
         }
     }
 
-	// jag::oldscape::TitleFlames::Merge
+    // jag::oldscape::TitleFlames::Merge
     static merge(arg0: number, arg1: number, arg2: number): number {
         const var3 = 256 - arg1;
         return ((((arg2 & 0xff00ff) * var3 + arg1 * (arg0 & 0xff00ff)) & 0xff00ff00) + (((arg0 & 0xff00) * arg1 + var3 * (arg2 & 0xff00)) & 0xff0000)) >> 8;
     }
 
-	// jag::oldscape::TitleScreen::WorldSwitchRender
+    // jag::oldscape::TitleScreen::WorldSwitchRender
     static worldSwitchRender(arg0: PixFont, arg1: PixFont): void {
         if (TitleScreen.slBack === null) {
             TitleScreen.slBack = PixLoader.makePix32Array(0, Client.sprites!, TitleScreen.slBackId);
@@ -583,7 +583,7 @@ export default class TitleScreen {
         }
     }
 
-	// jag::oldscape::TitleScreen::WorldSwitchLoop
+    // jag::oldscape::TitleScreen::WorldSwitchLoop
     static worldSwitchLoop(_arg0: GameShell): void {
         if (ClientMouseListener.mouseClickButton !== 1) return;
         if (ClientMouseListener.mouseClickX >= 280 && ClientMouseListener.mouseClickX <= 294 && ClientMouseListener.mouseClickY >= 4 && ClientMouseListener.mouseClickY <= 18) {
@@ -644,7 +644,7 @@ export default class TitleScreen {
         }
     }
 
-	// jag::oldscape::GameWorld::ListFetch
+    // jag::oldscape::GameWorld::ListFetch
     static listFetch(): void {
         try {
             if (TitleScreen.gameworldListDownloadRequest === null) {
@@ -676,7 +676,7 @@ export default class TitleScreen {
         }
     }
 
-	// jag::oldscape::GameWorld::ListReorder
+    // jag::oldscape::GameWorld::ListReorder
     static listReorder(arg0: number, arg1: number): void {
         const var2 = new Array<number>(4);
         let var3 = 1;
@@ -695,7 +695,7 @@ export default class TitleScreen {
         TitleScreen.quickSort(0, TitleScreen.list!, TitleScreen.list!.length - 1);
     }
 
-	// jag::oldscape::GameWorld::QuickSort
+    // jag::oldscape::GameWorld::QuickSort
     static quickSort(arg0: number, arg1: WorldEntry[], arg2: number): void {
         if (arg2 <= arg0) {
             return;
@@ -789,7 +789,7 @@ export default class TitleScreen {
         TitleScreen.quickSort(var5 + 1, arg1, arg2);
     }
 
-	// jag::oldscape::TitleScreen::Open
+    // jag::oldscape::TitleScreen::Open
     static async open(binary: Js5Loader, _component: unknown, sprites: Js5Loader): Promise<void> {
         if (TitleScreen.opened) {
             return;
@@ -845,7 +845,7 @@ export default class TitleScreen {
         TitleScreen.titleRight = new SoftwarePix32(128, 254);
     }
 
-	// jag::oldscape::TitleScreen::Ready
+    // jag::oldscape::TitleScreen::Ready
     static ready(arg0: Js5, arg1: Js5): number {
         let var2 = 0;
         if (arg0.requestDownload(TitleScreen.titleJpgId)) {

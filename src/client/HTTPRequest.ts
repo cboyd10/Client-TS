@@ -52,7 +52,7 @@ export default class HTTPRequest {
         }
     }
 
-	// jag::http::HTTPRequest::GetData
+    // jag::http::HTTPRequest::GetData
     getData(): Uint8Array | null {
         if (this.timeout < MonotonicTime.currentTime()) {
             throw new Error('fdt');
