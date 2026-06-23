@@ -96,7 +96,7 @@ export default class Packet extends Linkable {
         return ((this.data[this.pos - 3] & 0xff) << 8) + ((this.data[this.pos - 1] & 0xff) << 24) + ((this.data[this.pos - 2] & 0xff) << 16) + (this.data[this.pos - 4] & 0xff);
     }
 
-    method300(arg0: number): bigint {
+    gVarLong(arg0: number): bigint {
         const var5 = arg0 - 1;
         if (var5 < 0 || var5 > 7) {
             throw new Error();
@@ -134,7 +134,7 @@ export default class Packet extends Linkable {
         this.data[this.pos++] = arg0;
     }
 
-    method306(arg0: number, arg1: bigint | number): void {
+    pVarLong(arg0: number, arg1: bigint | number): void {
         const var5 = arg0 - 1;
         if (var5 < 0 || var5 > 7) {
             throw new Error();

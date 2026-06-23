@@ -18,7 +18,7 @@ import LocType from '#/config/LocType.js';
 import NpcType from '#/config/NpcType.js';
 import ObjType from '#/config/ObjType.js';
 import ParamType from '#/config/ParamType.js';
-import QuickChatCatTypeList from '#/config/QuickChatCatTypeList.js';
+import QuickChatCatType from '#/config/QuickChatCatType.js';
 import QuickChatPhraseType from '#/config/QuickChatPhraseType.js';
 import ServerActive from '#/config/ServerActive.js';
 import StructType from '#/config/StructType.js';
@@ -2854,13 +2854,13 @@ export default class ScriptRunner {
                     if (opcode === 5050) {
                         isp--;
                         const var205 = this.intStack[isp];
-                        this.stringStack[ssp++] = QuickChatCatTypeList.list(var205).description;
+                        this.stringStack[ssp++] = QuickChatCatType.list(var205).description;
                         continue;
                     }
                     if (opcode === 5051) {
                         isp--;
                         const var206 = this.intStack[isp];
-                        const var207 = QuickChatCatTypeList.list(var206);
+                        const var207 = QuickChatCatType.list(var206);
                         if (var207.subcategoryIds === null) {
                             this.intStack[isp++] = 0;
                         } else {
@@ -2872,7 +2872,7 @@ export default class ScriptRunner {
                         isp -= 2;
                         const var208 = this.intStack[isp];
                         const var209 = this.intStack[isp + 1];
-                        const var210 = QuickChatCatTypeList.list(var208);
+                        const var210 = QuickChatCatType.list(var208);
                         const var211 = var210.subcategoryIds![var209];
                         this.intStack[isp++] = var211;
                         continue;
@@ -2880,7 +2880,7 @@ export default class ScriptRunner {
                     if (opcode === 5053) {
                         isp--;
                         const var212 = this.intStack[isp];
-                        const var213 = QuickChatCatTypeList.list(var212);
+                        const var213 = QuickChatCatType.list(var212);
                         if (var213.phraseIds === null) {
                             this.intStack[isp++] = 0;
                         } else {
@@ -2892,13 +2892,13 @@ export default class ScriptRunner {
                         isp -= 2;
                         const var214 = this.intStack[isp];
                         const var215 = this.intStack[isp + 1];
-                        this.intStack[isp++] = QuickChatCatTypeList.list(var214).phraseIds![var215];
+                        this.intStack[isp++] = QuickChatCatType.list(var214).phraseIds![var215];
                         continue;
                     }
                     if (opcode === 5055) {
                         isp--;
                         const var216 = this.intStack[isp];
-                        this.stringStack[ssp++] = QuickChatPhraseType.list(var216).getText();
+                        this.stringStack[ssp++] = QuickChatPhraseType.list(var216).getTextDisplay();
                         continue;
                     }
                     if (opcode === 5056) {
@@ -2924,7 +2924,7 @@ export default class ScriptRunner {
                         isp--;
                         this.field226.id = this.intStack[isp];
                         this.field226.type = QuickChatPhraseType.list(this.field226.id);
-                        this.field226.dynamics = new Int32Array(this.field226.type.getDynamicCommandCount());
+                        this.field226.dynamics = new Int32Array(this.field226.type.length());
                         continue;
                     }
                     if (opcode === 5059) {
@@ -2933,7 +2933,7 @@ export default class ScriptRunner {
                         const var221 = Client.out.pos;
                         Client.out.p1(0);
                         Client.out.p2(this.field226!.id);
-                        this.field226!.type!.encodeMessage(Client.out, this.field226!.dynamics!);
+                        this.field226!.type!.packTransmitValues(Client.out, this.field226!.dynamics!);
                         Client.out.psize1(Client.out.pos - var221);
                         continue;
                     }
@@ -2945,7 +2945,7 @@ export default class ScriptRunner {
                         const var223 = Client.out.pos;
                         Client.out.p8(JagString.fromLatin1String(var222).toUserhash());
                         Client.out.p2(this.field226!.id);
-                        this.field226!.type!.encodeMessage(Client.out, this.field226!.dynamics!);
+                        this.field226!.type!.packTransmitValues(Client.out, this.field226!.dynamics!);
                         Client.out.psize1(Client.out.pos - var223);
                         continue;
                     }
@@ -2955,7 +2955,7 @@ export default class ScriptRunner {
                         const var224 = Client.out.pos;
                         Client.out.p1(1);
                         Client.out.p2(this.field226!.id);
-                        this.field226!.type!.encodeMessage(Client.out, this.field226!.dynamics!);
+                        this.field226!.type!.packTransmitValues(Client.out, this.field226!.dynamics!);
                         Client.out.psize1(Client.out.pos - var224);
                         continue;
                     }
@@ -2963,14 +2963,14 @@ export default class ScriptRunner {
                         isp -= 2;
                         const var225 = this.intStack[isp + 1];
                         const var226 = this.intStack[isp];
-                        this.intStack[isp++] = QuickChatCatTypeList.list(var226).subcategoryShortcuts![var225];
+                        this.intStack[isp++] = QuickChatCatType.list(var226).subcategoryShortcuts![var225];
                         continue;
                     }
                     if (opcode === 5063) {
                         isp -= 2;
                         const var227 = this.intStack[isp + 1];
                         const var228 = this.intStack[isp];
-                        this.intStack[isp++] = QuickChatCatTypeList.list(var228).phraseShortcuts![var227];
+                        this.intStack[isp++] = QuickChatCatType.list(var228).phraseShortcuts![var227];
                         continue;
                     }
                     if (opcode === 5064) {
@@ -2980,7 +2980,7 @@ export default class ScriptRunner {
                         if (var230 === -1) {
                             this.intStack[isp++] = -1;
                         } else {
-                            this.intStack[isp++] = QuickChatCatTypeList.list(var229).getSubcategoryByShortcut(var230);
+                            this.intStack[isp++] = QuickChatCatType.list(var229).getSubcategoryByShortcut(var230);
                         }
                         continue;
                     }
@@ -2991,14 +2991,14 @@ export default class ScriptRunner {
                         if (var232 === -1) {
                             this.intStack[isp++] = -1;
                         } else {
-                            this.intStack[isp++] = QuickChatCatTypeList.list(var231).getPhraseByShortcut(var232);
+                            this.intStack[isp++] = QuickChatCatType.list(var231).getPhraseByShortcut(var232);
                         }
                         continue;
                     }
                     if (opcode === 5066) {
                         isp--;
                         const var233 = this.intStack[isp];
-                        this.intStack[isp++] = QuickChatPhraseType.list(var233).getDynamicCommandCount();
+                        this.intStack[isp++] = QuickChatPhraseType.list(var233).length();
                         continue;
                     }
                     if (opcode === 5067) {

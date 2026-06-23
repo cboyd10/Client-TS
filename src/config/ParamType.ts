@@ -5,56 +5,53 @@ import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
 export default class ParamType extends Linkable2 {
-    static readonly recentUse: LruCache<ParamType> = new LruCache(64);
     static configClient: Js5;
-
+    static readonly recentUse: LruCache<ParamType> = new LruCache(64);
     type: number = 0;
     defaultInt: number = 0;
     defaultString: string | null = null;
 
-    static list(arg0: number): ParamType {
-        const var1 = ParamType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
-
-        const var2 = ParamType.configClient.getFile(arg0, 11);
-        const var3 = new ParamType();
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        ParamType.recentUse.put(BigInt(arg0), var3);
-        return var3;
+    static init(config: Js5): void {
+        ParamType.configClient = config;
     }
 
-    static init(arg0: Js5): void {
-        ParamType.configClient = arg0;
+    static list(id: number): ParamType {
+        const cached = ParamType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
+        }
+
+        const data = ParamType.configClient.getFile(id, 11);
+        const type = new ParamType();
+        if (data !== null) {
+            type.decode(new Packet(data));
+        }
+
+        ParamType.recentUse.put(BigInt(id), type);
+        return type;
+    }
+
+    decode(buf: Packet): void {
+        while (true) {
+            const code = buf.g1();
+            if (code === 0) {
+                return;
+            }
+            this.decodeInner(code, buf);
+        }
+    }
+
+    decodeInner(code: number, buf: Packet): void {
+        if (code === 1) {
+            this.type = buf!.g1();
+        } else if (code === 2) {
+            this.defaultInt = buf!.g4();
+        } else if (code === 5) {
+            this.defaultString = buf!.gjstr();
+        }
     }
 
     isString(): boolean {
         return this.type == 115;
-    }
-
-    decode(arg0: Packet): void;
-    decode(arg0: number, arg1: Packet): void;
-    decode(arg0: Packet | number, arg1?: Packet): void {
-        if (typeof arg0 === 'number') {
-            if (arg0 === 1) {
-                this.type = arg1!.g1();
-            } else if (arg0 === 2) {
-                this.defaultInt = arg1!.g4();
-            } else if (arg0 === 5) {
-                this.defaultString = arg1!.gjstr();
-            }
-            return;
-        }
-
-        while (true) {
-            const var2 = arg0.g1();
-            if (var2 === 0) {
-                return;
-            }
-            this.decode(var2, arg0);
-        }
     }
 }

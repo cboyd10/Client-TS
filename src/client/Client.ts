@@ -32,7 +32,7 @@ import VarpType from '#/config/VarpType.js';
 import VarBitType from '#/config/VarBitType.js';
 import IfType from '#/config/IfType.js';
 import ParamType from '#/config/ParamType.js';
-import QuickChatCatTypeList from '#/config/QuickChatCatTypeList.js';
+import QuickChatCatType from '#/config/QuickChatCatType.js';
 import QuickChatPhraseType from '#/config/QuickChatPhraseType.js';
 import QuickChatPhrase from '#/client/QuickChatPhrase.js';
 import ServerActive from '#/config/ServerActive.js';
@@ -923,7 +923,7 @@ export class Client extends GameShell {
                 InvType.init(configs);
                 EnumType.init(configEnum);
                 QuickChatPhraseType.init(quickchatGlobal, new ClientDynamicProvider(), quickchat);
-                QuickChatCatTypeList.init(quickchat, quickchatGlobal);
+                QuickChatCatType.init(quickchat, quickchatGlobal);
 
                 TitleScreen.loadString = Text.mainload70b;
                 TitleScreen.loadPos = 50;
@@ -6277,7 +6277,7 @@ export class Client extends GameShell {
             if (Client.ptype === 187) {
                 const to: bigint = Client.in.g8();
                 const phraseId: number = Client.in.g2();
-                const text: string = QuickChatPhraseType.list(phraseId).decodeMessage(Client.in);
+                const text: string = QuickChatPhraseType.list(phraseId).getText(Client.in);
                 Client.addChat(text, phraseId, JagString.toRawUsername(to)!.toScreenName().toString(), 19, null);
 
                 Client.ptype = -1;
@@ -6309,7 +6309,7 @@ export class Client extends GameShell {
                 if (!ignored && Client.chatDisabled === 0) {
                     Client.field3203[Client.field1150] = messageId;
                     Client.field1150 = (Client.field1150 + 1) % 100;
-                    const text: string = QuickChatPhraseType.list(phraseId).decodeMessage(Client.in);
+                    const text: string = QuickChatPhraseType.list(phraseId).getText(Client.in);
                     const sender = (staffModLevel === 2 ? '<img=1>' : staffModLevel === 1 ? '<img=0>' : '') + JagString.toRawUsername(from)!.toScreenName().toString();
                     Client.addChat(text, phraseId, sender, 18, null);
                 }
@@ -6350,7 +6350,7 @@ export class Client extends GameShell {
                     if (!ignored && Client.chatDisabled === 0) {
                         Client.field3203[Client.field1150] = messageId;
                         Client.field1150 = (Client.field1150 + 1) % 100;
-                        const text = QuickChatPhraseType.list(phraseId).decodeMessage(Client.in);
+                        const text = QuickChatPhraseType.list(phraseId).getText(Client.in);
                         const sender = (staffModLevel === 2 || staffModLevel === 3 ? '<img=1>' : staffModLevel === 1 ? '<img=0>' : '') + JagString.toRawUsername(senderHash)!.toScreenName().toString();
                         const screenName = JagString.toRawUsername(chatOwner)!.toScreenName().toString();
                         Client.addChat(text, phraseId, sender, 20, screenName);
@@ -7944,7 +7944,7 @@ export class Client extends GameShell {
                         const var24: QuickChatPhrase = QuickChatPhrase.create(Client.tempP);
                         var22 = var24.id;
                         var13 &= 0x7fff;
-                        var23 = var24.type!.decodeMessage(Client.tempP);
+                        var23 = var24.type!.getText(Client.tempP);
                     } else {
                         var23 = PixFont.escape(JagString.fromLatin1String(WordPack.unpack2(Client.tempP)).toSentenceCase().toString());
                     }
