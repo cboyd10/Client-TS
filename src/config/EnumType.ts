@@ -9,97 +9,105 @@ import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 import IntMath from '#/util/IntMath.js';
 
+// jag::oldscape::configdecoder::EnumType
 export default class EnumType extends Linkable2 {
-    static readonly recentUse: LruCache<EnumType> = new LruCache(128);
+	// jag::oldscape::configdecoder::EnumType::m_pConfigClient
     static configClient: Js5;
-    static readonly NULL: string = 'null';
 
-    defaultString: string = EnumType.NULL;
+	// jag::oldscape::configdecoder::EnumType::m_recentUse
+    static readonly recentUse: LruCache<EnumType> = new LruCache(128);
+
     inputtype: number = 0;
-    defaultInt: number = 0;
     outputtype: number = 0;
-    table: HashTable<Linkable> | null = null;
+    defaultString: string = 'null';
+    defaultInt: number = 0;
+    values: HashTable<Linkable> | null = null;
 
-    static list(arg0: number): EnumType {
-        const var1 = EnumType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
-
-        const var2 = EnumType.configClient.getFile(EnumType.getGroupId(arg0), EnumType.getFileId(arg0));
-        const var3 = new EnumType();
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        EnumType.recentUse.put(BigInt(arg0), var3);
-        return var3;
+    static getGroupId(id: number): number {
+        return id & 0xff;
     }
 
+    static getFileId(id: number): number {
+        return id >>> 8;
+    }
+
+    static list(id: number): EnumType {
+        const cached = EnumType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
+        }
+
+        const data = EnumType.configClient.getFile(EnumType.getGroupId(id), EnumType.getFileId(id));
+        const type = new EnumType();
+        if (data !== null) {
+            type.decode(new Packet(data));
+        }
+
+        EnumType.recentUse.put(BigInt(id), type);
+        return type;
+    }
+
+	// jag::oldscape::configdecoder::EnumType::Decode
+    decode(buf: Packet): void {
+        while (true) {
+            const code = buf.g1();
+            if (code === 0) {
+                return;
+            }
+
+            this.decodeInner(code, buf);
+        }
+    }
+
+	// jag::oldscape::configdecoder::EnumType::Decode
+    decodeInner(code: number, buf: Packet): void {
+        if (code === 1) {
+            this.inputtype = buf.g1();
+        } else if (code === 2) {
+            this.outputtype = buf.g1();
+        } else if (code === 3) {
+            this.defaultString = buf.gjstr();
+        } else if (code === 4) {
+            this.defaultInt = buf.g4();
+        } else if (code === 5 || code === 6) {
+            const count = buf.g2();
+
+            this.values = new HashTable(IntMath.bitceil(count));
+            for (let i = 0; i < count; i++) {
+                const key = buf.g4();
+
+                let value: Linkable;
+                if (code === 5) {
+                    value = new StringNode(buf.gjstr());
+                } else {
+                    value = new IntNode(buf.g4());
+                }
+
+                this.values.put(BigInt(key), value);
+            }
+        }
+    }
+
+	// jag::oldscape::configdecoder::EnumType::Init
     static init(arg0: Js5): void {
         EnumType.configClient = arg0;
     }
 
-    static getGroupId(arg0: number): number {
-        return arg0 & 0xff;
-    }
-
-    static getFileId(arg0: number): number {
-        return arg0 >>> 8;
-    }
-
-    decode(arg0: Packet): void;
-    decode(arg0: number, arg1: Packet): void;
-    decode(arg0: Packet | number, arg1?: Packet): void {
-        if (typeof arg0 === 'number') {
-            if (arg0 === 1) {
-                this.inputtype = arg1!.g1();
-            } else if (arg0 === 2) {
-                this.outputtype = arg1!.g1();
-            } else if (arg0 === 3) {
-                this.defaultString = arg1!.gjstr();
-            } else if (arg0 === 4) {
-                this.defaultInt = arg1!.g4();
-            } else if (arg0 === 5 || arg0 === 6) {
-                const var3 = arg1!.g2();
-                this.table = new HashTable(IntMath.bitceil(var3));
-                for (let var4 = 0; var4 < var3; var4++) {
-                    const var5 = arg1!.g4();
-                    let var6: Linkable;
-                    if (arg0 === 5) {
-                        var6 = new StringNode(arg1!.gjstr());
-                    } else {
-                        var6 = new IntNode(arg1!.g4());
-                    }
-                    this.table.put(BigInt(var5), var6);
-                }
-            }
-            return;
-        }
-
-        while (true) {
-            const var2 = arg0.g1();
-            if (var2 === 0) {
-                return;
-            }
-            this.decode(var2, arg0);
-        }
-    }
-
-    getValueInt(arg0: number): number {
-        if (this.table === null) {
+    getValueInt(key: number): number {
+        if (this.values === null) {
             return this.defaultInt;
         } else {
-            const var2 = this.table.find(BigInt(arg0)) as IntNode | null;
-            return var2 === null ? this.defaultInt : var2.value;
+            const value = this.values.find(BigInt(key)) as IntNode | null;
+            return value === null ? this.defaultInt : value.value;
         }
     }
 
-    getValueString(arg0: number): string {
-        if (this.table === null) {
+    getValueString(key: number): string {
+        if (this.values === null) {
             return this.defaultString;
         } else {
-            const var2 = this.table.find(BigInt(arg0)) as StringNode | null;
-            return var2 === null ? this.defaultString : (var2.field4046 as string);
+            const value = this.values.find(BigInt(key)) as StringNode | null;
+            return value === null ? this.defaultString : (value.field4046 as string);
         }
     }
 }
