@@ -6,27 +6,30 @@ import World from '#/dash3d/World.js';
 
 import ModelSource, { type SceneTag } from '#/dash3d/ModelSource.js';
 
+// jag::oldscape::ClientLocAnim
 export default class ClientLocAnim extends ModelSource {
-    readonly z: number;
-    readonly x: number;
-    readonly angle: number;
-    anim: SeqType | null = null;
-    field1460: number = -32768;
-    animCycle: number = 0;
     readonly id: number;
-    readonly level: number;
     readonly shape: number;
+    readonly angle: number;
+    readonly level: number;
+    readonly x: number;
+    readonly z: number;
+    anim: SeqType | null = null;
     animFrame: number = 0;
+    animCycle: number = 0;
 
-    constructor(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: boolean, arg8: ModelSource | null) {
+    // todo: sort
+    height: number = -32768;
+
+    constructor(id: number, shape: number, angle: number, level: number, x: number, z: number, arg6: number, arg7: boolean, arg8: ModelSource | null) {
         super();
 
-        this.id = arg0;
-        this.angle = arg2;
-        this.level = arg3;
-        this.z = arg5;
-        this.shape = arg1;
-        this.x = arg4;
+        this.id = id;
+        this.angle = angle;
+        this.level = level;
+        this.z = z;
+        this.shape = shape;
+        this.x = x;
         if (arg6 !== -1) {
             this.anim = SeqType.list(arg6);
             this.animFrame = 0;
@@ -47,10 +50,7 @@ export default class ClientLocAnim extends ModelSource {
         }
     }
 
-    override method88(): number {
-        return this.field1460;
-    }
-
+    // jag::oldscape::ClientLocAnim::GetTempModel
     getTempModel(): ModelSource | null {
         const var1 = World.groundh !== ClientBuild.groundh;
         let var2: LocType | null = LocType.list(this.id);
@@ -97,9 +97,10 @@ export default class ClientLocAnim extends ModelSource {
         const var11 = this.getTempModel();
         if (var11 != null) {
             var11.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
-            this.field1460 = var11.method88();
+            this.height = var11.method88();
         }
     }
+
     override method537(arg0: number, arg1: number): void {
         if (this.anim === null) {
             return;
@@ -134,5 +135,9 @@ export default class ClientLocAnim extends ModelSource {
             this.anim = null;
         }
         this.animCycle = Client.loopCycle - var3;
+    }
+
+    override method88(): number {
+        return this.height;
     }
 }

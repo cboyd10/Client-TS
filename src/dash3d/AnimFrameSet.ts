@@ -5,6 +5,7 @@ import Linkable2 from '#/datastruct/Linkable2.js';
 
 import type Js5 from '#/js5/Js5.js';
 
+// jag::oldscape::dash3d::AnimFrameSet
 export default class AnimFrameSet extends Linkable2 {
     list: (AnimFrame | null)[];
 
@@ -35,6 +36,7 @@ export default class AnimFrameSet extends Linkable2 {
         }
     }
 
+    // jag::oldscape::dash3d::AnimFrameSet::GetAnimateTransparencies
     getAnimateTransparencies(arg0: number): boolean {
         return this.list[arg0]!.animateTransparencies;
     }

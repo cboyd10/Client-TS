@@ -13,14 +13,7 @@ import SoftwareModelLit from '#/dash3d/SoftwareModelLit.js';
 export default class ClientNpc extends ClientEntity {
     type: NpcType | null = null;
 
-    override ready(): boolean {
-        return this.type !== null;
-    }
-
-    override method88(): number {
-        return this.height;
-    }
-
+    // jag::oldscape::ClientNpc::GetTempModel
     override method87(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: SceneTag): void {
         if (this.type == null) {
             return;
@@ -107,5 +100,14 @@ export default class ClientNpc extends ClientEntity {
             var13.useAABBMouseCheck = true;
         }
         var13.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+    }
+
+    // jag::oldscape::ClientNpc::Ready
+    override ready(): boolean {
+        return this.type !== null;
+    }
+
+    override method88(): number {
+        return this.height;
     }
 }

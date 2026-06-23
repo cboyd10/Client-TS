@@ -7,7 +7,6 @@ export default class QuickChatCatType extends Linkable2 {
     static configClient: Js5;
     static globalConfigClient: Js5;
     static readonly recentUse: LruCache<QuickChatCatType> = new LruCache(64);
-
     description: string | null = null;
     subcategoryIds: Int32Array | null = null;
     subcategoryShortcuts: Int32Array | null = null;

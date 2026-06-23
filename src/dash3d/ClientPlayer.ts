@@ -17,17 +17,12 @@ import SoftwareModelLit from '#/dash3d/SoftwareModelLit.js';
 import Packet from '#/io/Packet.js';
 
 export default class ClientPlayer extends ClientEntity {
-    static field1956: ModelSourceCache = new ModelSourceCache(4);
-
     name: string | null = null;
-    headiconPrayer: number = -1;
-    headiconPk: number = -1;
-    team: number = 0;
-    combatLevel: number = 0;
-    lowMem: boolean = false;
-    field761: number = 0;
-    field769: number = 0;
     model: PlayerModel | null = null;
+    headiconPk: number = -1;
+    headiconPrayer: number = -1;
+    combatLevel: number = 0;
+    skillLevel: number = 0;
     locStartCycle: number = 0;
     locEndCycle: number = 0;
     locOffsetX: number = 0;
@@ -38,7 +33,105 @@ export default class ClientPlayer extends ClientEntity {
     minTileZ: number = 0;
     maxTileX: number = 0;
     maxTileZ: number = 0;
-    skillLevel: number = 0;
+    lowMem: boolean = false;
+    team: number = 0;
+
+    // todo: identify and sort
+    field761: number = 0;
+    field769: number = 0;
+    static field1956: ModelSourceCache = new ModelSourceCache(4);
+
+    // jag::oldscape::ClientPlayer::SetAppearance
+    setAppearance(buf: Packet): void {
+        buf.pos = 0;
+        const var2 = buf.g1();
+        if ((var2 & 0x2) === 2) {
+            this.field769 = buf.g1() << 2;
+            this.field761 = buf.g1() << 2;
+        } else {
+            this.field761 = 0;
+            this.field769 = 0;
+        }
+        this.size = (var2 >> 3) + 1;
+        const var3 = var2 & 0x1;
+        const var4 = (var2 & 0x4) !== 0;
+        let var5 = -1;
+        this.headiconPk = buf.g1b();
+        const var6 = new Int32Array(12);
+        this.headiconPrayer = buf.g1b();
+        this.team = 0;
+        for (let var7 = 0; var7 < 12; var7++) {
+            const var8 = buf.g1();
+            if (var8 === 0) {
+                var6[var7] = 0;
+            } else {
+                const var9 = buf.g1();
+                const var10 = var9 + (var8 << 8);
+                if (var7 === 0 && var10 === 65535) {
+                    var5 = buf.g2();
+                    break;
+                }
+                if (var10 >= 32768) {
+                    const var11 = ObjType.wearable[var10 - 32768];
+                    var6[var7] = var11 | 0x40000000;
+                    const var12 = ObjType.list(var11).team;
+                    if (var12 !== 0) {
+                        this.team = var12;
+                    }
+                } else {
+                    var6[var7] = -2147483648 | (var10 - 256);
+                }
+            }
+        }
+        const var13 = new Int32Array(5);
+        for (let var14 = 0; var14 < 5; var14++) {
+            let var15 = buf.g1();
+            if (var15 < 0 || var15 >= Client.field96[var14].length) {
+                var15 = 0;
+            }
+            var13[var14] = var15;
+        }
+        this.readyanim = buf.g2();
+        if (this.readyanim === 65535) {
+            this.readyanim = -1;
+        }
+        this.turnleftanim = buf.g2();
+        if (this.turnleftanim === 65535) {
+            this.turnleftanim = -1;
+        }
+        this.turnrightanim = this.turnleftanim;
+        this.walkanim = buf.g2();
+        if (this.walkanim === 65535) {
+            this.walkanim = -1;
+        }
+        this.walkanim_b = buf.g2();
+        if (this.walkanim_b === 65535) {
+            this.walkanim_b = -1;
+        }
+        this.walkanim_l = buf.g2();
+        if (this.walkanim_l === 65535) {
+            this.walkanim_l = -1;
+        }
+        this.walkanim_r = buf.g2();
+        if (this.walkanim_r === 65535) {
+            this.walkanim_r = -1;
+        }
+        this.runanim = buf.g2();
+        if (this.runanim === 65535) {
+            this.runanim = -1;
+        }
+        this.name = JagString.toRawUsername(buf.g8())!.toScreenName().toString();
+        this.combatLevel = buf.g1();
+        if (var4) {
+            this.skillLevel = buf.g2();
+        } else {
+            this.skillLevel = 0;
+        }
+        if (this.model === null) {
+            this.model = new PlayerModel();
+        }
+        this.model.setAppearance(var5, var6, var13, var3 === 1);
+    }
 
     static method897(arg0: ModelLit, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number): ModelLit | null {
         const var6 = BigInt(arg3);
@@ -80,97 +173,6 @@ export default class ClientPlayer extends ClientEntity {
         if (var15 !== null) {
             var15.method87(0, arg3, arg0, arg1, arg7, arg4, arg10, arg2, -1);
         }
-    }
-
-    setAppearance(arg0: Packet): void {
-        arg0.pos = 0;
-        const var2 = arg0.g1();
-        if ((var2 & 0x2) === 2) {
-            this.field769 = arg0.g1() << 2;
-            this.field761 = arg0.g1() << 2;
-        } else {
-            this.field761 = 0;
-            this.field769 = 0;
-        }
-        this.size = (var2 >> 3) + 1;
-        const var3 = var2 & 0x1;
-        const var4 = (var2 & 0x4) !== 0;
-        let var5 = -1;
-        this.headiconPk = arg0.g1b();
-        const var6 = new Int32Array(12);
-        this.headiconPrayer = arg0.g1b();
-        this.team = 0;
-        for (let var7 = 0; var7 < 12; var7++) {
-            const var8 = arg0.g1();
-            if (var8 === 0) {
-                var6[var7] = 0;
-            } else {
-                const var9 = arg0.g1();
-                const var10 = var9 + (var8 << 8);
-                if (var7 === 0 && var10 === 65535) {
-                    var5 = arg0.g2();
-                    break;
-                }
-                if (var10 >= 32768) {
-                    const var11 = ObjType.wearable[var10 - 32768];
-                    var6[var7] = var11 | 0x40000000;
-                    const var12 = ObjType.list(var11).team;
-                    if (var12 !== 0) {
-                        this.team = var12;
-                    }
-                } else {
-                    var6[var7] = -2147483648 | (var10 - 256);
-                }
-            }
-        }
-        const var13 = new Int32Array(5);
-        for (let var14 = 0; var14 < 5; var14++) {
-            let var15 = arg0.g1();
-            if (var15 < 0 || var15 >= Client.field96[var14].length) {
-                var15 = 0;
-            }
-            var13[var14] = var15;
-        }
-        this.readyanim = arg0.g2();
-        if (this.readyanim === 65535) {
-            this.readyanim = -1;
-        }
-        this.turnleftanim = arg0.g2();
-        if (this.turnleftanim === 65535) {
-            this.turnleftanim = -1;
-        }
-        this.turnrightanim = this.turnleftanim;
-        this.walkanim = arg0.g2();
-        if (this.walkanim === 65535) {
-            this.walkanim = -1;
-        }
-        this.walkanim_b = arg0.g2();
-        if (this.walkanim_b === 65535) {
-            this.walkanim_b = -1;
-        }
-        this.walkanim_l = arg0.g2();
-        if (this.walkanim_l === 65535) {
-            this.walkanim_l = -1;
-        }
-        this.walkanim_r = arg0.g2();
-        if (this.walkanim_r === 65535) {
-            this.walkanim_r = -1;
-        }
-        this.runanim = arg0.g2();
-        if (this.runanim === 65535) {
-            this.runanim = -1;
-        }
-        this.name = JagString.toRawUsername(arg0.g8())!.toScreenName().toString();
-        this.combatLevel = arg0.g1();
-        if (var4) {
-            this.skillLevel = arg0.g2();
-        } else {
-            this.skillLevel = 0;
-        }
-        if (this.model === null) {
-            this.model = new PlayerModel();
-        }
-        this.model.setAppearance(var5, var6, var13, var3 === 1);
     }
 
     override method87(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: SceneTag): void {
@@ -325,10 +327,12 @@ export default class ClientPlayer extends ClientEntity {
         }
         var58.translate(this.x - this.locOffsetX, -this.locOffsetY + this.y, this.z - this.locOffsetZ);
     }
+
     override method88(): number {
         return this.height;
     }
 
+    // jag::oldscape::ClientPlayer::Ready
     override ready(): boolean {
         return this.model !== null;
     }

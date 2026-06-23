@@ -2,26 +2,35 @@ import AnimBase from '#/dash3d/AnimBase.js';
 
 import Packet from '#/io/Packet.js';
 
+// jag::oldscape::dash3d::AnimFrame
 export default class AnimFrame {
-    field3774: Int16Array;
+    // jag::oldscape::dash3d::AnimFrame::m_tempTi
     static readonly tempTi: Int16Array = new Int16Array(500);
-    static readonly tempTz: Int16Array = new Int16Array(500);
-    animateTransparencies: boolean = false;
+
+    // jag::oldscape::dash3d::AnimFrame::m_tempTx
+    static readonly tempTx: Int16Array = new Int16Array(500);
+
+    // jag::oldscape::dash3d::AnimFrame::m_tempTy
     static readonly tempTy: Int16Array = new Int16Array(500);
 
-    size: number = -1;
-    ty: Int16Array;
-    ti: Int16Array;
-    static readonly tempTx: Int16Array = new Int16Array(500);
-    tx: Int16Array;
-    static readonly field3784: Int16Array = new Int16Array(500);
-    tz: Int16Array;
-    base: AnimBase;
+    // jag::oldscape::dash3d::AnimFrame::m_tempTz
+    static readonly tempTz: Int16Array = new Int16Array(500);
 
-    constructor(arg0: Uint8Array, arg1: AnimBase) {
-        this.base = arg1;
-        const var3 = new Packet(arg0);
-        const var4 = new Packet(arg0);
+    static readonly field3784: Int16Array = new Int16Array(500); // todo: identify
+
+    base: AnimBase;
+    size: number = -1;
+    ti: Int16Array;
+    tx: Int16Array;
+    ty: Int16Array;
+    tz: Int16Array;
+    field3774: Int16Array; // todo: identify
+    animateTransparencies: boolean = false;
+
+    constructor(src: Uint8Array, base: AnimBase) {
+        this.base = base;
+        const var3 = new Packet(src);
+        const var4 = new Packet(src);
         var3.pos = 2;
         const var5 = var3.g1();
         let var6 = 0;
@@ -79,7 +88,7 @@ export default class AnimFrame {
             }
         }
 
-        if (var4.pos !== arg0.length) {
+        if (var4.pos !== src.length) {
             throw new Error();
         }
 
