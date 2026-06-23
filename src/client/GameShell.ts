@@ -46,7 +46,7 @@ export default abstract class GameShell {
     static readonly field1673: string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     static readonly field658: string[] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-	// com.jagex.game.runetek6.client.GameShell3.startCommon
+    // com.jagex.game.runetek6.client.GameShell3.startCommon
     public startCommon(): void {
         try {
             if (GameShell.shell === null) {
@@ -69,7 +69,7 @@ export default abstract class GameShell {
         }
     }
 
-	// com.jagex.game.runetek6.client.GameShell3.addcanvas
+    // com.jagex.game.runetek6.client.GameShell3.addcanvas
     public addcanvas(): void {
         const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 
@@ -92,7 +92,7 @@ export default abstract class GameShell {
         GameShell.lastCanvasReplace = MonotonicTime.currentTime();
     }
 
-	// com.jagex.game.runetek6.client.GameShell3.checkhost
+    // com.jagex.game.runetek6.client.GameShell3.checkhost
     public checkhost(): boolean {
         let host = this.getDocumentBase().hostname.toLowerCase();
         if (host === 'localhost' || host === 'jagex.com' || host.endsWith('.jagex.com')) {
@@ -140,7 +140,7 @@ export default abstract class GameShell {
         this.shutdown(true);
     }
 
-	// com.jagex.game.runetek6.client.GameShell3.mainloopwrapper
+    // com.jagex.game.runetek6.client.GameShell3.mainloopwrapper
     protected async mainloopwrapper(): Promise<void> {
         const time: number = MonotonicTime.currentTime();
         const previous: number = GameShell.updateTime[GameShell.updatePos];
@@ -151,7 +151,7 @@ export default abstract class GameShell {
         await this.mainloop();
     }
 
-	// com.jagex.game.runetek6.client.GameShell3.mainredrawwrapper
+    // com.jagex.game.runetek6.client.GameShell3.mainredrawwrapper
     protected async mainredrawwrapper(): Promise<void> {
         const time: number = MonotonicTime.currentTime();
         const previous: number = GameShell.drawTime[GameShell.drawPos];
@@ -171,7 +171,7 @@ export default abstract class GameShell {
         await this.mainredraw();
     }
 
-	// com.jagex.game.runetek6.client.GameShell3.shutdown
+    // com.jagex.game.runetek6.client.GameShell3.shutdown
     public shutdown(clean: boolean): void {
         if (GameShell.alreadyshutdown) {
             return;
@@ -191,7 +191,7 @@ export default abstract class GameShell {
         console.log('Shutdown complete - clean:' + clean);
     }
 
-	// com.jagex.game.runetek6.client.GameShell3.doneslowupdate
+    // com.jagex.game.runetek6.client.GameShell3.doneslowupdate
     public static doneslowupdate(): void {
         GameShell.timer?.reset();
         for (let i: number = 0; i < 32; i++) {
@@ -283,8 +283,8 @@ export default abstract class GameShell {
         }
 
         try {
-            const x = (GameShell.sWid / 2 | 0) - 152;
-            const y = (GameShell.sHei / 2 | 0) - 18;
+            const x = ((GameShell.sWid / 2) | 0) - 152;
+            const y = ((GameShell.sHei / 2) | 0) - 18;
 
             GameShell.ctx.fillStyle = colour;
             GameShell.ctx.fillRect(x, y, 304, 34);
@@ -301,32 +301,26 @@ export default abstract class GameShell {
             GameShell.ctx.font = 'bold 13px Helvetica, sans-serif';
             GameShell.ctx.fillStyle = 'white';
             GameShell.ctx.textAlign = 'left';
-            GameShell.ctx.fillText(message, x + (304 - GameShell.ctx.measureText(message).width) / 2 | 0, y + 22);
+            GameShell.ctx.fillText(message, (x + (304 - GameShell.ctx.measureText(message).width) / 2) | 0, y + 22);
 
             if (GameShell.loadingText !== null) {
                 GameShell.ctx.font = 'bold 13px Helvetica, sans-serif';
 
                 const metrics = GameShell.ctx.measureText(GameShell.loadingText);
-                const loadX = (GameShell.sWid / 2 | 0) - (metrics.width / 2 | 0);
-                const loadY = (GameShell.sHei / 2 | 0) - 26;
+                const loadX = ((GameShell.sWid / 2) | 0) - ((metrics.width / 2) | 0);
+                const loadY = ((GameShell.sHei / 2) | 0) - 26;
 
                 if (!redraw) {
                     // custom: anti-aliasing starts stacking on fast updates (no fullredraw), so if we don't do at least a partial redraw it looks bad
                     GameShell.ctx.fillStyle = 'black';
-                    GameShell.ctx.fillRect(
-                        Math.floor(loadX - 2),
-                        Math.floor(loadY - metrics.actualBoundingBoxAscent - 2),
-                        Math.ceil(metrics.width + 2 * 2),
-                        Math.ceil(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + 2 * 2)
-                    );
+                    GameShell.ctx.fillRect(Math.floor(loadX - 2), Math.floor(loadY - metrics.actualBoundingBoxAscent - 2), Math.ceil(metrics.width + 2 * 2), Math.ceil(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + 2 * 2));
                 }
 
                 GameShell.ctx.fillStyle = 'white';
                 GameShell.ctx.textAlign = 'left';
                 GameShell.ctx.fillText(GameShell.loadingText, loadX, loadY);
             }
-        } catch {
-        }
+        } catch {}
     }
 
     constructor() {

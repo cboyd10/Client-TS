@@ -2,11 +2,10 @@ import ClientMouseListener from '#/client/ClientMouseListener.js';
 import ThreadSleep from '#/util/ThreadSleep.js';
 
 export default class MouseTracking {
-    lock: object = {};
     active: boolean = true;
     length: number = 0;
-    y: Int32Array = new Int32Array(500);
     x: Int32Array = new Int32Array(500);
+    y: Int32Array = new Int32Array(500);
 
     async run(): Promise<void> {
         while (this.active) {
@@ -15,6 +14,7 @@ export default class MouseTracking {
                 this.y[this.length] = ClientMouseListener.mouseY;
                 this.length++;
             }
+
             await ThreadSleep.sleepPrecise(50);
         }
     }

@@ -116,7 +116,7 @@ export default class ClientKeyboardListener {
         }
     }
 
-	// jag::oldscape::input::ClientKeyboardListener::HandleKeyChar (?)
+    // jag::oldscape::input::ClientKeyboardListener::HandleKeyChar (?)
     keyTyped(event: KeyboardEvent): void {
         if (ClientKeyboardListener.instance) {
             const ch = ClientKeyboardListener.getKeyChar(event);

@@ -452,7 +452,7 @@ export class Client extends GameShell {
 
     private static feedbackRand: JavaRandom = new JavaRandom();
     private static feedbackSeed: number = 0;
-    static blackmarks: number = 0;
+    static playermod: number = 0;
     static underage: number = 0;
     static mapQuickchat: number = 0;
     static clientpalette: Int16Array = new Int16Array(256);
@@ -1426,16 +1426,14 @@ export class Client extends GameShell {
                         Client.componentBlitArea[i] = false;
                     }
                 }
-            } catch {
-            }
+            } catch {}
         } else if (Client.state > ClientMainState.LOADING) {
             try {
                 GameShell.drawArea.draw(0, 0);
                 for (let i = 0; i < Client.componentDrawCount; i++) {
                     Client.componentBlitArea[i] = false;
                 }
-            } catch {
-            }
+            } catch {}
         }
     }
 
@@ -1861,7 +1859,7 @@ export class Client extends GameShell {
             } else {
                 if (Client.loginStep === 9 && Client.stream.available() >= 9) {
                     Client.staffmodlevel = await Client.stream.read();
-                    Client.blackmarks = await Client.stream.read();
+                    Client.playermod = await Client.stream.read();
                     Client.underage = await Client.stream.read();
                     Client.mapQuickchat = await Client.stream.read();
                     Client.mouseTracked = (await Client.stream.read()) === 1;

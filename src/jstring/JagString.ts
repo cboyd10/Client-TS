@@ -51,6 +51,7 @@ export default class JagString {
         return JagString.joinRange(arg0.length, arg0, 0);
     }
 
+    // todo: StringTools.join
     static joinRange(arg0: number, arg1: JagString[], arg2: number): JagString {
         let var3 = 0;
         for (let var4 = 0; var4 < arg0; var4++) {

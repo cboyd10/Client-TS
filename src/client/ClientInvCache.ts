@@ -3,13 +3,13 @@ import Linkable from '#/datastruct/Linkable.js';
 
 // jag::oldscape::ClientInvCache
 export default class ClientInvCache extends Linkable {
-	// jag::oldscape::ClientInvCache::m_invList
+    // jag::oldscape::ClientInvCache::m_invList
     static invList: HashTable<ClientInvCache> = new HashTable(32);
 
     objCount: Int32Array = new Int32Array(1);
     objId: Int32Array = Int32Array.from([-1]);
 
-	// jag::oldscape::ClientInvCache::GetCount
+    // jag::oldscape::ClientInvCache::GetCount
     static getCount(arg0: number, arg1: number): number {
         const var2 = ClientInvCache.invList.find(BigInt(arg0));
         if (var2 === null) {
@@ -21,7 +21,7 @@ export default class ClientInvCache extends Linkable {
         }
     }
 
-	// jag::oldscape::ClientInvCache::InvTotal
+    // jag::oldscape::ClientInvCache::InvTotal
     static invTotal(arg0: number, arg1: number): number {
         const var2 = ClientInvCache.invList.find(BigInt(arg0));
         if (var2 === null) {
@@ -39,7 +39,7 @@ export default class ClientInvCache extends Linkable {
         }
     }
 
-	// jag::oldscape::ClientInvCache::Set
+    // jag::oldscape::ClientInvCache::Set
     static set(arg0: number, arg1: number, arg2: number, arg3: number): void {
         let var4 = ClientInvCache.invList.find(BigInt(arg0));
         if (var4 === null) {
@@ -64,7 +64,7 @@ export default class ClientInvCache extends Linkable {
         var4.objCount[arg2] = arg1;
     }
 
-	// jag::oldscape::ClientInvCache::Delete
+    // jag::oldscape::ClientInvCache::Delete
     static delete(arg0: number): void {
         const var1 = ClientInvCache.invList.find(BigInt(arg0));
         if (var1 !== null) {
@@ -72,7 +72,7 @@ export default class ClientInvCache extends Linkable {
         }
     }
 
-	// jag::oldscape::ClientInvCache::GetType
+    // jag::oldscape::ClientInvCache::GetType
     static getType(arg0: number, arg1: number): number {
         const var2 = ClientInvCache.invList.find(BigInt(arg1));
         if (var2 === null) {
@@ -84,7 +84,7 @@ export default class ClientInvCache extends Linkable {
         }
     }
 
-	// jag::oldscape::ClientInvCache::DeleteAll
+    // jag::oldscape::ClientInvCache::DeleteAll
     static deleteAll(): void {
         ClientInvCache.invList = new HashTable(32);
     }

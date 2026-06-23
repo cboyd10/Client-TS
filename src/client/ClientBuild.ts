@@ -17,73 +17,73 @@ import Packet from '#/io/Packet.js';
 
 // jag::oldscape::ClientBuild
 export default class ClientBuild {
-	// jag::oldscape::ClientBuild::m_groundh
+    // jag::oldscape::ClientBuild::m_groundh
     static groundh: Int32Array[][] | null = null;
 
-	// jag::oldscape::ClientBuild::m_mapl
+    // jag::oldscape::ClientBuild::m_mapl
     static mapl: Uint8Array[][] = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
 
-	// jag::oldscape::ClientBuild::minusedlevel
+    // jag::oldscape::ClientBuild::minusedlevel
     static minusedlevel: number = 99;
 
-	// jag::oldscape::ClientBuild::m_floort1
+    // jag::oldscape::ClientBuild::m_floort1
     static floort1: Uint8Array[][] | null = null;
 
-	// jag::oldscape::ClientBuild::m_floort2
+    // jag::oldscape::ClientBuild::m_floort2
     static floort2: Uint8Array[][] | null = null;
 
-	// jag::oldscape::ClientBuild::m_floors
+    // jag::oldscape::ClientBuild::m_floors
     static floors: Uint8Array[][] | null = null;
 
-	// jag::oldscape::ClientBuild::m_floorr
+    // jag::oldscape::ClientBuild::m_floorr
     static floorr: Uint8Array[][] | null = null;
 
-	// jag::oldscape::ClientBuild::m_shadow
+    // jag::oldscape::ClientBuild::m_shadow
     static shadow: Uint8Array[][] | null = null;
 
-	// jag::oldscape::ClientBuild::m_lightmap
+    // jag::oldscape::ClientBuild::m_lightmap
     static lightmap: Int32Array[] | null = null;
 
-	// jag::oldscape::ClientBuild::m_huetot
+    // jag::oldscape::ClientBuild::m_huetot
     static huetot: Int32Array | null = null;
 
-	// jag::oldscape::ClientBuild::m_sattot
+    // jag::oldscape::ClientBuild::m_sattot
     static sattot: Int32Array | null = null;
 
-	// jag::oldscape::ClientBuild::m_ligtot
+    // jag::oldscape::ClientBuild::m_ligtot
     static ligtot: Int32Array | null = null;
 
-	// jag::oldscape::ClientBuild::m_comtot
+    // jag::oldscape::ClientBuild::m_comtot
     static comtot: Int32Array | null = null;
 
-	// jag::oldscape::ClientBuild::m_tot
+    // jag::oldscape::ClientBuild::m_tot
     static tot: Int32Array | null = null;
 
-	// jag::oldscape::ClientBuild::m_mapo
+    // jag::oldscape::ClientBuild::m_mapo
     static mapo: Int32Array[][] | null = null;
 
-	// jag::oldscape::ClientBuild::WSHAPE0
+    // jag::oldscape::ClientBuild::WSHAPE0
     static readonly WSHAPE0: Int32Array = Int32Array.of(1, 2, 4, 8);
 
-	// jag::oldscape::ClientBuild::WSHAPE1
+    // jag::oldscape::ClientBuild::WSHAPE1
     static readonly WSHAPE1: Int32Array = Int32Array.of(16, 32, 64, 128);
 
-	// jag::oldscape::ClientBuild::DECORXOF
+    // jag::oldscape::ClientBuild::DECORXOF
     static readonly DECORXOF: Int32Array = Int32Array.of(1, 0, -1, 0);
 
-	// jag::oldscape::ClientBuild::DECORZOF
+    // jag::oldscape::ClientBuild::DECORZOF
     static readonly DECORZOF: Int32Array = Int32Array.of(0, -1, 0, 1);
 
-	// jag::oldscape::ClientBuild::DECORXOF2
+    // jag::oldscape::ClientBuild::DECORXOF2
     static readonly DECORXOF2: Int32Array = Int32Array.of(1, -1, -1, 1);
 
-	// jag::oldscape::ClientBuild::DECORZOF2
+    // jag::oldscape::ClientBuild::DECORZOF2
     static readonly DECORZOF2: Int32Array = Int32Array.of(-1, -1, 1, 1);
 
-	// jag::oldscape::ClientBuild::m_hueOff
+    // jag::oldscape::ClientBuild::m_hueOff
     static hueOff: number = ((Math.random() * 17.0) | 0) - 8;
 
-	// jag::oldscape::ClientBuild::m_ligOff
+    // jag::oldscape::ClientBuild::m_ligOff
     static ligOff: number = ((Math.random() * 33.0) | 0) - 16;
 
     // todo: move to client?
@@ -92,7 +92,7 @@ export default class ClientBuild {
     static field2731: Int32Array | null = null;
     static field774: (Uint8Array | null)[] | null = null;
 
-	// jag::oldscape::ClientBuild::Quit
+    // jag::oldscape::ClientBuild::Quit
     static quit(): void {
         ClientBuild.ligtot = null;
         ClientBuild.comtot = null;
@@ -107,7 +107,7 @@ export default class ClientBuild {
         ClientBuild.huetot = null;
     }
 
-	// jag::oldscape::ClientBuild::FadeAdjacent
+    // jag::oldscape::ClientBuild::FadeAdjacent
     static fadeAdjacent(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number): void {
         for (let var5 = arg3; var5 <= arg1 + arg3; var5++) {
             for (let var6 = arg4; var6 <= arg4 + arg2; var6++) {
@@ -158,7 +158,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::LoadGround
+    // jag::oldscape::ClientBuild::LoadGround
     static loadGround(): void;
     static loadGround(originZ: number, xOffset: number, originX: number, collisions: Array<CollisionMap | null>, zOffset: number, src: Uint8Array): void;
     static loadGround(arg0?: number, arg1?: number, arg2?: number, arg3?: Array<CollisionMap | null>, arg4?: number, arg5?: Uint8Array): void {
@@ -207,7 +207,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::LoadGroundRegion
+    // jag::oldscape::ClientBuild::LoadGroundRegion
     static loadGroundRegion(): void;
     static loadGroundRegion(dstX: number, rotation: number, srcX: number, srcZ: number, collisions: Array<CollisionMap | null>, srcLevel: number, src: Uint8Array, dstZ: number, dstLevel: number): void;
     static loadGroundRegion(arg0?: number, arg1?: number, arg2?: number, arg3?: number, arg4?: Array<CollisionMap | null>, arg5?: number, arg6?: Uint8Array, arg7?: number, arg8?: number): void {
@@ -263,7 +263,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::LoadGroundSquare
+    // jag::oldscape::ClientBuild::LoadGroundSquare
     static loadGroundSquare(arg0: number, arg1: Packet, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number): void {
         if (arg0 < 0 || arg0 >= 104 || arg4 < 0 || arg4 >= 104) {
             while (true) {
@@ -319,7 +319,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::CheckLocations
+    // jag::oldscape::ClientBuild::CheckLocations
     static checkLocations(arg0: Uint8Array, arg1: number, arg2: number): boolean {
         const var3 = new Packet(arg0);
         let var4 = true;
@@ -374,7 +374,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::LoadLocations
+    // jag::oldscape::ClientBuild::LoadLocations
     static loadLocations(): void;
     static loadLocations(collisions: Array<CollisionMap | null>, src: Uint8Array, xOffset: number, zOffset: number): void;
     static loadLocations(arg0?: Array<CollisionMap | null>, arg1?: Uint8Array, arg2?: number, arg3?: number): void {
@@ -431,7 +431,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::LoadLocationsRegion
+    // jag::oldscape::ClientBuild::LoadLocationsRegion
     static loadLocationsRegion(): void;
     static loadLocationsRegion(rotation: number, srcX: number, collisions: Array<CollisionMap | null>, srcZ: number, dstLevel: number, src: Uint8Array, srcLevel: number, dstZ: number, dstX: number): void;
     static loadLocationsRegion(arg0?: number, arg1?: number, arg2?: Array<CollisionMap | null>, arg3?: number, arg4?: number, arg5?: Uint8Array, arg6?: number, arg7?: number, arg8?: number): void {
@@ -503,7 +503,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::AddLoc
+    // jag::oldscape::ClientBuild::AddLoc
     static addLoc(arg0: boolean, arg1: number, arg2: number, arg3: number, arg4: boolean, arg5: number, arg6: number, arg7: CollisionMap | null, arg8: number, arg9: number): void {
         if (arg4 && (ClientBuild.mapl[0][arg9][arg8] & 0x2) === 0) {
             if ((ClientBuild.mapl[arg1][arg9][arg8] & 0x10) !== 0) {
@@ -838,7 +838,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::FinishBuild
+    // jag::oldscape::ClientBuild::FinishBuild
     static finishBuild(arg0: Array<CollisionMap | null>): void {
         for (let var1: number = 0; var1 < 4; var1++) {
             for (let var2: number = 0; var2 < 104; var2++) {
@@ -1238,7 +1238,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::PerlinNoise
+    // jag::oldscape::ClientBuild::PerlinNoise
     static perlinNoise(arg0: number, arg1: number): number {
         const var2: number = ClientBuild.interpolatedNoise(arg1 + 91923, 4, arg0 + 45365) + ((ClientBuild.interpolatedNoise(arg1 + 37821, 2, arg0 + 10294) - 128) >> 1) + ((ClientBuild.interpolatedNoise(arg1, 1, arg0) + -128) >> 2) - 128;
         let var3: number = ((var2 * 0.3) | 0) + 35;
@@ -1250,7 +1250,7 @@ export default class ClientBuild {
         return var3;
     }
 
-	// jag::oldscape::ClientBuild::InterpolatedNoise
+    // jag::oldscape::ClientBuild::InterpolatedNoise
     static interpolatedNoise(arg0: number, arg1: number, arg2: number): number {
         if (arg1 === 0) {
             throw new Error('/ by zero');
@@ -1268,7 +1268,7 @@ export default class ClientBuild {
         return ClientBuild.interpolate(arg1, var11, var5, var12);
     }
 
-	// jag::oldscape::ClientBuild::SmoothNoise
+    // jag::oldscape::ClientBuild::SmoothNoise
     static smoothNoise(arg0: number, arg1: number): number {
         const var2: number = ClientBuild.noise(arg0 - 1, arg1 + -1) + ClientBuild.noise(arg0 - 1, arg1 + 1) + ClientBuild.noise(arg0 + 1, arg1 + -1) + ClientBuild.noise(arg0 - -1, arg1 - -1);
         const var3: number = ClientBuild.noise(arg0, arg1 - 1) + ClientBuild.noise(arg0, arg1 + 1) + ClientBuild.noise(arg0 + -1, arg1) + ClientBuild.noise(arg0 - -1, arg1);
@@ -1284,7 +1284,7 @@ export default class ClientBuild {
         return (Math.imul(arg1, 65536 - var4) >> 16) + (Math.imul(arg3, var4) >> 16);
     }
 
-	// jag::oldscape::ClientBuild::Noise
+    // jag::oldscape::ClientBuild::Noise
     static noise(arg0: number, arg1: number): number {
         const var2: number = Math.imul(arg0, 57) + arg1;
         const var3: number = (var2 << 13) ^ var2;
@@ -1292,7 +1292,7 @@ export default class ClientBuild {
         return (var4 >> 19) & 0xff;
     }
 
-	// jag::oldscape::ClientBuild::GetUCol
+    // jag::oldscape::ClientBuild::GetUCol
     static getUCol(arg0: number, arg1: number): number {
         if (arg1 === -1) {
             return 12345678;
@@ -1308,7 +1308,7 @@ export default class ClientBuild {
         return var2 + (arg1 & 0xff80);
     }
 
-	// jag::oldscape::ClientBuild::GetOCol
+    // jag::oldscape::ClientBuild::GetOCol
     static getOCol(arg0: number, arg1: number): number {
         if (arg1 === -2) {
             return 12345678;
@@ -1330,7 +1330,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::GetTable
+    // jag::oldscape::ClientBuild::GetTable
     static getTable(arg0: number, arg1: number, arg2: number): number {
         if (arg1 > 243) {
             arg2 >>= 4;
@@ -1344,7 +1344,7 @@ export default class ClientBuild {
         return (arg1 >> 1) + ((arg0 >> 2) << 10) + ((arg2 >> 5) << 7);
     }
 
-	// jag::oldscape::ClientBuild::ChangeLocAvailable
+    // jag::oldscape::ClientBuild::ChangeLocAvailable
     static changeLocAvailable(arg0: number, arg1: number): boolean {
         const var2 = LocType.list(arg1);
         if (arg0 == 11) {
@@ -1356,7 +1356,7 @@ export default class ClientBuild {
         return var2.checkModel(arg0);
     }
 
-	// jag::oldscape::ClientBuild::ChangeLocUnchecked
+    // jag::oldscape::ClientBuild::ChangeLocUnchecked
     static changeLocUnchecked(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number): void {
         if (arg6 < 1 || arg2 < 1 || arg6 > 102 || arg2 > 102) {
             return;
@@ -1381,7 +1381,7 @@ export default class ClientBuild {
         }
     }
 
-	// jag::oldscape::ClientBuild::Init
+    // jag::oldscape::ClientBuild::Init
     static init(): void {
         ClientBuild.tot = new Int32Array(BuildArea.SIZE);
         ClientBuild.minusedlevel = 99;
