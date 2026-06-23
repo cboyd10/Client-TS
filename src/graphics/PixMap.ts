@@ -52,10 +52,11 @@ export default class PixMap {
         this.bind();
     }
 
-    draw(x: number, y: number): void {
+    private updateImageData(): ImageData | null {
         if (!this.image) {
-            return;
+            return null;
         }
+
         const data = this.data;
         const paint = this.paint;
         const len = data.length;
@@ -79,6 +80,25 @@ export default class PixMap {
             const pixel = data[i];
             paint[i] = ((pixel & 0xff0000) >> 16) | (pixel & 0xff00) | ((pixel & 0xff) << 16) | 0xff000000;
         }
-        this.ctx.putImageData(this.image, x, y);
+
+        return this.image;
+    }
+
+    draw(x: number, y: number): void {
+        const image = this.updateImageData();
+        if (!image) {
+            return;
+        }
+
+        this.ctx.putImageData(image, x, y);
+    }
+
+    draw2(height: number, width: number, y: number, x: number): void {
+        const image = this.updateImageData();
+        if (!image || width <= 0 || height <= 0) {
+            return;
+        }
+
+        this.ctx.putImageData(image, 0, 0, x, y, width, height);
     }
 }

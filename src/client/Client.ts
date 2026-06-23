@@ -1420,18 +1420,22 @@ export class Client extends GameShell {
         }
 
         if (Client.state === ClientMainState.GAME && Client.componentRectDebug === 0 && !redraw) {
-            GameShell.drawArea.draw(0, 0);
-            // todo:
-            // for (let i = 0; i < Client.componentDrawCount; i++) {
-            //     if (Client.componentBlitArea[i]) {
-            //         GameShell.drawArea.draw(Client.componentDrawX[i], Client.componentDrawY[i]); // need width+height
-            //         Client.componentBlitArea[i] = false;
-            //     }
-            // }
+            try {
+                for (let i = 0; i < Client.componentDrawCount; i++) {
+                    if (Client.componentBlitArea[i]) {
+                        GameShell.drawArea.draw2(Client.componentDrawHeight[i], Client.componentDrawWidth[i], Client.componentDrawY[i], Client.componentDrawX[i]);
+                        Client.componentBlitArea[i] = false;
+                    }
+                }
+            } catch {
+            }
         } else if (Client.state > ClientMainState.LOADING) {
-            GameShell.drawArea.draw(0, 0);
-            for (let i = 0; i < Client.componentDrawCount; i++) {
-                Client.componentBlitArea[i] = false;
+            try {
+                GameShell.drawArea.draw(0, 0);
+                for (let i = 0; i < Client.componentDrawCount; i++) {
+                    Client.componentBlitArea[i] = false;
+                }
+            } catch {
             }
         }
     }
@@ -3479,10 +3483,6 @@ export class Client extends GameShell {
     }
 
     static messageBox(message: string, redraw: boolean): void {
-        if (!GameShell.drawArea) {
-            GameShell.drawArea = new PixMap(765, 503);
-        }
-        GameShell.drawArea.bind();
         const width = Client.p12!.predictWidthMultiline(message, 250);
         const height = Client.p12!.predictLinesMultiline(message, 250) * 13;
         Pix2D.fillRect(6, 6, width + 8, height + 8, 0x0);
@@ -3491,10 +3491,9 @@ export class Client extends GameShell {
         Client.dirtyArea(height + 8, width + 8, 6, 6);
         if (!redraw) {
             Client.blitArea(10, height, width, 10);
+        } else {
             GameShell.drawArea.draw(0, 0);
-            return;
         }
-        GameShell.drawArea.draw(0, 0);
     }
 
     static doCheat(arg0: string): void {
