@@ -16,7 +16,6 @@ import PrivilegedRequest from '#/client/PrivilegedRequest.js';
 import ScriptRunner from '#/client/ScriptRunner.js';
 import Skills from '#/constants/Skills.js';
 import Text from '#/constants/Text.js';
-import TextGerman from '#/constants/TextGerman.js';
 import StockMarketSlot from '#/client/StockMarketSlot.js';
 import SubInterface from '#/client/SubInterface.js';
 import TitleScreen from '#/client/TitleScreen.js';
@@ -490,7 +489,7 @@ export class Client extends GameShell {
     static field1578: number = 1;
     static field3083: number = 320;
     static field4175: number = 256;
-    static moveAction: string = Text.WALKHERE;
+    static moveAction: string = Text.walkhere;
     static menuX: number = 0;
     static menuY: number = 0;
     static menuWidth: number = 0;
@@ -574,7 +573,7 @@ export class Client extends GameShell {
         Client.memServer = members !== null && members === '1';
         const lang = this.getParameter('lang');
         if (lang !== null && lang === '1') {
-            TextGerman.swapGerman();
+            Text.swapGerman();
             Client.lang = 1;
         }
         const game = this.getParameter('game');
@@ -668,7 +667,7 @@ export class Client extends GameShell {
             this.db = null;
         }
         Js5NetThread.db = this.db;
-        GameShell.loadingText = Text.LOADING_TITLE;
+        GameShell.loadingText = Text.loading_title;
         if (Client.modewhere !== 0) {
             Client.showFps = true;
         }
@@ -680,7 +679,7 @@ export class Client extends GameShell {
     async mainLoad(): Promise<void> {
         if (Client.loadingStep === 0) {
             TitleScreen.loadPos = 5;
-            TitleScreen.loadString = Text.field3549;
+            TitleScreen.loadString = Text.mainload0b;
             Client.loadingStep = 10;
         } else if (Client.loadingStep === 10) {
             ClientBuild.mapl = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Uint8Array(BuildArea.SIZE)));
@@ -691,7 +690,7 @@ export class Client extends GameShell {
                 Client.collision[level] = new CollisionMap(104, 104);
             }
             TitleScreen.loadPos = 10;
-            TitleScreen.loadString = Text.field144;
+            TitleScreen.loadString = Text.mainload10;
             Client.loadingStep = 30;
         } else if (Client.loadingStep === 30) {
             Client.anims = this.openJs5(0, true, true, false);
@@ -724,7 +723,7 @@ export class Client extends GameShell {
 
             Client.loadingStep = 40;
             TitleScreen.loadPos = 15;
-            TitleScreen.loadString = Text.MAINLOAD30;
+            TitleScreen.loadString = Text.mainload30;
         } else if (Client.loadingStep === 40) {
             const anims = Client.anims!;
             const bases = Client.bases!;
@@ -784,12 +783,12 @@ export class Client extends GameShell {
 
             if (progress === 100) {
                 TitleScreen.loadPos = 20;
-                TitleScreen.loadString = Text.MAINLOAD40B;
+                TitleScreen.loadString = Text.mainload40b;
                 TitleScreen.getGroupIds(songs, binary, sprites);
                 Client.loadingStep = 45;
             } else {
                 if (progress !== 0) {
-                    TitleScreen.loadString = `${Text.MAINLOAD40}${progress}%`;
+                    TitleScreen.loadString = `${Text.mainload40}${progress}%`;
                 }
 
                 TitleScreen.loadPos = 20;
@@ -806,7 +805,7 @@ export class Client extends GameShell {
             Client.synthPlayer.playStream(Client.mixer);
             Client.decimator = new Decimator(22050, PcmPlayer.frequency);
             Client.loadingStep = 50;
-            TitleScreen.loadString = Text.MAINLOAD45;
+            TitleScreen.loadString = Text.mainload45;
             TitleScreen.loadPos = 30;
         } else if (Client.loadingStep === 50) {
             const sprites = Client.sprites!;
@@ -833,12 +832,12 @@ export class Client extends GameShell {
             }
 
             if (loaded < 6) {
-                TitleScreen.loadString = `${Text.MAINLOAD50}${((loaded * 100) / 6) | 0}%`;
+                TitleScreen.loadString = `${Text.mainload50}${((loaded * 100) / 6) | 0}%`;
                 TitleScreen.loadPos = 35;
             } else {
                 TitleScreen.loadPos = 35;
                 Client.loadingStep = 60;
-                TitleScreen.loadString = Text.MAINLOAD50B;
+                TitleScreen.loadString = Text.mainload50b;
             }
         } else if (Client.loadingStep === 60) {
             const binary = Client.binary!;
@@ -847,11 +846,11 @@ export class Client extends GameShell {
             const ready = TitleScreen.ready(binary, sprites);
             const readyMax = TitleScreen.readyMax();
             if (ready < readyMax) {
-                TitleScreen.loadString = `${Text.MAINLOAD60}${((ready * 100) / readyMax) | 0}%`;
+                TitleScreen.loadString = `${Text.mainload60}${((ready * 100) / readyMax) | 0}%`;
                 TitleScreen.loadPos = 40;
             } else {
                 TitleScreen.loadPos = 40;
-                TitleScreen.loadString = Text.MAINLOAD60B;
+                TitleScreen.loadString = Text.mainload60b;
                 Client.loadingStep = 65;
             }
         } else if (Client.loadingStep === 65) {
@@ -864,7 +863,7 @@ export class Client extends GameShell {
             Client.p12 = PixLoader.makePixFont(fontmetrics, sprites, '', 'p12_full')!;
             Client.b12 = PixLoader.makePixFont(fontmetrics, sprites, '', 'b12_full')!;
             TitleScreen.loadPos = 45;
-            TitleScreen.loadString = Text.field24;
+            TitleScreen.loadString = Text.mainload65;
             await TitleScreen.open(binary, null, sprites);
             Client.setMainState(ClientMainState.TITLE_LOADING);
             Client.loadingStep = 70;
@@ -926,12 +925,12 @@ export class Client extends GameShell {
                 QuickChatPhraseType.init(quickchatGlobal, new ClientDynamicProvider(), quickchat);
                 QuickChatCatTypeList.init(quickchat, quickchatGlobal);
 
-                TitleScreen.loadString = Text.MAINLOAD70B;
+                TitleScreen.loadString = Text.mainload70b;
                 TitleScreen.loadPos = 50;
                 ObjType.method1416();
                 Client.loadingStep = 80;
             } else {
-                TitleScreen.loadString = `${Text.MAINLOAD70}${(progress / 10) | 0}%`;
+                TitleScreen.loadString = `${Text.mainload70}${(progress / 10) | 0}%`;
                 TitleScreen.loadPos = 50;
             }
         } else if (Client.loadingStep === 80) {
@@ -1050,7 +1049,7 @@ export class Client extends GameShell {
             loaded++;
 
             if (loaded < 15) {
-                TitleScreen.loadString = `${Text.MAINLOAD80}${((loaded * 100) / 15) | 0}%`;
+                TitleScreen.loadString = `${Text.mainload80}${((loaded * 100) / 15) | 0}%`;
                 TitleScreen.loadPos = 60;
             } else {
                 const randR: number = ((Math.random() * 21.0) | 0) - 10;
@@ -1069,7 +1068,7 @@ export class Client extends GameShell {
                 TitleScreen.loadPos = 60;
                 Client.loadingStep = 90;
                 Client.field4525 = Client.mapfunction;
-                TitleScreen.loadString = Text.MAINLOAD80B;
+                TitleScreen.loadString = Text.mainload80b;
             }
         } else if (Client.loadingStep === 90) {
             const textures = Client.textures!;
@@ -1081,18 +1080,18 @@ export class Client extends GameShell {
                 Pix3D.setTextures(manager);
                 Pix3D.initColourTable(0.7);
 
-                TitleScreen.loadString = Text.MAINLOAD90B;
+                TitleScreen.loadString = Text.mainload90b;
                 Client.loadingStep = 110;
                 TitleScreen.loadPos = 70;
             } else {
-                TitleScreen.loadString = `${Text.MAINLOAD90}${materials.getTotalLoadProgress()}%`;
+                TitleScreen.loadString = `${Text.mainload90}${materials.getTotalLoadProgress()}%`;
                 TitleScreen.loadPos = 70;
             }
         } else if (Client.loadingStep === 110) {
             Client.mouseTracking = new MouseTracking();
             Client.mouseTracking.run();
 
-            TitleScreen.loadString = Text.MAINLOAD110;
+            TitleScreen.loadString = Text.mainload110;
             TitleScreen.loadPos = 75;
             Client.loadingStep = 120;
         } else if (Client.loadingStep === 120) {
@@ -1102,10 +1101,10 @@ export class Client extends GameShell {
                 WordPack.setHuffman(huffman);
 
                 Client.loadingStep = 130;
-                TitleScreen.loadString = Text.MAINLOAD120B;
+                TitleScreen.loadString = Text.mainload120b;
                 TitleScreen.loadPos = 80;
             } else {
-                TitleScreen.loadString = Text.MAINLOAD120 + '0%';
+                TitleScreen.loadString = Text.mainload120 + '0%';
                 TitleScreen.loadPos = 80;
             }
         } else if (Client.loadingStep === 130) {
@@ -1114,17 +1113,17 @@ export class Client extends GameShell {
             const fontmetrics = Client.fontmetrics!;
 
             if (!interfaces.requestFullDownload()) {
-                TitleScreen.loadString = `${Text.MAINLOAD130}${((interfaces.getTotalLoadProgress() * 4) / 5) | 0}%`;
+                TitleScreen.loadString = `${Text.mainload130}${((interfaces.getTotalLoadProgress() * 4) / 5) | 0}%`;
                 TitleScreen.loadPos = 85;
             } else if (!scripts.requestFullDownload()) {
-                TitleScreen.loadString = `${Text.MAINLOAD130}${(((scripts.getTotalLoadProgress() / 6) | 0) + 80) | 0}%`;
+                TitleScreen.loadString = `${Text.mainload130}${(((scripts.getTotalLoadProgress() / 6) | 0) + 80) | 0}%`;
                 TitleScreen.loadPos = 85;
             } else if (fontmetrics.requestFullDownload()) {
                 TitleScreen.loadPos = 100;
                 Client.loadingStep = 140;
-                TitleScreen.loadString = Text.MAINLOAD130B;
+                TitleScreen.loadString = Text.mainload130b;
             } else {
-                TitleScreen.loadString = `${Text.MAINLOAD130}${(((fontmetrics.getTotalLoadProgress() / 20) | 0) + 96) | 0}%`;
+                TitleScreen.loadString = `${Text.mainload130}${(((fontmetrics.getTotalLoadProgress() / 20) | 0) + 96) | 0}%`;
                 TitleScreen.loadPos = 85;
             }
         } else if (Client.loadingStep === 140) {
@@ -1262,7 +1261,7 @@ export class Client extends GameShell {
         Client.mapBuildCentreZoneZ = arg3;
         Client.mapBuildCentreZoneX = arg2;
         Client.setMainState(25);
-        Client.messageBox(Text.LOADING, true);
+        Client.messageBox(Text.loading, true);
         const var5: number = Client.mapBuildBaseX;
         const var6: number = Client.mapBuildBaseZ;
         Client.mapBuildBaseZ = arg3 * 8 - 48;
@@ -1402,20 +1401,20 @@ export class Client extends GameShell {
                     Client.field2751 = Client.field3754;
                 }
                 const progress: number = (((Client.field2751 - Client.field3754) * 50) / Client.field2751) | 0;
-                Client.messageBox(`${Text.LOADING}<br>(${progress}%)`, false);
+                Client.messageBox(`${Text.loading}<br>(${progress}%)`, false);
             } else if (Client.field3861 === 2) {
                 if (Client.field2045 > Client.field2652) {
                     Client.field2652 = Client.field2045;
                 }
                 const progress: number = ((((Client.field2652 - Client.field2045) * 50) / Client.field2652) | 0) + 50;
-                Client.messageBox(`${Text.LOADING}<br>(${progress}%)`, false);
+                Client.messageBox(`${Text.loading}<br>(${progress}%)`, false);
             } else {
-                Client.messageBox(Text.LOADING, false);
+                Client.messageBox(Text.loading, false);
             }
         } else if (Client.state === ClientMainState.GAME) {
             this.gameDraw();
         } else if (Client.state === ClientMainState.RECONNECT) {
-            Client.messageBox(Text.CONLOST + '<br>' + Text.ATTEMPT_TO_REESTABLISH, false);
+            Client.messageBox(Text.conlost + '<br>' + Text.attempt_to_reestablish, false);
         }
 
         if (Client.state === ClientMainState.GAME && Client.componentRectDebug === 0 && !redraw) {
@@ -1852,7 +1851,7 @@ export class Client extends GameShell {
 
             if (Client.loginStep === 8) {
                 Client.loginWaitingTime = 0;
-                TitleScreen.loginMes(`${(Client.loginHopTimer / 60) | 0}${Text.LOGINHOP_C}`, Text.LOGINHOP_A, Text.LOGINHOP_B);
+                TitleScreen.loginMes(`${(Client.loginHopTimer / 60) | 0}${Text.loginhop_c}`, Text.loginhop_a, Text.loginhop_b);
                 if (--Client.loginHopTimer <= 0) {
                     Client.loginStep = 0;
                 }
@@ -1915,59 +1914,59 @@ export class Client extends GameShell {
 
     static loginError(arg0: number): void {
         if (arg0 === -3) {
-            TitleScreen.loginMes(Text.field1273, Text.LOGINM3_A, Text.LOGINM3_B);
+            TitleScreen.loginMes(Text.loginm3_c, Text.loginm3_a, Text.loginm3_b);
         } else if (arg0 === -2) {
-            TitleScreen.loginMes(Text.field1274, Text.field1294, Text.LOGINM2_B);
+            TitleScreen.loginMes(Text.loginm2_c, Text.loginm2_a, Text.loginm2_b);
         } else if (arg0 === -1) {
-            TitleScreen.loginMes(Text.field1271, Text.LOGINM1_A, Text.LOGINM1_B);
+            TitleScreen.loginMes(Text.loginm1_c, Text.loginm1_a, Text.loginm1_b);
         } else if (arg0 === 3) {
-            TitleScreen.loginMes(Text.field1297, Text.field1268, Text.LOGIN3_B);
+            TitleScreen.loginMes(Text.login3_c, Text.login3_a, Text.login3_b);
         } else if (arg0 === 4) {
-            TitleScreen.loginMes(Text.field1291, Text.LOGIN4_A, Text.LOGIN4_B);
+            TitleScreen.loginMes(Text.login4_c, Text.login4_a, Text.login4_b);
         } else if (arg0 === 5) {
-            TitleScreen.loginMes(Text.field1305, Text.LOGIN5_A, Text.LOGIN5_B);
+            TitleScreen.loginMes(Text.login5_c, Text.login5_a, Text.login5_b);
         } else if (arg0 === 6) {
-            TitleScreen.loginMes(Text.field1266, Text.LOGIN6_A, Text.LOGIN6_B);
+            TitleScreen.loginMes(Text.login6_c, Text.login6_a, Text.login6_b);
         } else if (arg0 === 7) {
-            TitleScreen.loginMes(Text.field1302, Text.LOGIN7_A, Text.LOGIN7_B);
+            TitleScreen.loginMes(Text.login7_c, Text.login7_a, Text.login7_b);
         } else if (arg0 === 8) {
-            TitleScreen.loginMes(Text.field1267, Text.LOGIN8_A, Text.LOGIN8_B);
+            TitleScreen.loginMes(Text.login8_c, Text.login8_a, Text.login8_b);
         } else if (arg0 === 9) {
-            TitleScreen.loginMes(Text.field1293, Text.LOGIN9_A, Text.LOGIN9_B);
+            TitleScreen.loginMes(Text.login9_c, Text.login9_a, Text.login9_b);
         } else if (arg0 === 10) {
-            TitleScreen.loginMes(Text.field1280, Text.LOGIN10_A, Text.LOGIN10_B);
+            TitleScreen.loginMes(Text.login10_c, Text.login10_a, Text.login10_b);
         } else if (arg0 === 11) {
-            TitleScreen.loginMes(Text.field1286, Text.LOGIN11_A, Text.LOGIN11_B);
+            TitleScreen.loginMes(Text.login11_c, Text.login11_a, Text.login11_b);
         } else if (arg0 === 12) {
-            TitleScreen.loginMes(Text.field1282, Text.LOGIN12_A, Text.LOGIN12_B);
+            TitleScreen.loginMes(Text.login12_c, Text.login12_a, Text.login12_b);
         } else if (arg0 === 13) {
-            TitleScreen.loginMes(Text.field1299, Text.LOGIN13_A, Text.LOGIN13_B);
+            TitleScreen.loginMes(Text.login13_c, Text.login13_a, Text.login13_b);
         } else if (arg0 === 14) {
-            TitleScreen.loginMes(Text.field1300, Text.LOGIN14_A, Text.LOGIN14_B);
+            TitleScreen.loginMes(Text.login14_c, Text.login14_a, Text.login14_b);
         } else if (arg0 === 16) {
-            TitleScreen.loginMes(Text.field1278, Text.LOGIN16_A, Text.LOGIN16_B);
+            TitleScreen.loginMes(Text.login16_c, Text.login16_a, Text.login16_b);
         } else if (arg0 === 17) {
-            TitleScreen.loginMes(Text.field1272, Text.LOGIN17_A, Text.LOGIN17_B);
+            TitleScreen.loginMes(Text.login17_c, Text.login17_a, Text.login17_b);
         } else if (arg0 === 18) {
-            TitleScreen.loginMes(Text.field1287, Text.LOGIN18_A, Text.LOGIN18_B);
+            TitleScreen.loginMes(Text.login18_c, Text.login18_a, Text.login18_b);
         } else if (arg0 === 19) {
-            TitleScreen.loginMes(Text.field4317, Text.LOGIN19_A, Text.LOGIN19_B);
+            TitleScreen.loginMes(Text.login19_c, Text.login19_a, Text.login19_b);
         } else if (arg0 === 20) {
-            TitleScreen.loginMes(Text.field1289, Text.LOGIN20_A, Text.LOGIN20_B);
+            TitleScreen.loginMes(Text.login20_c, Text.login20_a, Text.login20_b);
         } else if (arg0 === 22) {
-            TitleScreen.loginMes(Text.field1284, Text.LOGIN22_A, Text.LOGIN22_B);
+            TitleScreen.loginMes(Text.login22_c, Text.login22_a, Text.login22_b);
         } else if (arg0 === 23) {
-            TitleScreen.loginMes(Text.field1269, Text.LOGIN23_A, Text.LOGIN23_B);
+            TitleScreen.loginMes(Text.login23_c, Text.login23_a, Text.login23_b);
         } else if (arg0 === 24) {
-            TitleScreen.loginMes(Text.field1303, Text.LOGIN24_A, Text.LOGIN24_B);
+            TitleScreen.loginMes(Text.login24_c, Text.login24_a, Text.login24_b);
         } else if (arg0 === 25) {
-            TitleScreen.loginMes(Text.field1283, Text.LOGIN25_A, Text.LOGIN25_B);
+            TitleScreen.loginMes(Text.login25_c, Text.login25_a, Text.login25_b);
         } else if (arg0 === 26) {
-            TitleScreen.loginMes(Text.field1301, Text.LOGIN26_A, Text.LOGIN26_B);
+            TitleScreen.loginMes(Text.login26_c, Text.login26_a, Text.login26_b);
         } else if (arg0 === 27) {
-            TitleScreen.loginMes(Text.field1279, Text.field1296, Text.field3112);
+            TitleScreen.loginMes(Text.login27_c, Text.login27_a, Text.login27_b);
         } else {
-            TitleScreen.loginMes(Text.field1304, Text.LOGINMIS_A, Text.LOGINMIS_B);
+            TitleScreen.loginMes(Text.loginmis_c, Text.loginmis_a, Text.loginmis_b);
         }
 
         Client.setMainState(10);
@@ -2086,7 +2085,7 @@ export class Client extends GameShell {
         }
         Client.clientpalette = LocType.clientpalette = NpcType.clientpalette = ObjType.clientpalette = new Int16Array(256);
         Client.sendCamera = true;
-        Client.moveAction = Text.WALKHERE;
+        Client.moveAction = Text.walkhere;
     }
 
     static reconnectDone(): void {
@@ -2701,7 +2700,7 @@ export class Client extends GameShell {
     }
 
     static getLine(arg0: number): string {
-        return Client.menuSubject[arg0]!.length <= 0 ? Client.menuVerb[arg0]! : JagString.join([JagString.wrap(Client.menuVerb[arg0]!), JagString.wrap(Text.MINISEPARATOR), JagString.wrap(Client.menuSubject[arg0]!)]).toString();
+        return Client.menuSubject[arg0]!.length <= 0 ? Client.menuVerb[arg0]! : JagString.join([JagString.wrap(Client.menuVerb[arg0]!), JagString.wrap(Text.miniseperator), JagString.wrap(Client.menuSubject[arg0]!)]).toString();
     }
 
     static prependOpIndex(arg0: Array<string | null> | null): string[] {
@@ -3547,7 +3546,7 @@ export class Client extends GameShell {
     gameDraw(): void {
         if (!Client.isMenuOpen) {
             Client.menuAction[0] = 1007;
-            Client.menuVerb[0] = Text.CANCEL;
+            Client.menuVerb[0] = Text.cancel;
             Client.menuNumEntries = 1;
             Client.menuSubject[0] = '';
         }
@@ -3691,7 +3690,7 @@ export class Client extends GameShell {
         }
         if (Client.js5Loading) {
             Pix2D.fillRect(x, y, width, height, 0x0);
-            Client.messageBox(Text.LOADING, false);
+            Client.messageBox(Text.loading, false);
         }
         if (!Client.js5Loading && !Client.isMenuOpen && x <= ClientMouseListener.mouseX && ClientMouseListener.mouseX < width + x && y <= ClientMouseListener.mouseY && ClientMouseListener.mouseY < height + y) {
             Client.minimenuBuildSceneActions(ClientMouseListener.mouseY, x, height, width, y, ClientMouseListener.mouseX);
@@ -4331,7 +4330,7 @@ export class Client extends GameShell {
             return;
         }
         if (Client.field3861 !== 0) {
-            Client.messageBox(Text.LOADING + '<br>(100%)', true);
+            Client.messageBox(Text.loading + '<br>(100%)', true);
         }
         Client.doAudio();
         Client.clearCaches();
@@ -6013,7 +6012,7 @@ export class Client extends GameShell {
                     }
 
                     if (!ignored && Client.chatDisabled === 0) {
-                        Client.addChat(Text.TRADEREQ, 4, player);
+                        Client.addChat(Text.tradereq, 4, player);
                     }
                 } else if (message.endsWith('chalreq')) {
                     const player: string = message.substring(0, message.indexOf(':'));
@@ -6215,7 +6214,7 @@ export class Client extends GameShell {
             }
 
             if (Client.ptype === 101) {
-                Client.moveAction = Client.psize === 0 ? Text.WALKHERE : Client.in.gjstr();
+                Client.moveAction = Client.psize === 0 ? Text.walkhere : Client.in.gjstr();
                 Client.ptype = -1;
                 return true;
             }
@@ -6507,10 +6506,10 @@ export class Client extends GameShell {
                         if (Client.field3092[i] !== world) {
                             Client.field3092[i] = world;
                             if (world > 0) {
-                                Client.addChat(displayName + Text.field3321, 5, '');
+                                Client.addChat(displayName + Text.friendlogin, 5, '');
                             }
                             if (world === 0) {
-                                Client.addChat(displayName + Text.field2123, 5, '');
+                                Client.addChat(displayName + Text.friendlogout, 5, '');
                             }
                         }
 
@@ -8325,7 +8324,7 @@ export class Client extends GameShell {
         Pix2D.fillRect(x + 1, y + 1, w - 2, 16, 0x0);
         Pix2D.drawRect(x + 1, y + 18, w - 2, h - 19, 0x0);
 
-        Client.b12!.drawString(Text.CHOOSEOPTION, x + 3, y + 14, background, -1);
+        Client.b12!.drawString(Text.chooseoption, x + 3, y + 14, background, -1);
 
         const mouseX: number = ClientMouseListener.mouseX;
         const mouseY: number = ClientMouseListener.mouseY;
@@ -8350,15 +8349,15 @@ export class Client extends GameShell {
 
         let var2: string;
         if (Client.useMode === 1 && Client.menuNumEntries < 2) {
-            var2 = Text.USE + Text.MINISEPARATOR + Client.objSelectedName + ' ->';
+            var2 = Text.use + Text.miniseperator + Client.objSelectedName + ' ->';
         } else if (Client.targetMode && Client.menuNumEntries < 2) {
-            var2 = Client.targetVerb! + Text.MINISEPARATOR + Client.targetOp! + ' ->';
+            var2 = Client.targetVerb! + Text.miniseperator + Client.targetOp! + ' ->';
         } else {
             var2 = Client.getLine(Client.menuNumEntries - 1);
         }
 
         if (Client.menuNumEntries > 2) {
-            var2 = var2 + '<col=ffffff> / ' + (Client.menuNumEntries - 2) + Text.MOREOPTIONS;
+            var2 = var2 + '<col=ffffff> / ' + (Client.menuNumEntries - 2) + Text.moreoptions;
         }
 
         const var3: number = Client.b12!.drawStringAntiMacro(var2, arg1 + 4, arg0 + 15, Client.feedbackRand, Client.feedbackSeed);
@@ -8366,7 +8365,7 @@ export class Client extends GameShell {
     }
 
     openMenu(): void {
-        let width: number = Client.b12!.stringWid(Text.CHOOSEOPTION);
+        let width: number = Client.b12!.stringWid(Text.chooseoption);
         let maxWidth: number;
         for (let i: number = 0; i < Client.menuNumEntries; i++) {
             maxWidth = Client.b12!.stringWid(Client.getLine(i));
@@ -9074,7 +9073,7 @@ export class Client extends GameShell {
             }
         }
         if (!var3) {
-            Client.addChat(Text.UNABLETOFIND + var2, 0, '');
+            Client.addChat(Text.unabletofind + var2, 0, '');
         }
     }
 
@@ -9113,7 +9112,7 @@ export class Client extends GameShell {
                         continue;
                     }
                     if (Client.useMode === 1) {
-                        Client.addMenuOption(var17, Text.USE, 26, var15, Client.objSelectedName! + ' -> <col=00ffff>' + var21.name, var18);
+                        Client.addMenuOption(var17, Text.use, 26, var15, Client.objSelectedName! + ' -> <col=00ffff>' + var21.name, var18);
                     } else if (!Client.targetMode) {
                         let var22 = var21.op;
                         if (Client.showOpIndex) {
@@ -9142,7 +9141,7 @@ export class Client extends GameShell {
                                 }
                             }
                         }
-                        Client.addMenuOption(var17, Text.EXAMINE, 1005, var21.id, '<col=00ffff>' + var21.name, var18);
+                        Client.addMenuOption(var17, Text.examine, 1005, var21.id, '<col=00ffff>' + var21.name, var18);
                     } else if ((Client.targetMask & 0x4) === 4) {
                         Client.addMenuOption(var17, Client.targetVerb!, 24, var15, Client.targetOp! + ' -> <col=00ffff>' + var21.name, var18);
                     }
@@ -9190,7 +9189,7 @@ export class Client extends GameShell {
                             const var37: number = var36.obj.id;
                             const var38: ObjType = ObjType.list(var37);
                             if (Client.useMode === 1) {
-                                Client.addMenuOption(var17, Text.USE, 46, var37, Client.objSelectedName! + ' -> <col=ff9040>' + var38.name, var18);
+                                Client.addMenuOption(var17, Text.use, 46, var37, Client.objSelectedName! + ' -> <col=ff9040>' + var38.name, var18);
                             } else if (!Client.targetMode) {
                                 let var39 = var38.op;
                                 if (Client.showOpIndex) {
@@ -9216,10 +9215,10 @@ export class Client extends GameShell {
                                         }
                                         Client.addMenuOption(var17, var39[var40]!, var41, var37, '<col=ff9040>' + var38.name, var18);
                                     } else if (var40 === 2) {
-                                        Client.addMenuOption(var17, Text.TAKE, 41, var37, '<col=ff9040>' + var38.name, var18);
+                                        Client.addMenuOption(var17, Text.take, 41, var37, '<col=ff9040>' + var38.name, var18);
                                     }
                                 }
-                                Client.addMenuOption(var17, Text.EXAMINE, 1006, var37, '<col=ff9040>' + var38.name, var18);
+                                Client.addMenuOption(var17, Text.examine, 1006, var37, '<col=ff9040>' + var38.name, var18);
                             } else if ((Client.targetMask & 0x1) === 1) {
                                 Client.addMenuOption(var17, Client.targetVerb!, 25, var37, Client.targetOp! + ' -> <col=ff9040>' + var38.name, var18);
                             }
@@ -9242,10 +9241,10 @@ export class Client extends GameShell {
         }
         let var4: string | null = arg0.name;
         if (arg0.vislevel !== 0) {
-            var4 = var4 + Client.combatColourCode(arg0.vislevel, Client.localPlayer!.combatLevel) + ' (' + Text.LEVEL + arg0.vislevel + ')';
+            var4 = var4 + Client.combatColourCode(arg0.vislevel, Client.localPlayer!.combatLevel) + ' (' + Text.level + arg0.vislevel + ')';
         }
         if (Client.useMode === 1) {
-            Client.addMenuOption(arg3, Text.USE, 48, arg1, Client.objSelectedName! + ' -> <col=ffff00>' + var4, arg2);
+            Client.addMenuOption(arg3, Text.use, 48, arg1, Client.objSelectedName! + ' -> <col=ffff00>' + var4, arg2);
         } else if (!Client.targetMode) {
             let var5 = arg0.op;
             if (Client.showOpIndex) {
@@ -9253,7 +9252,7 @@ export class Client extends GameShell {
             }
             if (var5 !== null) {
                 for (let var6: number = 4; var6 >= 0; var6--) {
-                    if (var5[var6] !== null && (Client.modegame !== 0 || var5[var6]!.toLowerCase() !== Text.ATTACK.toLowerCase())) {
+                    if (var5[var6] !== null && (Client.modegame !== 0 || var5[var6]!.toLowerCase() !== Text.attack.toLowerCase())) {
                         let var7: number = 0;
                         if (var6 === 0) {
                             var7 = 17;
@@ -9276,7 +9275,7 @@ export class Client extends GameShell {
             }
             if (Client.modegame === 0 && var5 !== null) {
                 for (let var8: number = 4; var8 >= 0; var8--) {
-                    if (var5[var8] !== null && var5[var8]!.toLowerCase() === Text.ATTACK.toLowerCase()) {
+                    if (var5[var8] !== null && var5[var8]!.toLowerCase() === Text.attack.toLowerCase()) {
                         let var9: number = 0;
                         if (arg0.vislevel > Client.localPlayer!.combatLevel) {
                             var9 = 2000;
@@ -9304,7 +9303,7 @@ export class Client extends GameShell {
                     }
                 }
             }
-            Client.addMenuOption(arg3, Text.EXAMINE, 1002, arg1, '<col=ffff00>' + var4, arg2);
+            Client.addMenuOption(arg3, Text.examine, 1002, arg1, '<col=ffff00>' + var4, arg2);
         } else if ((Client.targetMask & 0x2) === 2) {
             Client.addMenuOption(arg3, Client.targetVerb!, 19, arg1, Client.targetOp! + ' -> <col=ffff00>' + var4, arg2);
         }
@@ -9317,18 +9316,18 @@ export class Client extends GameShell {
 
         let var4: string;
         if (arg3.skillLevel === 0) {
-            var4 = arg3.name + Client.combatColourCode(arg3.combatLevel, Client.localPlayer!.combatLevel) + ' (' + Text.LEVEL + arg3.combatLevel + ')';
+            var4 = arg3.name + Client.combatColourCode(arg3.combatLevel, Client.localPlayer!.combatLevel) + ' (' + Text.level + arg3.combatLevel + ')';
         } else {
-            var4 = arg3.name + ' (' + Text.SKILL + arg3.skillLevel + ')';
+            var4 = arg3.name + ' (' + Text.skill + arg3.skillLevel + ')';
         }
 
         if (Client.useMode === 1) {
-            Client.addMenuOption(arg1, Text.USE, 31, arg0, Client.objSelectedName! + ' -> <col=ffffff>' + var4, arg2);
+            Client.addMenuOption(arg1, Text.use, 31, arg0, Client.objSelectedName! + ' -> <col=ffffff>' + var4, arg2);
         } else if (!Client.targetMode) {
             for (let var5 = 7; var5 >= 0; var5--) {
                 if (Client.playerOp[var5] !== null) {
                     let var6 = 0;
-                    if (Client.modegame === 0 && Client.playerOp[var5]!.toLowerCase() === Text.ATTACK.toLowerCase()) {
+                    if (Client.modegame === 0 && Client.playerOp[var5]!.toLowerCase() === Text.attack.toLowerCase()) {
                         if (arg3.combatLevel > Client.localPlayer!.combatLevel) {
                             var6 = 2000;
                         }
@@ -9744,7 +9743,7 @@ export class Client extends GameShell {
             }
         }
         if (arg2.buttonType === 3) {
-            Client.addMenuOption(0, Text.CLOSE, 14, 0, '', arg2.parentId);
+            Client.addMenuOption(0, Text.close, 14, 0, '', arg2.parentId);
         }
         if (arg2.buttonType === 4) {
             Client.addMenuOption(0, arg2.buttonText!, 36, 0, '', arg2.parentId);
@@ -9772,7 +9771,7 @@ export class Client extends GameShell {
                             const var9: ObjType = ObjType.list(arg2.linkObjType![var4] - 1);
                             if (Client.useMode === 1 && ServerActive.isObjOpsEnabled(Client.getActive(arg2))) {
                                 if (Client.objSelectedComId !== arg2.parentId || var4 !== Client.objSelectedSlot) {
-                                    Client.addMenuOption(var4, Text.USE, 42, var9.id, Client.objSelectedName! + ' -> <col=ff9040>' + var9.name, arg2.parentId);
+                                    Client.addMenuOption(var4, Text.use, 42, var9.id, Client.objSelectedName! + ' -> <col=ff9040>' + var9.name, arg2.parentId);
                                 }
                             } else if (!Client.targetMode || !ServerActive.isObjOpsEnabled(Client.getActive(arg2))) {
                                 let var10 = var9.iop;
@@ -9790,12 +9789,12 @@ export class Client extends GameShell {
                                             }
                                             Client.addMenuOption(var4, var10[var11]!, var12, var9.id, '<col=ff9040>' + var9.name, arg2.parentId);
                                         } else if (var11 === 4) {
-                                            Client.addMenuOption(var4, Text.DROP, 18, var9.id, '<col=ff9040>' + var9.name, arg2.parentId);
+                                            Client.addMenuOption(var4, Text.drop, 18, var9.id, '<col=ff9040>' + var9.name, arg2.parentId);
                                         }
                                     }
                                 }
                                 if (ServerActive.isObjUseEnabled(Client.getActive(arg2))) {
-                                    Client.addMenuOption(var4, Text.USE, 12, var9.id, '<col=ff9040>' + var9.name, arg2.parentId);
+                                    Client.addMenuOption(var4, Text.use, 12, var9.id, '<col=ff9040>' + var9.name, arg2.parentId);
                                 }
                                 if (ServerActive.isObjOpsEnabled(Client.getActive(arg2)) && var10 !== null) {
                                     for (let var13: number = 2; var13 >= 0; var13--) {
@@ -9841,7 +9840,7 @@ export class Client extends GameShell {
                                         }
                                     }
                                 }
-                                Client.addMenuOption(var4, Text.EXAMINE, 1001, var9.id, '<col=ff9040>' + var9.name, arg2.parentId);
+                                Client.addMenuOption(var4, Text.examine, 1001, var9.id, '<col=ff9040>' + var9.name, arg2.parentId);
                             } else if ((Client.targetMask & 0x10) === 16) {
                                 Client.addMenuOption(var4, Client.targetVerb!, 39, var9.id, Client.targetOp! + ' -> <col=ff9040>' + var9.name, arg2.parentId);
                             }
@@ -9870,7 +9869,7 @@ export class Client extends GameShell {
                     }
                 }
                 if (ServerActive.pauseButton(Client.getActive(arg2))) {
-                    Client.addMenuOption(arg2.subId, Text.CONTINUE, 47, 0, '', arg2.parentId);
+                    Client.addMenuOption(arg2.subId, Text.continu, 47, 0, '', arg2.parentId);
                 }
             } else if (ServerActive.isUseTarget(Client.getActive(arg2)) && (Client.targetMask & 0x20) === 32) {
                 Client.addMenuOption(arg2.subId, Client.targetVerb!, 40, 0, Client.targetOp! + ' -> ' + arg2.baseOpName!, arg2.parentId);
@@ -10063,7 +10062,7 @@ export class Client extends GameShell {
             const mouseX = ClientMouseListener.mouseX;
             if (child.type === 0 && child.noClickThrough && childClipLeft <= mouseX && ClientMouseListener.mouseY >= childClipTop && childClipRight > mouseX && ClientMouseListener.mouseY < childClipBottom && !Client.isMenuOpen && !Client.qaOpTest) {
                 Client.menuNumEntries = 1;
-                Client.menuVerb[0] = Text.CANCEL;
+                Client.menuVerb[0] = Text.cancel;
                 Client.menuSubject[0] = '';
                 Client.menuAction[0] = 1007;
             }
@@ -10104,7 +10103,7 @@ export class Client extends GameShell {
                         !Client.qaOpTest
                     ) {
                         Client.menuNumEntries = 1;
-                        Client.menuVerb[0] = Text.CANCEL;
+                        Client.menuVerb[0] = Text.cancel;
                         Client.menuSubject[0] = '';
                         Client.menuAction[0] = 1007;
                     }
@@ -10282,7 +10281,7 @@ export class Client extends GameShell {
                         }
 
                         if (Client.resumePauseCom === child) {
-                            text = Text.PLEASEWAIT;
+                            text = Text.pleasewait;
                             colour = child.colour;
                         }
 
@@ -10986,9 +10985,9 @@ export class Client extends GameShell {
             var1 = var1.substring(0, var2) + ',' + var1.substring(var2);
         }
         if (var1.length > 9) {
-            return ' <col=00ff80>' + var1.substring(0, var1.length - 8) + Text.MILLION + ' (' + var1 + ')</col>';
+            return ' <col=00ff80>' + var1.substring(0, var1.length - 8) + Text.million + ' (' + var1 + ')</col>';
         } else if (var1.length > 6) {
-            return ' <col=ffffff>' + var1.substring(0, var1.length - 4) + Text.THOUSAND + ' (' + var1 + ')</col>';
+            return ' <col=ffffff>' + var1.substring(0, var1.length - 4) + Text.thousand + ' (' + var1 + ')</col>';
         } else {
             return ' <col=ffff00>' + var1 + '</col>';
         }
@@ -11884,27 +11883,27 @@ export class Client extends GameShell {
         }
 
         if ((Client.friendCount >= 100 && Client.membersAccount != 1) || Client.friendCount >= 200) {
-            Client.addChat(Text.FRIENDLISTFULL, 0, '');
+            Client.addChat(Text.friendlistfull, 0, '');
             return;
         }
 
         const var2: JagString = JagString.toRawUsername(arg0)!.toScreenName();
         for (let var3: number = 0; var3 < Client.friendCount; var3++) {
             if (Client.field2086[var3] === arg0) {
-                Client.addChat(var2.toString() + Text.FRIENDLISTDUPE, 0, '');
+                Client.addChat(var2.toString() + Text.friendlistdupe, 0, '');
                 return;
             }
         }
 
         for (let var4: number = 0; var4 < Client.privateMessageCount; var4++) {
             if (Client.messageIds[var4] === arg0) {
-                Client.addChat(Text.REMOVEIGNORE1 + var2.toString() + Text.REMOVEIGNORE2, 0, '');
+                Client.addChat(Text.removeignore1 + var2.toString() + Text.removeignore2, 0, '');
                 return;
             }
         }
 
         if (var2.strEquals(JagString.wrap(Client.localPlayer!.name!))) {
-            Client.addChat(Text.FRIENDCANTADDSELF, 0, '');
+            Client.addChat(Text.friendcantaddself, 0, '');
             return;
         }
         Client.field370[Client.friendCount] = var2;
@@ -11926,27 +11925,27 @@ export class Client extends GameShell {
         }
 
         if (Client.privateMessageCount >= 100) {
-            Client.addChat(Text.IGNORELISTFULL, 0, '');
+            Client.addChat(Text.ignorelistfull, 0, '');
             return;
         }
 
         const var2: JagString = JagString.toRawUsername(arg0)!.toScreenName();
         for (let var3: number = 0; var3 < Client.privateMessageCount; var3++) {
             if (Client.messageIds[var3] === arg0) {
-                Client.addChat(var2.toString() + Text.IGNORELISTDUPE, 0, '');
+                Client.addChat(var2.toString() + Text.ignorelistdupe, 0, '');
                 return;
             }
         }
 
         for (let var4: number = 0; var4 < Client.friendCount; var4++) {
             if (arg0 === Client.field2086[var4]) {
-                Client.addChat(Text.REMOVEFRIEND1 + var2.toString() + Text.REMOVEFRIEND2, 0, '');
+                Client.addChat(Text.removefriend1 + var2.toString() + Text.removefriend2, 0, '');
                 return;
             }
         }
 
         if (var2.strEquals(JagString.wrap(Client.localPlayer!.name!))) {
-            Client.addChat(Text.IGNORECANTADDSELF, 0, '');
+            Client.addChat(Text.ignorecantaddself, 0, '');
             return;
         }
 

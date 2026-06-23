@@ -74,10 +74,10 @@ export default class ObjType extends Linkable2 {
     certlink: number = -1;
     static readonly NULL: string = 'null';
     name: string = ObjType.NULL;
-    op: (string | null)[] | null = [null, null, Text.TAKE, null, null];
+    op: (string | null)[] | null = [null, null, Text.take, null, null];
     manwear: number = -1;
     contrast: number = 0;
-    iop: (string | null)[] | null = [null, null, null, null, Text.DROP];
+    iop: (string | null)[] | null = [null, null, null, null, Text.drop];
     id: number = 0;
     recol_d_palette: Int8Array | null = null;
     countco: Int32Array | null = null;
@@ -110,7 +110,7 @@ export default class ObjType extends Linkable2 {
             var3.team = 0;
             var3.op = null;
             var3.stockmarket = false;
-            var3.name = Text.MEMBERS_OBJECT;
+            var3.name = Text.members_object;
             var3.iop = null;
         }
         ObjType.recentUse.put(BigInt(arg0), var3);
@@ -251,9 +251,9 @@ export default class ObjType extends Linkable2 {
         if (value < 100000) {
             return `<col=ffff00>${value}</col>`;
         } else if (value < 10000000) {
-            return `<col=ffffff>${(value / 1000) | 0}${Text.THOUSAND_SHORT}</col>`;
+            return `<col=ffffff>${(value / 1000) | 0}${Text.thousand_short}</col>`;
         } else {
-            return `<col=00ff80>${(value / 1000000) | 0}${Text.MILLION_SHORT}</col>`;
+            return `<col=00ff80>${(value / 1000000) | 0}${Text.million_short}</col>`;
         }
     }
 
@@ -513,7 +513,7 @@ export default class ObjType extends Linkable2 {
                 this.womanwear2 = dat.g2();
             } else if (code >= 30 && code < 35) {
                 this.op![code - 30] = dat.gjstr();
-                if (this.op![code - 30]!.toLowerCase() === Text.HIDDEN.toLowerCase()) {
+                if (this.op![code - 30]!.toLowerCase() === Text.hidden.toLowerCase()) {
                     this.op![code - 30] = null;
                 }
             } else if (code >= 35 && code < 40) {
@@ -731,7 +731,7 @@ export default class ObjType extends Linkable2 {
                 this.iop[var3] = arg0.iop[var3];
             }
         }
-        this.iop[4] = Text.field592;
+        this.iop[4] = Text.discard;
     }
 
     getStackSizeAlt(arg0: number): ObjType {

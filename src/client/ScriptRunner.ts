@@ -29,6 +29,7 @@ import SoftwarePixFont from '#/graphics/SoftwarePixFont.js';
 import Text from '#/constants/Text.js';
 import TitleScreen from '#/client/TitleScreen.js';
 
+// jag::oldscape::ScriptRunner
 export default class ScriptRunner {
     static intLocals: Int32Array = new Int32Array(0);
     static stringLocals: (string | null)[] = [];
@@ -46,25 +47,6 @@ export default class ScriptRunner {
     // todo: sort
     static varcStr: (string | null)[] = new Array(1000).fill(null);
     static field226: QuickChatPhrase | null = null;
-
-    // todo: move to Text
-    static readonly CHATEFFECT_FLASH1: string = Text.field668;
-    static readonly CHATCOL_WHITE: string = Text.field1356;
-    static readonly CHATEFFECT_SHAKE: string = Text.field1320;
-    static readonly CHATEFFECT_GLOW1: string = Text.field3828;
-    static readonly CHATCOL_GREEN: string = Text.field2562;
-    static readonly CHATEFFECT_FLASH2: string = Text.field3699;
-    static readonly CHATEFFECT_GLOW3: string = Text.field3689;
-    static readonly CHATCOL_CYAN: string = Text.field4462;
-    static readonly CHATEFFECT_GLOW2: string = Text.field3094;
-    static readonly CHATEFFECT_SLIDE: string = Text.field4053;
-    static readonly CHATCOL_YELLOW: string = Text.field491;
-    static readonly CHATCOL_RED: string = Text.field1839;
-    static readonly CHATCOL_PURPLE: string = Text.field4361;
-    static readonly CHATEFFECT_FLASH3: string = Text.field688;
-    static readonly CHATEFFECT_WAVE: string = Text.field1078;
-    static readonly CHATEFFECT_WAVE2: string = Text.field611;
-    static readonly CHATEFFECT_SCROLL: string = Text.field272;
 
     static executeScript(req: HookReq, opcount: number = 200000): void {
         const onop = req.onop!;
@@ -2675,114 +2657,114 @@ export default class ScriptRunner {
                         }
                         const var190 = var189.toLowerCase();
                         let var191 = 0;
-                        if (var190.startsWith(this.CHATCOL_YELLOW)) {
-                            var189 = var189.substring(this.CHATCOL_YELLOW.length);
+                        if (var190.startsWith(Text.chatcol0)) {
+                            var189 = var189.substring(Text.chatcol0.length);
                             var191 = 0;
-                        } else if (var190.startsWith(this.CHATCOL_RED)) {
+                        } else if (var190.startsWith(Text.chatcol1)) {
                             var191 = 1;
-                            var189 = var189.substring(this.CHATCOL_RED.length);
-                        } else if (var190.startsWith(this.CHATCOL_GREEN)) {
-                            var189 = var189.substring(this.CHATCOL_GREEN.length);
+                            var189 = var189.substring(Text.chatcol1.length);
+                        } else if (var190.startsWith(Text.chatcol2)) {
+                            var189 = var189.substring(Text.chatcol2.length);
                             var191 = 2;
-                        } else if (var190.startsWith(this.CHATCOL_CYAN)) {
+                        } else if (var190.startsWith(Text.chatcol3)) {
                             var191 = 3;
-                            var189 = var189.substring(this.CHATCOL_CYAN.length);
-                        } else if (var190.startsWith(this.CHATCOL_PURPLE)) {
-                            var189 = var189.substring(this.CHATCOL_PURPLE.length);
+                            var189 = var189.substring(Text.chatcol3.length);
+                        } else if (var190.startsWith(Text.chatcol4)) {
+                            var189 = var189.substring(Text.chatcol4.length);
                             var191 = 4;
-                        } else if (var190.startsWith(this.CHATCOL_WHITE)) {
-                            var189 = var189.substring(this.CHATCOL_WHITE.length);
+                        } else if (var190.startsWith(Text.chatcol5)) {
+                            var189 = var189.substring(Text.chatcol5.length);
                             var191 = 5;
-                        } else if (var190.startsWith(this.CHATEFFECT_FLASH1)) {
-                            var189 = var189.substring(this.CHATEFFECT_FLASH1.length);
+                        } else if (var190.startsWith(Text.chatcol6)) {
+                            var189 = var189.substring(Text.chatcol6.length);
                             var191 = 6;
-                        } else if (var190.startsWith(this.CHATEFFECT_FLASH2)) {
+                        } else if (var190.startsWith(Text.chatcol7)) {
                             var191 = 7;
-                            var189 = var189.substring(this.CHATEFFECT_FLASH2.length);
-                        } else if (var190.startsWith(this.CHATEFFECT_FLASH3)) {
-                            var189 = var189.substring(this.CHATEFFECT_FLASH3.length);
+                            var189 = var189.substring(Text.chatcol7.length);
+                        } else if (var190.startsWith(Text.chatcol8)) {
+                            var189 = var189.substring(Text.chatcol8.length);
                             var191 = 8;
-                        } else if (var190.startsWith(this.CHATEFFECT_GLOW1)) {
-                            var189 = var189.substring(this.CHATEFFECT_GLOW1.length);
+                        } else if (var190.startsWith(Text.chatcol9)) {
+                            var189 = var189.substring(Text.chatcol9.length);
                             var191 = 9;
-                        } else if (var190.startsWith(this.CHATEFFECT_GLOW2)) {
+                        } else if (var190.startsWith(Text.chatcol10)) {
                             var191 = 10;
-                            var189 = var189.substring(this.CHATEFFECT_GLOW2.length);
-                        } else if (var190.startsWith(this.CHATEFFECT_GLOW3)) {
-                            var189 = var189.substring(this.CHATEFFECT_GLOW3.length);
+                            var189 = var189.substring(Text.chatcol10.length);
+                        } else if (var190.startsWith(Text.chatcol11)) {
+                            var189 = var189.substring(Text.chatcol11.length);
                             var191 = 11;
                         } else if (Client.lang !== 0) {
-                            if (var190.startsWith(Text.CHATCOL_YELLOW_GER)) {
+                            if (var190.startsWith(Text.chatcol0_ger)) {
                                 var191 = 0;
-                                var189 = var189.substring(Text.CHATCOL_YELLOW_GER.length);
-                            } else if (var190.startsWith(Text.CHATCOL_RED_GER)) {
-                                var189 = var189.substring(Text.CHATCOL_RED_GER.length);
+                                var189 = var189.substring(Text.chatcol0_ger.length);
+                            } else if (var190.startsWith(Text.chatcol1_ger)) {
+                                var189 = var189.substring(Text.chatcol1_ger.length);
                                 var191 = 1;
-                            } else if (var190.startsWith(Text.CHATCOL_GREEN_GER)) {
+                            } else if (var190.startsWith(Text.chatcol2_ger)) {
                                 var191 = 2;
-                                var189 = var189.substring(Text.CHATCOL_GREEN_GER.length);
-                            } else if (var190.startsWith(Text.CHATCOL_CYAN_GER)) {
+                                var189 = var189.substring(Text.chatcol2_ger.length);
+                            } else if (var190.startsWith(Text.chatcol3_ger)) {
                                 var191 = 3;
-                                var189 = var189.substring(Text.CHATCOL_CYAN_GER.length);
-                            } else if (var190.startsWith(Text.CHATCOL_PURPLE_GER)) {
-                                var189 = var189.substring(Text.CHATCOL_PURPLE_GER.length);
+                                var189 = var189.substring(Text.chatcol3_ger.length);
+                            } else if (var190.startsWith(Text.chatcol4_ger)) {
+                                var189 = var189.substring(Text.chatcol4_ger.length);
                                 var191 = 4;
-                            } else if (var190.startsWith(Text.CHATCOL_WHITE_GER)) {
-                                var189 = var189.substring(Text.CHATCOL_WHITE_GER.length);
+                            } else if (var190.startsWith(Text.chatcol5_ger)) {
+                                var189 = var189.substring(Text.chatcol5_ger.length);
                                 var191 = 5;
-                            } else if (var190.startsWith(Text.CHATEFFECT_FLASH1_GER)) {
-                                var189 = var189.substring(Text.CHATEFFECT_FLASH1_GER.length);
+                            } else if (var190.startsWith(Text.chatcol6_ger)) {
+                                var189 = var189.substring(Text.chatcol6_ger.length);
                                 var191 = 6;
-                            } else if (var190.startsWith(Text.CHATEFFECT_FLASH2_GER)) {
+                            } else if (var190.startsWith(Text.chatcol7_ger)) {
                                 var191 = 7;
-                                var189 = var189.substring(Text.CHATEFFECT_FLASH2_GER.length);
-                            } else if (var190.startsWith(Text.CHATEFFECT_FLASH3_GER)) {
-                                var189 = var189.substring(Text.CHATEFFECT_FLASH3_GER.length);
+                                var189 = var189.substring(Text.chatcol7_ger.length);
+                            } else if (var190.startsWith(Text.chatcol8_ger)) {
+                                var189 = var189.substring(Text.chatcol8_ger.length);
                                 var191 = 8;
-                            } else if (var190.startsWith(Text.CHATEFFECT_GLOW1_GER)) {
-                                var189 = var189.substring(Text.CHATEFFECT_GLOW1_GER.length);
+                            } else if (var190.startsWith(Text.chatcol9_ger)) {
+                                var189 = var189.substring(Text.chatcol9_ger.length);
                                 var191 = 9;
-                            } else if (var190.startsWith(Text.CHATEFFECT_GLOW2_GER)) {
+                            } else if (var190.startsWith(Text.chatcol10_ger)) {
                                 var191 = 10;
-                                var189 = var189.substring(Text.CHATEFFECT_GLOW2_GER.length);
-                            } else if (var190.startsWith(Text.CHATEFFECT_GLOW3_GER)) {
-                                var189 = var189.substring(Text.CHATEFFECT_GLOW3_GER.length);
+                                var189 = var189.substring(Text.chatcol10_ger.length);
+                            } else if (var190.startsWith(Text.chatcol11_ger)) {
+                                var189 = var189.substring(Text.chatcol11_ger.length);
                                 var191 = 11;
                             }
                         }
                         const var192 = var189.toLowerCase();
                         let var193 = 0;
-                        if (var192.startsWith(this.CHATEFFECT_WAVE)) {
+                        if (var192.startsWith(Text.chateffect1)) {
                             var193 = 1;
-                            var189 = var189.substring(this.CHATEFFECT_WAVE.length);
-                        } else if (var192.startsWith(this.CHATEFFECT_WAVE2)) {
-                            var189 = var189.substring(this.CHATEFFECT_WAVE2.length);
+                            var189 = var189.substring(Text.chateffect1.length);
+                        } else if (var192.startsWith(Text.chateffect2)) {
+                            var189 = var189.substring(Text.chateffect2.length);
                             var193 = 2;
-                        } else if (var192.startsWith(this.CHATEFFECT_SHAKE)) {
+                        } else if (var192.startsWith(Text.chateffect3)) {
                             var193 = 3;
-                            var189 = var189.substring(this.CHATEFFECT_SHAKE.length);
-                        } else if (var192.startsWith(this.CHATEFFECT_SCROLL)) {
+                            var189 = var189.substring(Text.chateffect3.length);
+                        } else if (var192.startsWith(Text.chateffect4)) {
                             var193 = 4;
-                            var189 = var189.substring(this.CHATEFFECT_SCROLL.length);
-                        } else if (var192.startsWith(this.CHATEFFECT_SLIDE)) {
-                            var189 = var189.substring(this.CHATEFFECT_SLIDE.length);
+                            var189 = var189.substring(Text.chateffect4.length);
+                        } else if (var192.startsWith(Text.chateffect5)) {
+                            var189 = var189.substring(Text.chateffect5.length);
                             var193 = 5;
                         } else if (Client.lang !== 0) {
-                            if (var192.startsWith(Text.CHATEFFECT_WAVE_GER)) {
+                            if (var192.startsWith(Text.chateffect1_ger)) {
                                 var193 = 1;
-                                var189 = var189.substring(Text.CHATEFFECT_WAVE_GER.length);
-                            } else if (var192.startsWith(Text.CHATEFFECT_WAVE2_GER)) {
-                                var189 = var189.substring(Text.CHATEFFECT_WAVE2_GER.length);
+                                var189 = var189.substring(Text.chateffect1_ger.length);
+                            } else if (var192.startsWith(Text.chateffect2_ger)) {
+                                var189 = var189.substring(Text.chateffect2_ger.length);
                                 var193 = 2;
-                            } else if (var192.startsWith(Text.CHATEFFECT_SHAKE_GER)) {
-                                var189 = var189.substring(Text.CHATEFFECT_SHAKE_GER.length);
+                            } else if (var192.startsWith(Text.chateffect3_ger)) {
+                                var189 = var189.substring(Text.chateffect3_ger.length);
                                 var193 = 3;
-                            } else if (var192.startsWith(Text.CHATEFFECT_SCROLL_GER)) {
+                            } else if (var192.startsWith(Text.chateffect4_ger)) {
                                 var193 = 4;
-                                var189 = var189.substring(Text.CHATEFFECT_SCROLL_GER.length);
-                            } else if (var192.startsWith(Text.CHATEFFECT_SLIDE_GER)) {
+                                var189 = var189.substring(Text.chateffect4_ger.length);
+                            } else if (var192.startsWith(Text.chateffect5_ger)) {
                                 var193 = 5;
-                                var189 = var189.substring(Text.CHATEFFECT_SLIDE_GER.length);
+                                var189 = var189.substring(Text.chateffect5_ger.length);
                             }
                         }
                         // MESSAGE_PUBLIC

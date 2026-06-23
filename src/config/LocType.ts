@@ -223,7 +223,7 @@ export default class LocType extends Linkable2 {
                 this.contrast = dat.g1b() * 5;
             } else if (code >= 30 && code < 35) {
                 this.op![code - 30] = dat.gjstr();
-                if (this.op![code - 30]!.toLowerCase() === Text.HIDDEN.toLowerCase()) {
+                if (this.op![code - 30]!.toLowerCase() === Text.hidden.toLowerCase()) {
                     this.op![code - 30] = null;
                 }
             } else if (code === 40) {

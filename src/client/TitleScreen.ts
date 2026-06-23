@@ -89,7 +89,7 @@ export default class TitleScreen {
             return;
         }
         if (Client.state === 0 || Client.state === 5) {
-            arg1.centreString(Text.LOADING_TITLE, 382, 225, 0xffffff, -1);
+            arg1.centreString(Text.loading_title, 382, 225, 0xffffff, -1);
             Pix2D.drawRect(230, 233, 304, 34, 0x8c1111);
             Pix2D.drawRect(231, 234, 302, 32, 0x0);
             Pix2D.fillRect(232, 235, TitleScreen.loadPos * 3, 30, 0x8c1111);
@@ -101,29 +101,29 @@ export default class TitleScreen {
             arg1.centreString(TitleScreen.loginMes1, 382, 211, 0xffff00, 0x0);
             arg1.centreString(TitleScreen.loginMes2, 382, 226, 0xffff00, 0x0);
             arg1.centreString(TitleScreen.loginMes3, 382, 241, 0xffff00, 0x0);
-            arg1.drawString(`${Text.USERNAMEPROMPT}${TitleScreen.loginUser}`, 272, 266, 0xffffff, 0x0);
-            arg1.drawString(`${Text.PASSWORDPROMPT}${'*'.repeat(TitleScreen.loginPass.length)}`, 274, 281, 0xffffff, 0x0);
+            arg1.drawString(`${Text.usernameprompt}${TitleScreen.loginUser}`, 272, 266, 0xffffff, 0x0);
+            arg1.drawString(`${Text.passwordprompt}${'*'.repeat(TitleScreen.loginPass.length)}`, 274, 281, 0xffffff, 0x0);
         }
         if (Client.state === 10) {
             TitleScreen.titleBox!.plotSprite(202, 171);
             if (TitleScreen.loginscreen === 0) {
-                arg1.centreString(Text.WELCOMETORUNESCAPE, 382, 251, 0xffff00, 0x0);
+                arg1.centreString(Text.welcometorunescape, 382, 251, 0xffff00, 0x0);
                 TitleScreen.titleBut!.plotSprite(229, 271);
-                arg1.drawStringMultiline(Text.NEWUSER, 229, 271, 144, 40, 0xffffff, 0, 1, 1, 0);
+                arg1.drawStringMultiline(Text.newuser, 229, 271, 144, 40, 0xffffff, 0, 1, 1, 0);
                 TitleScreen.titleBut!.plotSprite(389, 271);
-                arg1.drawStringMultiline(Text.EXISTINGUSER, 389, 271, 144, 40, 0xffffff, 0, 1, 1, 0);
+                arg1.drawStringMultiline(Text.existinguser, 389, 271, 144, 40, 0xffffff, 0, 1, 1, 0);
             } else if (TitleScreen.loginscreen === 2) {
                 arg1.centreString(TitleScreen.loginMes1, 382, 211, 0xffff00, 0x0);
                 arg1.centreString(TitleScreen.loginMes2, 382, 226, 0xffff00, 0x0);
                 arg1.centreString(TitleScreen.loginMes3, 382, 241, 0xffff00, 0x0);
                 const var4 = TitleScreen.loginSelect === 0 && Client.loopCycle % 40 < 20 && GameShell.focus;
-                arg1.drawString(`${Text.USERNAMEPROMPT}${PixFont.escape(TitleScreen.loginUser)}${var4 ? '<col=ffff00>|' : ''}`, 272, 266, 0xffffff, 0x0);
+                arg1.drawString(`${Text.usernameprompt}${PixFont.escape(TitleScreen.loginUser)}${var4 ? '<col=ffff00>|' : ''}`, 272, 266, 0xffffff, 0x0);
                 const var5 = TitleScreen.loginSelect === 1 && Client.loopCycle % 40 < 20 && GameShell.focus;
-                arg1.drawString(`${Text.PASSWORDPROMPT}${'*'.repeat(TitleScreen.loginPass.length)}${var5 ? '<col=ffff00>|' : ''}`, 274, 281, 0xffffff, 0x0);
+                arg1.drawString(`${Text.passwordprompt}${'*'.repeat(TitleScreen.loginPass.length)}${var5 ? '<col=ffff00>|' : ''}`, 274, 281, 0xffffff, 0x0);
                 TitleScreen.titleBut!.plotSprite(229, 301);
-                arg1.centreString(Text.LOGIN, 302, 326, 0xffffff, 0x0);
+                arg1.centreString(Text.login, 302, 326, 0xffffff, 0x0);
                 TitleScreen.titleBut!.plotSprite(389, 301);
-                arg1.centreString(Text.CANCEL, 462, 326, 0xffffff, 0x0);
+                arg1.centreString(Text.cancel, 462, 326, 0xffffff, 0x0);
             } else if (TitleScreen.loginscreen === 3) {
                 arg1.centreString(Text.field2921, 382, 211, 0xffff00, 0x0);
                 arg1.centreString(Text.field3753, 382, 236, 0xffffff, 0x0);
@@ -131,7 +131,7 @@ export default class TitleScreen {
                 arg1.centreString(Text.field1152, 382, 266, 0xffffff, 0x0);
                 arg1.centreString(Text.field2943, 382, 281, 0xffffff, 0x0);
                 TitleScreen.titleBut!.plotSprite(309, 301);
-                arg1.centreString(Text.CANCEL, 382, 326, 0xffffff, 0x0);
+                arg1.centreString(Text.cancel, 382, 326, 0xffffff, 0x0);
             }
         }
         if (Client.modegame !== 1) {
@@ -148,12 +148,12 @@ export default class TitleScreen {
             }
             if (TitleScreen.slButton !== null) {
                 TitleScreen.slButton.plotSprite(5, 463);
-                arg1.centreString(`${Text.WORLD} ${Client.worldid}`, 55, 478, 0xffffff, 0x0);
+                arg1.centreString(`${Text.world} ${Client.worldid}`, 55, 478, 0xffffff, 0x0);
                 if (TitleScreen.gameworldListDownloadRequest !== null) {
-                    arg0.centreString(Text.LOADINGDOTDOTDOT, 55, 492, 0xffffff, 0x0);
+                    arg0.centreString(Text.loadingdotdotdot, 55, 492, 0xffffff, 0x0);
                     return;
                 }
-                arg0.centreString(Text.CLICKTOSWITCH, 55, 492, 0xffffff, 0x0);
+                arg0.centreString(Text.clicktoswitch, 55, 492, 0xffffff, 0x0);
             }
         }
     }
@@ -206,10 +206,10 @@ export default class TitleScreen {
             }
             if (var4 || (var1 === 1 && var2 >= 387 && var2 <= 537 && var3 >= 271 && var3 <= 311)) {
                 TitleScreen.loginscreen = 2;
-                TitleScreen.loginMes3 = Text.PLEASELOGIN3;
-                TitleScreen.loginMes1 = Text.PLEASELOGIN1;
+                TitleScreen.loginMes3 = Text.pleaselogin3;
+                TitleScreen.loginMes1 = Text.pleaselogin1;
                 TitleScreen.loginSelect = 0;
-                TitleScreen.loginMes2 = Text.PLEASELOGIN2;
+                TitleScreen.loginMes2 = Text.pleaselogin2;
             }
         } else if (TitleScreen.loginscreen === 2) {
             let var5 = 231;
@@ -225,11 +225,11 @@ export default class TitleScreen {
             if (var1 === 1 && var2 >= 227 && var2 <= 377 && var3 >= 301 && var3 <= 341) {
                 TitleScreen.loginUser = JagString.fromLatin1String(TitleScreen.loginUser).toCleanUsername().toScreenName().toString();
                 if (TitleScreen.loginUser.length === 0) {
-                    TitleScreen.loginMes(Text.LOGIN_USER_LENGTH_C, Text.LOGIN_USER_LENGTH_A, Text.LOGIN_USER_LENGTH_B);
+                    TitleScreen.loginMes(Text.login_user_length_c, Text.login_user_length_a, Text.login_user_length_b);
                 } else if (TitleScreen.loginPass.length === 0) {
-                    TitleScreen.loginMes(Text.LOGIN_PASS_LENGTH_C, Text.LOGIN_PASS_LENGTH_A, Text.LOGIN_PASS_LENGTH_B);
+                    TitleScreen.loginMes(Text.login_pass_length_c, Text.login_pass_length_a, Text.login_pass_length_b);
                 } else {
-                    TitleScreen.loginMes(Text.CONNECTING3, Text.CONNECTING1, Text.CONNECTING2);
+                    TitleScreen.loginMes(Text.connecting3, Text.connecting1, Text.connecting2);
                     Client.setMainState(20);
                 }
             } else {
@@ -273,14 +273,14 @@ export default class TitleScreen {
                     if (Client.modewhere !== 0 && ClientKeyboardListener.code === 84) {
                         TitleScreen.loginUser = JagString.fromLatin1String(TitleScreen.loginUser).toCleanUsername().toScreenName().toString();
                         if (TitleScreen.loginUser.length === 0) {
-                            TitleScreen.loginMes(Text.LOGIN_USER_LENGTH_C, Text.LOGIN_USER_LENGTH_A, Text.LOGIN_USER_LENGTH_B);
+                            TitleScreen.loginMes(Text.login_user_length_c, Text.login_user_length_a, Text.login_user_length_b);
                             return;
                         }
                         if (TitleScreen.loginPass.length === 0) {
-                            TitleScreen.loginMes(Text.LOGIN_PASS_LENGTH_C, Text.LOGIN_PASS_LENGTH_A, Text.LOGIN_PASS_LENGTH_B);
+                            TitleScreen.loginMes(Text.login_pass_length_c, Text.login_pass_length_a, Text.login_pass_length_b);
                             return;
                         }
-                        TitleScreen.loginMes(Text.CONNECTING3, Text.CONNECTING1, Text.CONNECTING2);
+                        TitleScreen.loginMes(Text.connecting3, Text.connecting1, Text.connecting2);
                         Client.setMainState(20);
                         return;
                     }
@@ -536,12 +536,12 @@ export default class TitleScreen {
         Pix2D.fillRect(0, 23, 765, 480, 0x0);
         Pix2D.method482(0, 0, 138, 23, 0xbd9839, 0x8b6608);
         Pix2D.method482(138, 0, 640, 23, 0x4f4f4f, 0x292929);
-        arg1.centreString(Text.SELECTAWORLD, 69, 15, 0x0, -1);
+        arg1.centreString(Text.selectaworld, 69, 15, 0x0, -1);
         if (TitleScreen.slStars !== null) {
             TitleScreen.slStars[1].plotSprite(140, 1);
-            arg0.drawString(Text.MEMBERSONLYWORLD, 152, 10, 0xffffff, -1);
+            arg0.drawString(Text.membersonlyworld, 152, 10, 0xffffff, -1);
             TitleScreen.slStars[0].plotSprite(140, 12);
-            arg0.drawString(Text.FREEWORLD, 152, 21, 0xffffff, -1);
+            arg0.drawString(Text.freeworld, 152, 21, 0xffffff, -1);
         }
         if (TitleScreen.slArrows !== null) {
             if (TitleScreen.ordering[0] === 0 && TitleScreen.dirs[0] === 0) {
@@ -554,7 +554,7 @@ export default class TitleScreen {
             } else {
                 TitleScreen.slArrows[1].plotSprite(295, 4);
             }
-            arg1.drawString(Text.SL_WORLD, 312, 17, 0xffffff, -1);
+            arg1.drawString(Text.sl_world, 312, 17, 0xffffff, -1);
             if (TitleScreen.ordering[0] === 1 && TitleScreen.dirs[0] === 0) {
                 TitleScreen.slArrows[2].plotSprite(390, 4);
             } else {
@@ -565,7 +565,7 @@ export default class TitleScreen {
             } else {
                 TitleScreen.slArrows[1].plotSprite(405, 4);
             }
-            arg1.drawString(Text.SL_PLAYERS, 422, 17, 0xffffff, -1);
+            arg1.drawString(Text.sl_players, 422, 17, 0xffffff, -1);
             if (TitleScreen.ordering[0] === 2 && TitleScreen.dirs[0] === 0) {
                 TitleScreen.slArrows[2].plotSprite(500, 4);
             } else {
@@ -576,7 +576,7 @@ export default class TitleScreen {
             } else {
                 TitleScreen.slArrows[1].plotSprite(515, 4);
             }
-            arg1.drawString(Text.SL_LOCATION, 532, 17, 0xffffff, -1);
+            arg1.drawString(Text.sl_location, 532, 17, 0xffffff, -1);
             if (TitleScreen.ordering[0] === 3 && TitleScreen.dirs[0] === 0) {
                 TitleScreen.slArrows[2].plotSprite(610, 4);
             } else {
@@ -587,10 +587,10 @@ export default class TitleScreen {
             } else {
                 TitleScreen.slArrows[1].plotSprite(625, 4);
             }
-            arg1.drawString(Text.SL_TYPE, 642, 17, 0xffffff, -1);
+            arg1.drawString(Text.sl_type, 642, 17, 0xffffff, -1);
         }
         Pix2D.fillRect(700, 4, 58, 16, 0x0);
-        arg0.centreString(Text.CANCEL, 729, 16, 0xffffff, -1);
+        arg0.centreString(Text.cancel, 729, 16, 0xffffff, -1);
         TitleScreen.slLastWorld = -1;
         if (TitleScreen.slBack === null) {
             return;
@@ -630,10 +630,10 @@ export default class TitleScreen {
             let var15 = true;
             let var16 = String(var14.players);
             if (var14.players === -1) {
-                var16 = Text.OFFLINEWORLD;
+                var16 = Text.offlineworld;
                 var15 = false;
             } else if (var14.players > 1980) {
-                var16 = Text.FULLWORLD;
+                var16 = Text.fullworld;
                 var15 = false;
             }
             if (ClientMouseListener.mouseX >= var9 && ClientMouseListener.mouseY >= var11 && ClientMouseListener.mouseX < var9 + 88 && ClientMouseListener.mouseY < var11 + 19 && var15) {

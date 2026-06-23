@@ -843,16 +843,16 @@ export default class IfType {
             this.buttonText = arg0.gjstr();
             if (this.buttonText.length === 0) {
                 if (this.buttonType === 1) {
-                    this.buttonText = Text.OK;
+                    this.buttonText = Text.ok;
                 }
                 if (this.buttonType === 4) {
-                    this.buttonText = Text.SELECT;
+                    this.buttonText = Text.select;
                 }
                 if (this.buttonType === 5) {
-                    this.buttonText = Text.SELECT;
+                    this.buttonText = Text.select;
                 }
                 if (this.buttonType === 6) {
-                    this.buttonText = Text.CONTINUE;
+                    this.buttonText = Text.continu;
                 }
             }
         }

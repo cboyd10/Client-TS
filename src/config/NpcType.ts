@@ -153,7 +153,7 @@ export default class NpcType extends Linkable2 {
                 this.walkanim_l = arg1!.g2();
             } else if (arg0 >= 30 && arg0 < 35) {
                 this.op[arg0 - 30] = arg1!.gjstr();
-                if (this.op[arg0 - 30]!.toLowerCase() === Text.HIDDEN.toLowerCase()) {
+                if (this.op[arg0 - 30]!.toLowerCase() === Text.hidden.toLowerCase()) {
                     this.op[arg0 - 30] = null;
                 }
             } else if (arg0 === 40) {
