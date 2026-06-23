@@ -74,7 +74,6 @@ import Pix8 from '#/graphics/Pix8.js';
 import Pix32 from '#/graphics/Pix32.js';
 import PixFont from '#/graphics/PixFont.js';
 import PixLoader from '#/graphics/PixLoader.js';
-import PixMap from '#/graphics/PixMap.js';
 import type SoftwarePixFont from '#/graphics/SoftwarePixFont.js';
 import SoftwarePix32 from '#/graphics/SoftwarePix32.js';
 import SoftwarePix8 from '#/graphics/SoftwarePix8.js';

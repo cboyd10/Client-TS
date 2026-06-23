@@ -9,47 +9,18 @@ export default class PixMap {
     protected ctx: CanvasRenderingContext2D;
     protected paint: Uint32Array;
 
-    constructor(
-        width: number = 0,
-        height: number = 0,
-        ctx: CanvasRenderingContext2D = (document.getElementById('canvas') as HTMLCanvasElement).getContext('2d', {
-            alpha: false
-        }) as CanvasRenderingContext2D
-    ) {
-        this.data = new Int32Array(0);
-        this.width = 0;
-        this.height = 0;
-        this.ctx = ctx;
-        this.image = null;
-        this.paint = new Uint32Array(0);
-        if (width === 0 || height === 0) {
-            return;
-        }
-        this.width = width;
+    constructor(height: number, width: number, ctx: CanvasRenderingContext2D) {
         this.height = height;
-        this.data = new Int32Array(width * height);
-
-        this.image = this.ctx.createImageData(width, height);
+        this.data = new Int32Array(width * height + 1);
+        this.width = width;
+        this.image = ctx.createImageData(width, height);
         this.paint = new Uint32Array(this.image.data.buffer);
-
+        this.ctx = ctx;
         this.bind();
-    }
-
-    static method1259(width: number, _component: unknown, height: number): PixMap {
-        return new PixMap(width, height);
     }
 
     bind(): void {
         Pix2D.setPixels(this.data, this.width, this.height);
-    }
-
-    create(height: number, width: number, _component?: unknown): void {
-        this.width = width;
-        this.height = height;
-        this.data = new Int32Array(width * height);
-        this.image = this.ctx.createImageData(width, height);
-        this.paint = new Uint32Array(this.image.data.buffer);
-        this.bind();
     }
 
     private updateImageData(): ImageData | null {

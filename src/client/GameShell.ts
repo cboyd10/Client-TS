@@ -34,8 +34,9 @@ export default abstract class GameShell {
     static updatePos = 0;
     static sWid = 0;
     static sHei = 0;
-    static drawArea: PixMap = new PixMap(0, 0);
-    static canvas: HTMLCanvasElement | null = null;
+    static drawArea: PixMap;
+    static canvas: HTMLCanvasElement;
+    static ctx: CanvasRenderingContext2D;
     static fullredraw = true;
     static redrawNum = 500;
     static lastCanvasReplace: number = 0;
@@ -71,22 +72,22 @@ export default abstract class GameShell {
 	// com.jagex.game.runetek6.client.GameShell3.addcanvas
     public addcanvas(): void {
         const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-        const canvas2d = canvas.getContext('2d', {
+
+        GameShell.canvas = canvas;
+        GameShell.ctx = GameShell.canvas.getContext('2d', {
             alpha: false
         }) as CanvasRenderingContext2D;
-        canvas.tabIndex = -1;
-        canvas2d.fillStyle = 'black';
-        canvas2d.fillRect(0, 0, canvas.width, canvas.height);
-        GameShell.canvas = canvas;
-        GameShell.sWid = canvas.width;
-        GameShell.sHei = canvas.height;
+        GameShell.canvas.width = GameShell.sWid;
+        GameShell.canvas.height = GameShell.sHei;
+
         GameShell.canvas.tabIndex = -1;
-        GameShell.canvas!.onfocus = this.focusGained.bind(this);
-        GameShell.canvas!.onblur = this.focusLost.bind(this);
-        GameShell.canvas!.oncontextmenu = (e: MouseEvent): void => {
+        GameShell.canvas.onfocus = this.focusGained.bind(this);
+        GameShell.canvas.onblur = this.focusLost.bind(this);
+        GameShell.canvas.oncontextmenu = (e: MouseEvent): void => {
             e.preventDefault();
         };
         GameShell.canvas.focus();
+
         GameShell.fullredraw = true;
         GameShell.lastCanvasReplace = MonotonicTime.currentTime();
     }
@@ -118,10 +119,10 @@ export default abstract class GameShell {
     async run() {
         try {
             this.addcanvas();
-            GameShell.drawArea = new PixMap(GameShell.sWid, GameShell.sHei);
+            GameShell.drawArea = new PixMap(GameShell.sHei, GameShell.sWid, GameShell.ctx);
             await this.maininit();
+            GameShell.timer = new Timer();
 
-            GameShell.timer = await Timer.create();
             while (GameShell.killtime === 0 || MonotonicTime.currentTime() < GameShell.killtime) {
                 GameShell.updateCount = await GameShell.timer.count(GameShell.mindel, GameShell.deltime);
 
@@ -182,9 +183,9 @@ export default abstract class GameShell {
             this.mainquit();
         } catch {}
 
-        GameShell.canvas!.onfocus = null;
-        GameShell.canvas!.onblur = null;
-        GameShell.canvas!.oncontextmenu = null;
+        GameShell.canvas.onfocus = null;
+        GameShell.canvas.onblur = null;
+        GameShell.canvas.oncontextmenu = null;
         window.oncontextmenu = null;
         this.onKilled();
         console.log('Shutdown complete - clean:' + clean);
@@ -272,13 +273,9 @@ export default abstract class GameShell {
     abstract init(): void;
 
     static drawProgress(colour: string | null, message: string, redraw: boolean, progress: number): void {
-        const ctx = GameShell.canvas!.getContext('2d', {
-            alpha: false
-        }) as CanvasRenderingContext2D;
-
         if (redraw) {
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, 0, GameShell.sWid, GameShell.sHei);
+            GameShell.ctx.fillStyle = 'black';
+            GameShell.ctx.fillRect(0, 0, GameShell.sWid, GameShell.sHei);
         }
 
         if (colour === null) {
@@ -289,34 +286,34 @@ export default abstract class GameShell {
             const x = (GameShell.sWid / 2 | 0) - 152;
             const y = (GameShell.sHei / 2 | 0) - 18;
 
-            ctx.fillStyle = colour;
-            ctx.fillRect(x, y, 304, 34);
+            GameShell.ctx.fillStyle = colour;
+            GameShell.ctx.fillRect(x, y, 304, 34);
 
-            ctx.fillStyle = 'black';
-            ctx.fillRect(x + 1, y + 1, 302, 32);
+            GameShell.ctx.fillStyle = 'black';
+            GameShell.ctx.fillRect(x + 1, y + 1, 302, 32);
 
-            ctx.fillStyle = colour;
-            ctx.fillRect(x + 2, y + 2, progress * 3, 30);
+            GameShell.ctx.fillStyle = colour;
+            GameShell.ctx.fillRect(x + 2, y + 2, progress * 3, 30);
 
-            ctx.fillStyle = 'black';
-            ctx.fillRect(x + 2 + progress * 3, y + 2, 300 - progress * 3, 30);
+            GameShell.ctx.fillStyle = 'black';
+            GameShell.ctx.fillRect(x + 2 + progress * 3, y + 2, 300 - progress * 3, 30);
 
-            ctx.font = 'bold 13px Helvetica, sans-serif';
-            ctx.fillStyle = 'white';
-            ctx.textAlign = 'left';
-            ctx.fillText(message, x + (304 - ctx.measureText(message).width) / 2 | 0, y + 22);
+            GameShell.ctx.font = 'bold 13px Helvetica, sans-serif';
+            GameShell.ctx.fillStyle = 'white';
+            GameShell.ctx.textAlign = 'left';
+            GameShell.ctx.fillText(message, x + (304 - GameShell.ctx.measureText(message).width) / 2 | 0, y + 22);
 
             if (GameShell.loadingText !== null) {
-                ctx.font = 'bold 13px Helvetica, sans-serif';
+                GameShell.ctx.font = 'bold 13px Helvetica, sans-serif';
 
-                const metrics = ctx.measureText(GameShell.loadingText);
+                const metrics = GameShell.ctx.measureText(GameShell.loadingText);
                 const loadX = (GameShell.sWid / 2 | 0) - (metrics.width / 2 | 0);
                 const loadY = (GameShell.sHei / 2 | 0) - 26;
 
                 if (!redraw) {
                     // custom: anti-aliasing starts stacking on fast updates (no fullredraw), so if we don't do at least a partial redraw it looks bad
-                    ctx.fillStyle = 'black';
-                    ctx.fillRect(
+                    GameShell.ctx.fillStyle = 'black';
+                    GameShell.ctx.fillRect(
                         Math.floor(loadX - 2),
                         Math.floor(loadY - metrics.actualBoundingBoxAscent - 2),
                         Math.ceil(metrics.width + 2 * 2),
@@ -324,9 +321,9 @@ export default abstract class GameShell {
                     );
                 }
 
-                ctx.fillStyle = 'white';
-                ctx.textAlign = 'left';
-                ctx.fillText(GameShell.loadingText, loadX, loadY);
+                GameShell.ctx.fillStyle = 'white';
+                GameShell.ctx.textAlign = 'left';
+                GameShell.ctx.fillText(GameShell.loadingText, loadX, loadY);
             }
         } catch {
         }
