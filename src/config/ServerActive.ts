@@ -1,41 +1,48 @@
+// jag::oldscape::rs2lib::ServerActive
 export default class ServerActive {
-    static isUseTarget(arg0: number): boolean {
-        return ((arg0 >> 21) & 0x1) !== 0;
+    // jag::oldscape::rs2lib::ServerActive::PauseButton
+    static pauseButton(eventCode: number): boolean {
+        return (eventCode & 0x1) !== 0;
     }
 
-    static serverDraggable(arg0: number): number {
-        return (arg0 >> 17) & 0x7;
+    // jag::oldscape::rs2lib::ServerActive::HasOp
+    static hasOp(eventCode: number, arg1: number): boolean {
+        return ((arg1 >> (eventCode + 1)) & 0x1) !== 0;
     }
 
-    static isDragTarget(arg0: number): boolean {
-        return ((arg0 >> 20) & 0x1) !== 0;
+    // jag::oldscape::rs2lib::ServerActive::TargetMask
+    static targetMask(eventCode: number): number {
+        return (eventCode >> 11) & 0x3f;
     }
 
-    static isObjOpsEnabled(arg0: number): boolean {
-        return ((arg0 >> 30) & 0x1) !== 0;
+    // jag::oldscape::rs2lib::ServerActive::ServerDraggable
+    static serverDraggable(eventCode: number): number {
+        return (eventCode >> 17) & 0x7;
     }
 
-    static isObjReplaceEnabled(arg0: number): boolean {
-        return ((arg0 >> 29) & 0x1) !== 0;
+    // jag::oldscape::rs2lib::ServerActive::IsDragTarget
+    static isDragTarget(eventCode: number): boolean {
+        return ((eventCode >> 20) & 0x1) !== 0;
     }
 
-    static isObjUseEnabled(arg0: number): boolean {
-        return ((arg0 >> 31) & 0x1) !== 0;
+    // jag::oldscape::rs2lib::ServerActive::IsUseTarget
+    static isUseTarget(eventCode: number): boolean {
+        return ((eventCode >> 21) & 0x1) !== 0;
     }
 
-    static pauseButton(arg0: number): boolean {
-        return (arg0 & 0x1) !== 0;
+    static isObjSwapEnabled(eventCode: number): boolean {
+        return ((eventCode >> 28) & 0x1) !== 0;
     }
 
-    static hasOp(arg0: number, arg1: number): boolean {
-        return ((arg1 >> (arg0 + 1)) & 0x1) !== 0;
+    static isObjReplaceEnabled(eventCode: number): boolean {
+        return ((eventCode >> 29) & 0x1) !== 0;
     }
 
-    static isObjSwapEnabled(arg0: number): boolean {
-        return ((arg0 >> 28) & 0x1) !== 0;
+    static isObjOpsEnabled(eventCode: number): boolean {
+        return ((eventCode >> 30) & 0x1) !== 0;
     }
 
-    static targetMask(arg0: number): number {
-        return (arg0 >> 11) & 0x3f;
+    static isObjUseEnabled(eventCode: number): boolean {
+        return ((eventCode >> 31) & 0x1) !== 0;
     }
 }

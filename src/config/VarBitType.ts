@@ -3,64 +3,71 @@ import LruCache from '#/datastruct/LruCache.js';
 import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
+// jag::oldscape::configdecoder::VarBitType
 export default class VarBitType extends Linkable2 {
-    static readonly recentUse: LruCache<VarBitType> = new LruCache(64);
-
+    // jag::oldscape::configdecoder::VarBitType::m_pConfigClient
     static configClient: Js5;
+
+    // jag::oldscape::configdecoder::VarBitType::m_recentUse
+    static readonly recentUse: LruCache<VarBitType> = new LruCache(64);
 
     basevar: number = 0;
     startbit: number = 0;
     endbit: number = 0;
 
-    static list(arg0: number): VarBitType {
-        const var1 = VarBitType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
+    // jag::oldscape::configdecoder::VarBitType::Init
+    static init(config: Js5): void {
+        VarBitType.configClient = config;
+    }
+
+    static getGroupId(id: number): number {
+        return id & 0x3ff;
+    }
+
+    static getFileId(id: number): number {
+        return id >>> 10;
+    }
+
+    // jag::oldscape::configdecoder::VarBitType::List
+    static list(id: number): VarBitType {
+        const cached = VarBitType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
         }
 
-        const var2 = VarBitType.configClient.getFile(VarBitType.getGroupId(arg0), VarBitType.getFileId(arg0));
-        const var3 = new VarBitType();
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        VarBitType.recentUse.put(BigInt(arg0), var3);
-        return var3;
-    }
-
-    static resetCache(): void {
-        VarBitType.recentUse.clear();
-    }
-
-    static init(arg0: Js5): void {
-        VarBitType.configClient = arg0;
-    }
-
-    static getGroupId(arg0: number): number {
-        return arg0 & 0x3ff;
-    }
-
-    static getFileId(arg0: number): number {
-        return arg0 >>> 10;
-    }
-
-    decode(arg0: Packet): void;
-    decode(arg0: number, arg1: Packet): void;
-    decode(arg0: Packet | number, arg1?: Packet): void {
-        if (typeof arg0 === 'number') {
-            if (arg0 === 1) {
-                this.basevar = arg1!.g2();
-                this.startbit = arg1!.g1();
-                this.endbit = arg1!.g1();
-            }
-            return;
+        const data = VarBitType.configClient.getFile(VarBitType.getGroupId(id), VarBitType.getFileId(id));
+        const type = new VarBitType();
+        if (data !== null) {
+            type.decode(new Packet(data));
         }
 
+        VarBitType.recentUse.put(BigInt(id), type);
+        return type;
+    }
+
+    // jag::oldscape::configdecoder::VarBitType::Decode
+    decode(buf: Packet): void {
         while (true) {
-            const var2 = arg0.g1();
-            if (var2 === 0) {
+            const code = buf.g1();
+            if (code === 0) {
                 return;
             }
-            this.decode(var2, arg0);
+
+            this.decodeInner(code, buf);
         }
+    }
+
+    // jag::oldscape::configdecoder::VarBitType::Decode
+    decodeInner(code: number, buf: Packet): void {
+        if (code === 1) {
+            this.basevar = buf!.g2();
+            this.startbit = buf!.g1();
+            this.endbit = buf!.g1();
+        }
+    }
+
+    // jag::oldscape::configdecoder::VarBitType::ResetCache
+    static resetCache(): void {
+        VarBitType.recentUse.clear();
     }
 }

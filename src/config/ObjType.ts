@@ -23,123 +23,419 @@ import Text from '#/constants/Text.js';
 import type SeqType from '#/config/SeqType.js';
 import JagString from '#/jstring/JagString.js';
 
+// jag::oldscape::configdecoder::ObjType
 export default class ObjType extends Linkable2 {
+    static clientpalette: Int16Array = new Int16Array(256);
+
+    // jag::oldscape::configdecoder::ObjType::m_pConfigClient
+    static configClient: Js5;
+
+    // jag::oldscape::configdecoder::ObjType::m_pModels
+    static models: Js5;
+
+    // jag::oldscape::configdecoder::ObjType::m_memServer
+    static memServer: boolean = false;
+
+    static numDefinitions: number = 0;
     static readonly recentUse: LruCache<ObjType> = new LruCache(64);
     static readonly modelCache: ModelSourceCache = new ModelSourceCache(50);
     static readonly spriteCache: LruCache<SoftwarePix32> = new LruCache(100);
-    static configClient: Js5;
-    static memServer: boolean = false;
-    static models: Js5;
-    static numDefinitions: number = 0;
+
+    // jag::oldscape::configdecoder::ObjType::m_countFont
     static countFont: PixFont | null = null;
-    static clientpalette: Int16Array = new Int16Array(256);
+
+    id: number = 0;
+    model: number = 0;
+    name: string = 'null';
+    recol_s: Int16Array | null = null;
+    recol_d: Int16Array | null = null;
+    retex_s: Int16Array | null = null;
+    retex_d: Int16Array | null = null;
+    recol_d_palette: Int8Array | null = null;
+    zoom2d: number = 2000;
+    xan2d: number = 0;
+    yan2d: number = 0;
+    zan2d: number = 0;
+    xof2d: number = 0;
+    yof2d: number = 0;
+    stackable: number = 0;
+    cost: number = 1;
+    members: boolean = false;
+    op: (string | null)[] | null = [null, null, Text.take, null, null];
+    iop: (string | null)[] | null = [null, null, null, null, Text.drop];
+    manwear: number = -1;
+    manwear2: number = -1;
+    manwearOffsetY: number = 0;
+    womanwear: number = -1;
+    womanwear2: number = -1;
+    womanwearOffsetY: number = 0;
+    manwear3: number = -1;
+    womanwear3: number = -1;
+    manhead: number = -1;
+    manhead2: number = -1;
+    womanhead: number = -1;
+    womanhead2: number = -1;
+    countobj: Int32Array | null = null;
+    countco: Int32Array | null = null;
+    certlink: number = -1;
+    certtemplate: number = -1;
+    lentlink: number = -1;
+    lenttemplate: number = -1;
+    resizex: number = 128;
+    resizey: number = 128;
+    resizez: number = 128;
+    ambient: number = 0;
+    contrast: number = 0;
+    team: number = 0;
+    stockmarket: boolean = false;
+    dummyitem: number = 0;
+    params: HashTable<Linkable> | null = null;
+
+    // todo: identify and sort
+    field2839: Int32Array[] | null = null;
     static field1210: Int16Array | null = null;
     static field2107: number = 0;
     static field3893: number = 0;
-    static field1698: Int32Array;
+    static wearable: Int32Array;
 
-    manwearOffsetY: number = 0;
-    womanwear3: number = -1;
-    stockmarket: boolean = false;
-    model: number = 0;
-    retex_s: Int16Array | null = null;
-    womanhead2: number = -1;
-    ambient: number = 0;
-    certtemplate: number = -1;
-    params: HashTable<Linkable> | null = null;
-    yof2d: number = 0;
-    resizez: number = 128;
-    yan2d: number = 0;
-    xan2d: number = 0;
-    lentlink: number = -1;
-    manwear2: number = -1;
-    xof2d: number = 0;
-    members: boolean = false;
-    womanwearOffsetY: number = 0;
-    manhead2: number = -1;
-    manwear3: number = -1;
-    team: number = 0;
-    stackable: number = 0;
-    zan2d: number = 0;
-    manhead: number = -1;
-    resizey: number = 128;
-    womanwear: number = -1;
-    cost: number = 1;
-    dummyitem: number = 0;
-    womanhead: number = -1;
-    zoom2d: number = 2000;
-    lenttemplate: number = -1;
-    resizex: number = 128;
-    womanwear2: number = -1;
-    certlink: number = -1;
-    static readonly NULL: string = 'null';
-    name: string = ObjType.NULL;
-    op: (string | null)[] | null = [null, null, Text.take, null, null];
-    manwear: number = -1;
-    contrast: number = 0;
-    iop: (string | null)[] | null = [null, null, null, null, Text.drop];
-    id: number = 0;
-    recol_d_palette: Int8Array | null = null;
-    countco: Int32Array | null = null;
-    countobj: Int32Array | null = null;
-    retex_d: Int16Array | null = null;
-    recol_d: Int16Array | null = null;
-    recol_s: Int16Array | null = null;
-    field2839: Int32Array[] | null = null;
-
-    static list(arg0: number): ObjType {
-        const var1 = ObjType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
-
-        const var2 = ObjType.configClient.getFile(ObjType.getGroupId(arg0), ObjType.getFileId(arg0));
-        const var3 = new ObjType();
-        var3.id = arg0;
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        var3.postDecode();
-        if (var3.certtemplate !== -1) {
-            var3.genCert(ObjType.list(var3.certlink), ObjType.list(var3.certtemplate));
-        }
-        if (var3.lenttemplate !== -1) {
-            var3.genLent(ObjType.list(var3.lentlink), ObjType.list(var3.lenttemplate));
-        }
-        if (!ObjType.memServer && var3.members) {
-            var3.team = 0;
-            var3.op = null;
-            var3.stockmarket = false;
-            var3.name = Text.members_object;
-            var3.iop = null;
-        }
-        ObjType.recentUse.put(BigInt(arg0), var3);
-        return var3;
+    // jag::oldscape::configdecoder::ObjType::Init
+    static init(memServer: boolean, config: Js5, countFont: PixFont | null, models: Js5): void {
+        ObjType.models = models;
+        ObjType.memServer = memServer;
+        ObjType.configClient = config;
+        const groups = ObjType.configClient.getGroupCount() - 1;
+        ObjType.numDefinitions = groups * 256 + ObjType.configClient.getFileIdLimit(groups);
+        ObjType.countFont = countFont;
     }
 
-    static resetCache(): void {
-        ObjType.recentUse.clear();
-        ObjType.modelCache.clear();
-        ObjType.spriteCache.clear();
+    static getGroupId(id: number): number {
+        return id & 0xff;
     }
 
-    static init(arg0: boolean, arg1: Js5, arg2: PixFont | null, arg3: Js5): void {
-        ObjType.models = arg3;
-        ObjType.memServer = arg0;
-        ObjType.configClient = arg1;
-        const var4 = ObjType.configClient.getGroupCount() - 1;
-        ObjType.numDefinitions = var4 * 256 + ObjType.configClient.getFileIdLimit(var4);
-        ObjType.countFont = arg2;
+    static getFileId(id: number): number {
+        return id >>> 8;
     }
 
-    static resetModelCache(): void {
-        ObjType.modelCache.clear();
+    // jag::oldscape::configdecoder::ObjType::List
+    static list(id: number): ObjType {
+        const cached = ObjType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
+        }
+
+        const data = ObjType.configClient.getFile(ObjType.getGroupId(id), ObjType.getFileId(id));
+        const type = new ObjType();
+        type.id = id;
+        if (data !== null) {
+            type.decode(new Packet(data));
+        }
+        type.postDecode();
+        if (type.certtemplate !== -1) {
+            type.genCert(ObjType.list(type.certlink), ObjType.list(type.certtemplate));
+        }
+        if (type.lenttemplate !== -1) {
+            type.genLent(ObjType.list(type.lentlink), ObjType.list(type.lenttemplate));
+        }
+        if (!ObjType.memServer && type.members) {
+            type.team = 0;
+            type.op = null;
+            type.stockmarket = false;
+            type.name = Text.members_object;
+            type.iop = null;
+        }
+
+        ObjType.recentUse.put(BigInt(id), type);
+        return type;
     }
 
-    static resetSpriteCache(): void {
-        ObjType.spriteCache.clear();
+    // jag::oldscape::configdecoder::ObjType::Decode
+    decode(buf: Packet): void {
+        while (true) {
+            const code = buf.g1();
+            if (code === 0) {
+                return;
+            }
+
+            this.decodeInner(code, buf);
+        }
     }
 
+    // jag::oldscape::configdecoder::ObjType::Decode
+    decodeInner(code: number, buf: Packet): void {
+        if (code === 1) {
+            this.model = buf.g2();
+        } else if (code === 2) {
+            this.name = buf.gjstr();
+        } else if (code === 4) {
+            this.zoom2d = buf.g2();
+        } else if (code === 5) {
+            this.xan2d = buf.g2();
+        } else if (code === 6) {
+            this.yan2d = buf.g2();
+        } else if (code === 7) {
+            this.xof2d = buf.g2();
+            if (this.xof2d > 32767) {
+                this.xof2d -= 65536;
+            }
+        } else if (code === 8) {
+            this.yof2d = buf.g2();
+            if (this.yof2d > 32767) {
+                this.yof2d -= 65536;
+            }
+        } else if (code === 11) {
+            this.stackable = 1;
+        } else if (code === 12) {
+            this.cost = buf.g4();
+        } else if (code === 16) {
+            this.members = true;
+        } else if (code === 23) {
+            this.manwear = buf.g2();
+            this.manwearOffsetY = buf.g1();
+        } else if (code === 24) {
+            this.manwear2 = buf.g2();
+        } else if (code === 25) {
+            this.womanwear = buf.g2();
+            this.womanwearOffsetY = buf.g1();
+        } else if (code === 26) {
+            this.womanwear2 = buf.g2();
+        } else if (code >= 30 && code < 35) {
+            this.op![code - 30] = buf.gjstr();
+            if (this.op![code - 30]!.toLowerCase() === Text.hidden.toLowerCase()) {
+                this.op![code - 30] = null;
+            }
+        } else if (code >= 35 && code < 40) {
+            this.iop![code - 35] = buf.gjstr();
+        } else if (code === 40) {
+            const count: number = buf.g1();
+            this.recol_s = new Int16Array(count);
+            this.recol_d = new Int16Array(count);
+
+            for (let i: number = 0; i < count; i++) {
+                this.recol_s[i] = buf.g2();
+                this.recol_d[i] = buf.g2();
+            }
+        } else if (code === 41) {
+            const count: number = buf.g1();
+            this.retex_d = new Int16Array(count);
+            this.retex_s = new Int16Array(count);
+            for (let i: number = 0; i < count; i++) {
+                this.retex_s[i] = buf.g2();
+                this.retex_d[i] = buf.g2();
+            }
+        } else if (code === 42) {
+            const count: number = buf.g1();
+            this.recol_d_palette = new Int8Array(count);
+            for (let i: number = 0; i < count; i++) {
+                this.recol_d_palette[i] = buf.g1b();
+            }
+        } else if (code === 65) {
+            this.stockmarket = true;
+        } else if (code === 78) {
+            this.manwear3 = buf.g2();
+        } else if (code === 79) {
+            this.womanwear3 = buf.g2();
+        } else if (code === 90) {
+            this.manhead = buf.g2();
+        } else if (code === 91) {
+            this.womanhead = buf.g2();
+        } else if (code === 92) {
+            this.manhead2 = buf.g2();
+        } else if (code === 93) {
+            this.womanhead2 = buf.g2();
+        } else if (code === 95) {
+            this.zan2d = buf.g2();
+        } else if (code === 96) {
+            this.dummyitem = buf.g1();
+        } else if (code === 97) {
+            this.certlink = buf.g2();
+        } else if (code === 98) {
+            this.certtemplate = buf.g2();
+        } else if (code >= 100 && code < 110) {
+            if (this.countobj === null) {
+                this.countco = new Int32Array(10);
+                this.countobj = new Int32Array(10);
+            }
+
+            this.countobj![code - 100] = buf.g2();
+            this.countco![code - 100] = buf.g2();
+        } else if (code === 110) {
+            this.resizex = buf.g2();
+        } else if (code === 111) {
+            this.resizey = buf.g2();
+        } else if (code === 112) {
+            this.resizez = buf.g2();
+        } else if (code === 113) {
+            this.ambient = buf.g1b();
+        } else if (code === 114) {
+            this.contrast = buf.g1b() * 5;
+        } else if (code === 115) {
+            this.team = buf.g1();
+        } else if (code === 121) {
+            this.lentlink = buf.g2();
+        } else if (code === 122) {
+            this.lenttemplate = buf.g2();
+        } else if (code === 124) {
+            if (this.field2839 === null) {
+                this.field2839 = new Array(11);
+            }
+            const index = buf.g1();
+            this.field2839[index] = new Int32Array(6);
+            for (let i = 0; i < 6; i++) {
+                this.field2839[index][i] = buf.g2b();
+            }
+        } else if (code === 249) {
+            const count = buf.g1();
+            if (this.params === null) {
+                this.params = new HashTable(IntMath.bitceil(count));
+            }
+            for (let i = 0; i < count; i++) {
+                const isString = buf.g1() === 1;
+                const key = buf.g3();
+                const node = isString ? new StringNode(buf.gjstr()) : new IntNode(buf.g4());
+                this.params.put(BigInt(key), node);
+            }
+        }
+    }
+
+    // jag::oldscape::configdecoder::ObjType::PostDecode
+    postDecode(): void {}
+
+    // jag::oldscape::configdecoder::ObjType::GenCert
+    genCert(link: ObjType, template: ObjType): void {
+        this.yof2d = template.yof2d;
+        this.recol_d_palette = template.recol_d_palette;
+        this.cost = link.cost;
+        this.stackable = 1;
+        this.recol_s = template.recol_s;
+        this.name = link.name;
+        this.zoom2d = template.zoom2d;
+        this.xan2d = template.xan2d;
+        this.xof2d = template.xof2d;
+        this.yan2d = template.yan2d;
+        this.retex_s = template.retex_s;
+        this.members = link.members;
+        this.model = template.model;
+        this.retex_d = template.retex_d;
+        this.recol_d = template.recol_d;
+        this.zan2d = template.zan2d;
+    }
+
+    genLent(arg0: ObjType, arg1: ObjType): void {
+        this.xan2d = arg1.xan2d;
+        this.zoom2d = arg1.zoom2d;
+        this.name = arg0.name;
+        this.womanwearOffsetY = arg0.womanwearOffsetY;
+        this.womanwear2 = arg0.womanwear2;
+        this.yan2d = arg1.yan2d;
+        this.recol_d = arg0.recol_d;
+        this.manwear2 = arg0.manwear2;
+        this.xof2d = arg1.xof2d;
+        this.manhead2 = arg0.manhead2;
+        this.retex_d = arg0.retex_d;
+        this.womanwear = arg0.womanwear;
+        this.op = arg0.op;
+        this.manhead = arg0.manhead;
+        this.model = arg1.model;
+        this.members = arg0.members;
+        this.zan2d = arg1.zan2d;
+        this.iop = new Array(5).fill(null);
+        this.manwear3 = arg0.manwear3;
+        this.womanwear3 = arg0.womanwear3;
+        this.cost = 0;
+        this.womanhead = arg0.womanhead;
+        this.recol_d_palette = arg0.recol_d_palette;
+        this.womanhead2 = arg0.womanhead2;
+        this.manwear = arg0.manwear;
+        this.retex_s = arg0.retex_s;
+        this.yof2d = arg1.yof2d;
+        this.team = arg0.team;
+        this.manwearOffsetY = arg0.manwearOffsetY;
+        this.recol_s = arg0.recol_s;
+        this.params = arg0.params;
+        if (arg0.iop !== null) {
+            for (let var3 = 0; var3 < 4; var3++) {
+                this.iop[var3] = arg0.iop[var3];
+            }
+        }
+        this.iop[4] = Text.discard;
+    }
+
+    // jag::oldscape::configdecoder::ObjType::GetModelLit
+    getModelLit(): SoftwareModelLit | null;
+    getModelLit(count: number, frame: number, seq: SeqType | null): ModelLit | null;
+    getModelLit(arg0?: number, arg1: number = 0, arg2: SeqType | null = null): SoftwareModelLit | ModelLit | null {
+        const animated = arg0 !== undefined;
+        const count = arg0 ?? 1;
+
+        if (this.countobj !== null && count > 1) {
+            let id: number = -1;
+            for (let i: number = 0; i < 10; i++) {
+                if (count >= this.countco![i] && this.countco![i] !== 0) {
+                    id = this.countobj[i];
+                }
+            }
+
+            if (id !== -1) {
+                return ObjType.list(id).getModelLit(1, arg1, arg2);
+            }
+        }
+
+        if (animated) {
+            const cached = ObjType.modelCache.find(BigInt(this.id)) as SoftwareModelLit | null;
+            if (cached !== null) {
+                return arg2 !== null ? arg2.animateModelWithExtra(arg1, cached) : cached;
+            }
+        }
+
+        const model = ModelUnlit.load(ObjType.models!, this.model);
+        if (model === null) {
+            return null;
+        }
+
+        if (this.recol_s !== null) {
+            for (let i: number = 0; i < this.recol_s.length; i++) {
+                if (this.recol_d_palette === null || i >= this.recol_d_palette.length) {
+                    model.recolour(this.recol_s[i], this.recol_d![i]);
+                } else {
+                    model.recolour(this.recol_s[i], ObjType.clientpalette[this.recol_d_palette[i] & 0xff]);
+                }
+            }
+        }
+
+        if (this.retex_s !== null) {
+            for (let i: number = 0; i < this.retex_s.length; i++) {
+                model.retexture(this.retex_s[i], this.retex_d![i]);
+            }
+        }
+
+        const lit = animated ? new SoftwareModelLit(model, this.ambient + 64, this.contrast + 768, -50, -10, -50) : model.method547(this.ambient + 64, this.contrast + 768);
+        if (this.resizex !== 128 || this.resizey !== 128 || this.resizez !== 128) {
+            lit.resize(this.resizex, this.resizey, this.resizez);
+        }
+        if (animated) {
+            lit.useAABBMouseCheck = true;
+            ObjType.modelCache.put(BigInt(this.id), lit);
+        }
+        return arg2 !== null ? arg2.animateModelWithExtra(arg1, lit) : lit;
+    }
+
+    // jag::oldscape::configdecoder::ObjType::GetStackSizeAlt
+    getStackSizeAlt(arg0: number): ObjType {
+        if (this.countobj !== null && arg0 > 1) {
+            let var2: number = -1;
+            for (let var3: number = 0; var3 < 10; var3++) {
+                if (arg0 >= this.countco![var3] && this.countco![var3] !== 0) {
+                    var2 = this.countobj[var3];
+                }
+            }
+            if (var2 !== -1) {
+                return ObjType.list(var2);
+            }
+        }
+        return this;
+    }
+
+    // jag::oldscape::configdecoder::ObjType::GetSprite
     static getSprite(arg0: number, arg1: number, arg2: number, arg3: boolean, arg4: number): Pix32 | null {
         const var5 = (BigInt(arg4) << 40n) + (BigInt(arg2) << 16n) + BigInt(arg1) + (arg3 ? 137438953472n : 0n) + (BigInt(arg0) << 38n);
         const var7 = ObjType.spriteCache.find(var5);
@@ -239,14 +535,7 @@ export default class ObjType extends Linkable2 {
         return var15;
     }
 
-    static getGroupId(arg0: number): number {
-        return arg0 & 0xff;
-    }
-
-    static getFileId(arg0: number): number {
-        return arg0 >>> 8;
-    }
-
+    // jag::oldscape::configdecoder::ObjType::InvNumber
     static invNumber(value: number): string {
         if (value < 100000) {
             return `<col=ffff00>${value}</col>`;
@@ -257,7 +546,178 @@ export default class ObjType extends Linkable2 {
         }
     }
 
-    static method1416(): void {
+    // jag::oldscape::configdecoder::ObjType::CheckWearModel
+    checkWearModel(arg0: boolean): boolean {
+        let var2 = this.manwear2;
+        let var3 = this.manwear;
+        let var4 = this.manwear3;
+        if (arg0) {
+            var3 = this.womanwear;
+            var2 = this.womanwear2;
+            var4 = this.womanwear3;
+        }
+
+        if (var3 === -1) {
+            return true;
+        }
+
+        let var5 = true;
+        if (!ObjType.models!.requestDownload(var3, 0)) {
+            var5 = false;
+        }
+        if (var2 !== -1 && !ObjType.models!.requestDownload(var2, 0)) {
+            var5 = false;
+        }
+        if (var4 !== -1 && !ObjType.models!.requestDownload(var4, 0)) {
+            var5 = false;
+        }
+        return var5;
+    }
+
+    // jag::oldscape::configdecoder::ObjType::GetWearModelNoCheck
+    getWearModelNoCheck(arg0: boolean): ModelUnlit | null {
+        let var2 = this.manwear;
+        let var3 = this.manwear3;
+        let var4 = this.manwear2;
+        if (arg0) {
+            var2 = this.womanwear;
+            var3 = this.womanwear3;
+            var4 = this.womanwear2;
+        }
+
+        if (var2 === -1) {
+            return null;
+        }
+
+        let var5 = ModelUnlit.load(ObjType.models!, var2)!;
+
+        if (var4 !== -1) {
+            const var6 = ModelUnlit.load(ObjType.models!, var4)!;
+
+            if (var3 === -1) {
+                const var7 = [var5, var6];
+                var5 = new ModelUnlit(var7, 2);
+            } else {
+                const var8 = ModelUnlit.load(ObjType.models!, var3)!;
+                const var9 = [var5, var6, var8];
+                var5 = new ModelUnlit(var9, 3);
+            }
+        }
+
+        if (!arg0 && this.manwearOffsetY !== 0) {
+            var5.translate(0, this.manwearOffsetY, 0);
+        }
+        if (arg0 && this.womanwearOffsetY !== 0) {
+            var5.translate(0, this.womanwearOffsetY, 0);
+        }
+
+        if (this.recol_s !== null) {
+            for (let var10 = 0; var10 < this.recol_s.length; var10++) {
+                var5.recolour(this.recol_s[var10], this.recol_d![var10]);
+            }
+        }
+
+        if (this.retex_s !== null) {
+            for (let var11 = 0; var11 < this.retex_s.length; var11++) {
+                var5.retexture(this.retex_s[var11], this.retex_d![var11]);
+            }
+        }
+
+        return var5;
+    }
+
+    // jag::oldscape::configdecoder::ObjType::CheckHeadModel
+    checkHeadModel(arg0: boolean): boolean {
+        let var2 = this.manhead;
+        let var3 = this.manhead2;
+        if (arg0) {
+            var3 = this.womanhead2;
+            var2 = this.womanhead;
+        }
+
+        if (var2 === -1) {
+            return true;
+        }
+
+        let var4 = true;
+        if (!ObjType.models!.requestDownload(var2, 0)) {
+            var4 = false;
+        }
+        if (var3 !== -1 && !ObjType.models!.requestDownload(var3, 0)) {
+            var4 = false;
+        }
+        return var4;
+    }
+
+    // jag::oldscape::configdecoder::ObjType::GetHeadModelNoCheck
+    getHeadModelNoCheck(arg0: boolean): ModelUnlit | null {
+        let var2 = this.manhead;
+        let var3 = this.manhead2;
+        if (arg0) {
+            var3 = this.womanhead2;
+            var2 = this.womanhead;
+        }
+        if (var2 === -1) {
+            return null;
+        }
+        let var4 = ModelUnlit.load(ObjType.models!, var2)!;
+        if (var3 !== -1) {
+            const var5 = ModelUnlit.load(ObjType.models!, var3)!;
+            const var6 = [var4, var5];
+            var4 = new ModelUnlit(var6, 2);
+        }
+
+        if (this.recol_s !== null) {
+            for (let var7 = 0; var7 < this.recol_s.length; var7++) {
+                var4.recolour(this.recol_s[var7], this.recol_d![var7]);
+            }
+        }
+
+        if (this.retex_s !== null) {
+            for (let var8 = 0; var8 < this.retex_s.length; var8++) {
+                var4.retexture(this.retex_s[var8], this.retex_d![var8]);
+            }
+        }
+
+        return var4;
+    }
+
+    getParamInt(arg0: number, arg1: number): number {
+        if (this.params === null) {
+            return arg1;
+        } else {
+            const var3 = this.params.find(BigInt(arg0)) as IntNode | null;
+            return var3 === null ? arg1 : var3.value;
+        }
+    }
+
+    getParamString(arg0: string | null, arg1: number): string | null {
+        if (this.params === null) {
+            return arg0;
+        } else {
+            const var3 = this.params.find(BigInt(arg1)) as StringNode | null;
+            return var3 === null ? arg0 : (var3.value as string);
+        }
+    }
+
+    static resetCache(): void {
+        ObjType.recentUse.clear();
+        ObjType.modelCache.clear();
+        ObjType.spriteCache.clear();
+    }
+
+    static resetModelCache(): void {
+        ObjType.modelCache.clear();
+    }
+
+    // jag::oldscape::configdecoder::ObjType::ResetSpriteCache
+    static resetSpriteCache(): void {
+        ObjType.spriteCache.clear();
+    }
+
+    // ---- todo: sort
+
+    static initWearable(): void {
         const var0 = new Int32Array(ObjType.numDefinitions);
         let var1 = 0;
         for (let var2 = 0; var2 < ObjType.numDefinitions; var2++) {
@@ -266,9 +726,9 @@ export default class ObjType extends Linkable2 {
                 var0[var1++] = var2;
             }
         }
-        ObjType.field1698 = new Int32Array(var1);
+        ObjType.wearable = new Int32Array(var1);
         for (let var4 = 0; var4 < var1; var4++) {
-            ObjType.field1698[var4] = var0[var4];
+            ObjType.wearable[var4] = var0[var4];
         }
     }
 
@@ -338,441 +798,5 @@ export default class ObjType extends Linkable2 {
         arg3[var6] = var7;
         ObjType.method1037(arg0, arg1, var6 - 1, arg3);
         ObjType.method1037(var6 + 1, arg1, arg2, arg3);
-    }
-
-    getModelLit(): SoftwareModelLit | null;
-    getModelLit(count: number, frame: number, seq: SeqType | null): ModelLit | null;
-    getModelLit(arg0?: number, arg1: number = 0, arg2: SeqType | null = null): SoftwareModelLit | ModelLit | null {
-        const animated = arg0 !== undefined;
-        const count = arg0 ?? 1;
-
-        if (this.countobj !== null && count > 1) {
-            let id: number = -1;
-            for (let i: number = 0; i < 10; i++) {
-                if (count >= this.countco![i] && this.countco![i] !== 0) {
-                    id = this.countobj[i];
-                }
-            }
-
-            if (id !== -1) {
-                return ObjType.list(id).getModelLit(1, arg1, arg2);
-            }
-        }
-
-        if (animated) {
-            const cached = ObjType.modelCache.find(BigInt(this.id)) as SoftwareModelLit | null;
-            if (cached !== null) {
-                return arg2 !== null ? arg2.animateModelWithExtra(arg1, cached) : cached;
-            }
-        }
-
-        const model = ModelUnlit.load(ObjType.models!, this.model);
-        if (model === null) {
-            return null;
-        }
-
-        if (this.recol_s !== null) {
-            for (let i: number = 0; i < this.recol_s.length; i++) {
-                if (this.recol_d_palette === null || i >= this.recol_d_palette.length) {
-                    model.recolour(this.recol_s[i], this.recol_d![i]);
-                } else {
-                    model.recolour(this.recol_s[i], ObjType.clientpalette[this.recol_d_palette[i] & 0xff]);
-                }
-            }
-        }
-
-        if (this.retex_s !== null) {
-            for (let i: number = 0; i < this.retex_s.length; i++) {
-                model.retexture(this.retex_s[i], this.retex_d![i]);
-            }
-        }
-
-        const lit = animated ? new SoftwareModelLit(model, this.ambient + 64, this.contrast + 768, -50, -10, -50) : model.method547(this.ambient + 64, this.contrast + 768);
-        if (this.resizex !== 128 || this.resizey !== 128 || this.resizez !== 128) {
-            lit.resize(this.resizex, this.resizey, this.resizez);
-        }
-        if (animated) {
-            lit.useAABBMouseCheck = true;
-            ObjType.modelCache.put(BigInt(this.id), lit);
-        }
-        return arg2 !== null ? arg2.animateModelWithExtra(arg1, lit) : lit;
-    }
-
-    getParamString(arg0: string | null, arg1: number): string | null {
-        if (this.params === null) {
-            return arg0;
-        } else {
-            const var3 = this.params.find(BigInt(arg1)) as StringNode | null;
-            return var3 === null ? arg0 : (var3.value as string);
-        }
-    }
-
-    getParamInt(arg0: number, arg1: number): number {
-        if (this.params === null) {
-            return arg1;
-        } else {
-            const var3 = this.params.find(BigInt(arg0)) as IntNode | null;
-            return var3 === null ? arg1 : var3.value;
-        }
-    }
-
-    getWearModelNoCheck(arg0: boolean): ModelUnlit | null {
-        let var2 = this.manwear;
-        let var3 = this.manwear3;
-        let var4 = this.manwear2;
-        if (arg0) {
-            var2 = this.womanwear;
-            var3 = this.womanwear3;
-            var4 = this.womanwear2;
-        }
-
-        if (var2 === -1) {
-            return null;
-        }
-
-        let var5 = ModelUnlit.load(ObjType.models!, var2)!;
-
-        if (var4 !== -1) {
-            const var6 = ModelUnlit.load(ObjType.models!, var4)!;
-
-            if (var3 === -1) {
-                const var7 = [var5, var6];
-                var5 = new ModelUnlit(var7, 2);
-            } else {
-                const var8 = ModelUnlit.load(ObjType.models!, var3)!;
-                const var9 = [var5, var6, var8];
-                var5 = new ModelUnlit(var9, 3);
-            }
-        }
-
-        if (!arg0 && this.manwearOffsetY !== 0) {
-            var5.translate(0, this.manwearOffsetY, 0);
-        }
-        if (arg0 && this.womanwearOffsetY !== 0) {
-            var5.translate(0, this.womanwearOffsetY, 0);
-        }
-
-        if (this.recol_s !== null) {
-            for (let var10 = 0; var10 < this.recol_s.length; var10++) {
-                var5.recolour(this.recol_s[var10], this.recol_d![var10]);
-            }
-        }
-
-        if (this.retex_s !== null) {
-            for (let var11 = 0; var11 < this.retex_s.length; var11++) {
-                var5.retexture(this.retex_s[var11], this.retex_d![var11]);
-            }
-        }
-
-        return var5;
-    }
-
-    postDecode(): void {}
-
-    decode(dat: Packet): void;
-    decode(code: number, dat: Packet): void;
-    decode(arg0: Packet | number, arg1?: Packet): void {
-        if (typeof arg0 === 'number') {
-            const code = arg0;
-            const dat = arg1!;
-            if (code === 1) {
-                this.model = dat.g2();
-            } else if (code === 2) {
-                this.name = dat.gjstr();
-            } else if (code === 4) {
-                this.zoom2d = dat.g2();
-            } else if (code === 5) {
-                this.xan2d = dat.g2();
-            } else if (code === 6) {
-                this.yan2d = dat.g2();
-            } else if (code === 7) {
-                this.xof2d = dat.g2();
-                if (this.xof2d > 32767) {
-                    this.xof2d -= 65536;
-                }
-            } else if (code === 8) {
-                this.yof2d = dat.g2();
-                if (this.yof2d > 32767) {
-                    this.yof2d -= 65536;
-                }
-            } else if (code === 11) {
-                this.stackable = 1;
-            } else if (code === 12) {
-                this.cost = dat.g4();
-            } else if (code === 16) {
-                this.members = true;
-            } else if (code === 23) {
-                this.manwear = dat.g2();
-                this.manwearOffsetY = dat.g1();
-            } else if (code === 24) {
-                this.manwear2 = dat.g2();
-            } else if (code === 25) {
-                this.womanwear = dat.g2();
-                this.womanwearOffsetY = dat.g1();
-            } else if (code === 26) {
-                this.womanwear2 = dat.g2();
-            } else if (code >= 30 && code < 35) {
-                this.op![code - 30] = dat.gjstr();
-                if (this.op![code - 30]!.toLowerCase() === Text.hidden.toLowerCase()) {
-                    this.op![code - 30] = null;
-                }
-            } else if (code >= 35 && code < 40) {
-                this.iop![code - 35] = dat.gjstr();
-            } else if (code === 40) {
-                const count: number = dat.g1();
-                this.recol_s = new Int16Array(count);
-                this.recol_d = new Int16Array(count);
-
-                for (let i: number = 0; i < count; i++) {
-                    this.recol_s[i] = dat.g2();
-                    this.recol_d[i] = dat.g2();
-                }
-            } else if (code === 41) {
-                const count: number = dat.g1();
-                this.retex_d = new Int16Array(count);
-                this.retex_s = new Int16Array(count);
-                for (let i: number = 0; i < count; i++) {
-                    this.retex_s[i] = dat.g2();
-                    this.retex_d[i] = dat.g2();
-                }
-            } else if (code === 42) {
-                const count: number = dat.g1();
-                this.recol_d_palette = new Int8Array(count);
-                for (let i: number = 0; i < count; i++) {
-                    this.recol_d_palette[i] = dat.g1b();
-                }
-            } else if (code === 65) {
-                this.stockmarket = true;
-            } else if (code === 78) {
-                this.manwear3 = dat.g2();
-            } else if (code === 79) {
-                this.womanwear3 = dat.g2();
-            } else if (code === 90) {
-                this.manhead = dat.g2();
-            } else if (code === 91) {
-                this.womanhead = dat.g2();
-            } else if (code === 92) {
-                this.manhead2 = dat.g2();
-            } else if (code === 93) {
-                this.womanhead2 = dat.g2();
-            } else if (code === 95) {
-                this.zan2d = dat.g2();
-            } else if (code === 96) {
-                this.dummyitem = dat.g1();
-            } else if (code === 97) {
-                this.certlink = dat.g2();
-            } else if (code === 98) {
-                this.certtemplate = dat.g2();
-            } else if (code >= 100 && code < 110) {
-                if (this.countobj === null) {
-                    this.countco = new Int32Array(10);
-                    this.countobj = new Int32Array(10);
-                }
-
-                this.countobj![code - 100] = dat.g2();
-                this.countco![code - 100] = dat.g2();
-            } else if (code === 110) {
-                this.resizex = dat.g2();
-            } else if (code === 111) {
-                this.resizey = dat.g2();
-            } else if (code === 112) {
-                this.resizez = dat.g2();
-            } else if (code === 113) {
-                this.ambient = dat.g1b();
-            } else if (code === 114) {
-                this.contrast = dat.g1b() * 5;
-            } else if (code === 115) {
-                this.team = dat.g1();
-            } else if (code === 121) {
-                this.lentlink = dat.g2();
-            } else if (code === 122) {
-                this.lenttemplate = dat.g2();
-            } else if (code === 124) {
-                if (this.field2839 === null) {
-                    this.field2839 = new Array(11);
-                }
-                const index = dat.g1();
-                this.field2839[index] = new Int32Array(6);
-                for (let i = 0; i < 6; i++) {
-                    this.field2839[index][i] = dat.g2b();
-                }
-            } else if (code === 249) {
-                const count = dat.g1();
-                if (this.params === null) {
-                    this.params = new HashTable(IntMath.bitceil(count));
-                }
-                for (let i = 0; i < count; i++) {
-                    const isString = dat.g1() === 1;
-                    const key = dat.g3();
-                    const node = isString ? new StringNode(dat.gjstr()) : new IntNode(dat.g4());
-                    this.params.put(BigInt(key), node);
-                }
-            }
-            return;
-        }
-
-        while (true) {
-            const code = arg0.g1();
-            if (code === 0) {
-                return;
-            }
-
-            this.decode(code, arg0);
-        }
-    }
-
-    checkHeadModel(arg0: boolean): boolean {
-        let var2 = this.manhead;
-        let var3 = this.manhead2;
-        if (arg0) {
-            var3 = this.womanhead2;
-            var2 = this.womanhead;
-        }
-
-        if (var2 === -1) {
-            return true;
-        }
-
-        let var4 = true;
-        if (!ObjType.models!.requestDownload(var2, 0)) {
-            var4 = false;
-        }
-        if (var3 !== -1 && !ObjType.models!.requestDownload(var3, 0)) {
-            var4 = false;
-        }
-        return var4;
-    }
-
-    getHeadModelNoCheck(arg0: boolean): ModelUnlit | null {
-        let var2 = this.manhead;
-        let var3 = this.manhead2;
-        if (arg0) {
-            var3 = this.womanhead2;
-            var2 = this.womanhead;
-        }
-        if (var2 === -1) {
-            return null;
-        }
-        let var4 = ModelUnlit.load(ObjType.models!, var2)!;
-        if (var3 !== -1) {
-            const var5 = ModelUnlit.load(ObjType.models!, var3)!;
-            const var6 = [var4, var5];
-            var4 = new ModelUnlit(var6, 2);
-        }
-
-        if (this.recol_s !== null) {
-            for (let var7 = 0; var7 < this.recol_s.length; var7++) {
-                var4.recolour(this.recol_s[var7], this.recol_d![var7]);
-            }
-        }
-
-        if (this.retex_s !== null) {
-            for (let var8 = 0; var8 < this.retex_s.length; var8++) {
-                var4.retexture(this.retex_s[var8], this.retex_d![var8]);
-            }
-        }
-
-        return var4;
-    }
-
-    genCert(arg0: ObjType, arg1: ObjType): void {
-        this.yof2d = arg1.yof2d;
-        this.recol_d_palette = arg1.recol_d_palette;
-        this.cost = arg0.cost;
-        this.stackable = 1;
-        this.recol_s = arg1.recol_s;
-        this.name = arg0.name;
-        this.zoom2d = arg1.zoom2d;
-        this.xan2d = arg1.xan2d;
-        this.xof2d = arg1.xof2d;
-        this.yan2d = arg1.yan2d;
-        this.retex_s = arg1.retex_s;
-        this.members = arg0.members;
-        this.model = arg1.model;
-        this.retex_d = arg1.retex_d;
-        this.recol_d = arg1.recol_d;
-        this.zan2d = arg1.zan2d;
-    }
-
-    genLent(arg0: ObjType, arg1: ObjType): void {
-        this.xan2d = arg1.xan2d;
-        this.zoom2d = arg1.zoom2d;
-        this.name = arg0.name;
-        this.womanwearOffsetY = arg0.womanwearOffsetY;
-        this.womanwear2 = arg0.womanwear2;
-        this.yan2d = arg1.yan2d;
-        this.recol_d = arg0.recol_d;
-        this.manwear2 = arg0.manwear2;
-        this.xof2d = arg1.xof2d;
-        this.manhead2 = arg0.manhead2;
-        this.retex_d = arg0.retex_d;
-        this.womanwear = arg0.womanwear;
-        this.op = arg0.op;
-        this.manhead = arg0.manhead;
-        this.model = arg1.model;
-        this.members = arg0.members;
-        this.zan2d = arg1.zan2d;
-        this.iop = new Array(5).fill(null);
-        this.manwear3 = arg0.manwear3;
-        this.womanwear3 = arg0.womanwear3;
-        this.cost = 0;
-        this.womanhead = arg0.womanhead;
-        this.recol_d_palette = arg0.recol_d_palette;
-        this.womanhead2 = arg0.womanhead2;
-        this.manwear = arg0.manwear;
-        this.retex_s = arg0.retex_s;
-        this.yof2d = arg1.yof2d;
-        this.team = arg0.team;
-        this.manwearOffsetY = arg0.manwearOffsetY;
-        this.recol_s = arg0.recol_s;
-        this.params = arg0.params;
-        if (arg0.iop !== null) {
-            for (let var3 = 0; var3 < 4; var3++) {
-                this.iop[var3] = arg0.iop[var3];
-            }
-        }
-        this.iop[4] = Text.discard;
-    }
-
-    getStackSizeAlt(arg0: number): ObjType {
-        if (this.countobj !== null && arg0 > 1) {
-            let var2: number = -1;
-            for (let var3: number = 0; var3 < 10; var3++) {
-                if (arg0 >= this.countco![var3] && this.countco![var3] !== 0) {
-                    var2 = this.countobj[var3];
-                }
-            }
-            if (var2 !== -1) {
-                return ObjType.list(var2);
-            }
-        }
-        return this;
-    }
-
-    checkWearModel(arg0: boolean): boolean {
-        let var2 = this.manwear2;
-        let var3 = this.manwear;
-        let var4 = this.manwear3;
-        if (arg0) {
-            var3 = this.womanwear;
-            var2 = this.womanwear2;
-            var4 = this.womanwear3;
-        }
-
-        if (var3 === -1) {
-            return true;
-        }
-
-        let var5 = true;
-        if (!ObjType.models!.requestDownload(var3, 0)) {
-            var5 = false;
-        }
-        if (var2 !== -1 && !ObjType.models!.requestDownload(var2, 0)) {
-            var5 = false;
-        }
-        if (var4 !== -1 && !ObjType.models!.requestDownload(var4, 0)) {
-            var5 = false;
-        }
-        return var5;
     }
 }

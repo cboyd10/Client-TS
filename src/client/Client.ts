@@ -468,7 +468,7 @@ export class Client extends GameShell {
     static readonly MENUACTION_PLAYER: readonly number[] = [30, 58, 29, 45, 37, 16, 1, 50];
     static loginSeed: bigint = 0n;
     static stockTransmitNum: number = 0;
-    static objFont: SoftwarePixFont | null = null; // field2966
+    static countFont: SoftwarePixFont | null = null; // field2966
     static field2045: number = 0;
     private static field3861: number = 0;
     private static field2751: number = 1;
@@ -859,7 +859,7 @@ export class Client extends GameShell {
             const binary = Client.binary!;
 
             Client.p11 = PixLoader.makePixFont(fontmetrics, sprites, '', 'p11_full')!;
-            Client.objFont = Client.p11 as SoftwarePixFont | null;
+            Client.countFont = Client.p11 as SoftwarePixFont | null;
             Client.p12 = PixLoader.makePixFont(fontmetrics, sprites, '', 'p12_full')!;
             Client.b12 = PixLoader.makePixFont(fontmetrics, sprites, '', 'b12_full')!;
             TitleScreen.loadPos = 45;
@@ -913,7 +913,7 @@ export class Client extends GameShell {
                 IdkType.init(models, configs);
                 LocType.init(configLoc, models, Client.memServer, Client.lowMem);
                 NpcType.init(configNpc, models);
-                ObjType.init(Client.memServer, configObj, Client.objFont, models);
+                ObjType.init(Client.memServer, configObj, Client.countFont, models);
                 StructType.init(configs);
                 SeqType.init(configSeq, anims, bases);
                 SpotType.init(models, configSpot);
@@ -927,7 +927,7 @@ export class Client extends GameShell {
 
                 TitleScreen.loadString = Text.mainload70b;
                 TitleScreen.loadPos = 50;
-                ObjType.method1416();
+                ObjType.initWearable();
                 Client.loadingStep = 80;
             } else {
                 TitleScreen.loadString = `${Text.mainload70}${(progress / 10) | 0}%`;

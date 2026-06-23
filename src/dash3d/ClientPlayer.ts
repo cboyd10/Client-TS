@@ -112,7 +112,7 @@ export default class ClientPlayer extends ClientEntity {
                     break;
                 }
                 if (var10 >= 32768) {
-                    const var11 = ObjType.field1698[var10 - 32768];
+                    const var11 = ObjType.wearable[var10 - 32768];
                     var6[var7] = var11 | 0x40000000;
                     const var12 = ObjType.list(var11).team;
                     if (var12 !== 0) {

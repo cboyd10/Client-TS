@@ -10,112 +10,114 @@ import ModelSourceCache from '#/dash3d/ModelSourceCache.js';
 import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
+// jag::oldscape::configdecoder::SpotType
 export default class SpotType extends Linkable2 {
-    static readonly recentUse: LruCache<SpotType> = new LruCache(64);
-    static readonly modelCache: ModelSourceCache = new ModelSourceCache(30);
-
-    static models: Js5;
+    // jag::oldscape::configdecoder::SpotType::m_pConfigClient
     static configClient: Js5;
 
-    recol_d: Int16Array | null = null;
+    // jag::oldscape::configdecoder::SpotType::m_pModels
+    static models: Js5;
 
-    ambient: number = 0;
-    resizev: number = 128;
-    contrast: number = 0;
-    resizeh: number = 128;
-    hillskew: boolean = false;
-    angle: number = 0;
-    anim: number = -1;
+    // jag::oldscape::configdecoder::SpotType::m_recentUse
+    static readonly recentUse: LruCache<SpotType> = new LruCache(64);
+
+    // jag::oldscape::configdecoder::SpotType::m_modelCache
+    static readonly modelCache: ModelSourceCache = new ModelSourceCache(30);
+
     id: number = 0;
-
     model: number = 0;
-    retex_s: Int16Array | null = null;
+    anim: number = -1;
     recol_s: Int16Array | null = null;
+    recol_d: Int16Array | null = null;
+    retex_s: Int16Array | null = null;
     retex_d: Int16Array | null = null;
+    resizeh: number = 128;
+    resizev: number = 128;
+    angle: number = 0;
+    ambient: number = 0;
+    contrast: number = 0;
+    hillskew: boolean = false;
 
-    static list(arg0: number): SpotType {
-        const var1 = SpotType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
+    static init(models: Js5, config: Js5): void {
+        SpotType.models = models;
+        SpotType.configClient = config;
+    }
+
+    static getGroupId(id: number): number {
+        return id & 0xff;
+    }
+
+    static getFileId(id: number): number {
+        return id >>> 8;
+    }
+
+    static list(id: number): SpotType {
+        const cached = SpotType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
         }
 
-        const var2 = SpotType.configClient.getFile(SpotType.getGroupId(arg0), SpotType.getFileId(arg0));
-        const var3 = new SpotType();
-        var3.id = arg0;
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        SpotType.recentUse.put(BigInt(arg0), var3);
-        return var3;
-    }
-
-    static resetCache(): void {
-        SpotType.recentUse.clear();
-        SpotType.modelCache.clear();
-    }
-
-    static init(arg0: Js5, arg1: Js5): void {
-        SpotType.models = arg0;
-        SpotType.configClient = arg1;
-    }
-
-    static getFileId(arg0: number): number {
-        return arg0 >>> 8;
-    }
-
-    static getGroupId(arg0: number): number {
-        return arg0 & 0xff;
-    }
-
-    decode(arg0: number, arg1: Packet): void;
-    decode(arg0: Packet): void;
-    decode(arg0: Packet | number, arg1?: Packet): void {
-        if (typeof arg0 === 'number') {
-            if (arg0 === 1) {
-                this.model = arg1!.g2();
-            } else if (arg0 === 2) {
-                this.anim = arg1!.g2();
-            } else if (arg0 === 4) {
-                this.resizeh = arg1!.g2();
-            } else if (arg0 === 5) {
-                this.resizev = arg1!.g2();
-            } else if (arg0 === 6) {
-                this.angle = arg1!.g2();
-            } else if (arg0 === 7) {
-                this.ambient = arg1!.g1();
-            } else if (arg0 === 8) {
-                this.contrast = arg1!.g1();
-            } else if (arg0 === 9) {
-                this.hillskew = true;
-            } else if (arg0 === 40) {
-                const var5 = arg1!.g1();
-                this.recol_s = new Int16Array(var5);
-                this.recol_d = new Int16Array(var5);
-                for (let var6 = 0; var6 < var5; var6++) {
-                    this.recol_s[var6] = arg1!.g2();
-                    this.recol_d[var6] = arg1!.g2();
-                }
-            } else if (arg0 === 41) {
-                const var3 = arg1!.g1();
-                this.retex_d = new Int16Array(var3);
-                this.retex_s = new Int16Array(var3);
-                for (let var4 = 0; var4 < var3; var4++) {
-                    this.retex_s[var4] = arg1!.g2();
-                    this.retex_d[var4] = arg1!.g2();
-                }
-            }
-            return;
+        const data = SpotType.configClient.getFile(SpotType.getGroupId(id), SpotType.getFileId(id));
+        const type = new SpotType();
+        type.id = id;
+        if (data !== null) {
+            type.decode(new Packet(data));
         }
 
+        SpotType.recentUse.put(BigInt(id), type);
+        return type;
+    }
+
+    // jag::oldscape::configdecoder::SpotType::Decode
+    decode(buf: Packet): void {
         while (true) {
-            const var2 = arg0.g1();
-            if (var2 === 0) {
+            const code = buf.g1();
+            if (code === 0) {
                 return;
             }
-            this.decode(var2, arg0);
+
+            this.decodeInner(code, buf);
         }
     }
 
+    // jag::oldscape::configdecoder::SpotType::Decode
+    decodeInner(code: number, buf: Packet): void {
+        if (code === 1) {
+            this.model = buf.g2();
+        } else if (code === 2) {
+            this.anim = buf.g2();
+        } else if (code === 4) {
+            this.resizeh = buf.g2();
+        } else if (code === 5) {
+            this.resizev = buf.g2();
+        } else if (code === 6) {
+            this.angle = buf.g2();
+        } else if (code === 7) {
+            this.ambient = buf.g1();
+        } else if (code === 8) {
+            this.contrast = buf.g1();
+        } else if (code === 9) {
+            this.hillskew = true;
+        } else if (code === 40) {
+            const count = buf.g1();
+            this.recol_s = new Int16Array(count);
+            this.recol_d = new Int16Array(count);
+            for (let var6 = 0; var6 < count; var6++) {
+                this.recol_s[var6] = buf.g2();
+                this.recol_d[var6] = buf.g2();
+            }
+        } else if (code === 41) {
+            const count = buf.g1();
+            this.retex_d = new Int16Array(count);
+            this.retex_s = new Int16Array(count);
+            for (let var4 = 0; var4 < count; var4++) {
+                this.retex_s[var4] = buf.g2();
+                this.retex_d[var4] = buf.g2();
+            }
+        }
+    }
+
+    // jag::oldscape::configdecoder::SpotType::GetTempModel2
     getTempModel2(arg0: number): ModelLit | null {
         let var2 = SpotType.modelCache.find(BigInt(this.id)) as ModelLit | null;
         if (var2 === null) {
@@ -164,5 +166,10 @@ export default class SpotType extends Linkable2 {
         }
 
         return var6;
+    }
+
+    static resetCache(): void {
+        SpotType.recentUse.clear();
+        SpotType.modelCache.clear();
     }
 }

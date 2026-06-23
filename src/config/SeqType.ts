@@ -8,16 +8,16 @@ import type Js5 from '#/js5/Js5.js';
 
 // jag::oldscape::configdecoder::SeqType
 export default class SeqType extends Linkable2 {
-	// jag::oldscape::configdecoder::SeqType::m_pConfigClient
+    // jag::oldscape::configdecoder::SeqType::m_pConfigClient
     static configClient: Js5;
 
     // jag::oldscape::configdecoder::SeqType::m_pAnims
     static anims: Js5;
 
-	// jag::oldscape::configdecoder::SeqType::m_pBases
+    // jag::oldscape::configdecoder::SeqType::m_pBases
     static bases: Js5;
 
-	// jag::oldscape::configdecoder::SeqType::m_recentUse
+    // jag::oldscape::configdecoder::SeqType::m_recentUse
     static readonly recentUse: LruCache<SeqType> = new LruCache(64);
 
     // jag::oldscape::configdecoder::SeqType::m_framesetCache
@@ -41,14 +41,22 @@ export default class SeqType extends Linkable2 {
     // todo: identify
     field1993: boolean = false;
 
-	// jag::oldscape::configdecoder::SeqType::Init
+    // jag::oldscape::configdecoder::SeqType::Init
     static init(config: Js5, anims: Js5, bases: Js5): void {
         SeqType.anims = anims;
         SeqType.configClient = config;
         SeqType.bases = bases;
     }
 
-	// jag::oldscape::configdecoder::SeqType::List
+    static getGroupId(id: number): number {
+        return id & 0x7f;
+    }
+
+    static getFileId(id: number): number {
+        return id >>> 7;
+    }
+
+    // jag::oldscape::configdecoder::SeqType::List
     static list(id: number): SeqType {
         const cached = SeqType.recentUse.find(BigInt(id));
         if (cached !== null) {
@@ -66,53 +74,7 @@ export default class SeqType extends Linkable2 {
         return type;
     }
 
-    static loadFrameset(arg0: Js5, arg1: number, arg2: Js5): AnimFrameSet | null {
-        let var3 = true;
-        const var4 = arg2.getFileList(arg1)!;
-        for (let var5 = 0; var5 < var4.length; var5++) {
-            const var6 = arg2.peekFile(var4[var5], arg1);
-            if (var6 === null) {
-                var3 = false;
-            } else {
-                const var7 = (var6[1] & 0xff) | ((var6[0] & 0xff) << 8);
-                const var8 = arg0.peekFile(0, var7);
-                if (var8 === null) {
-                    var3 = false;
-                }
-            }
-        }
-        if (!var3) {
-            return null;
-        }
-        try {
-            return new AnimFrameSet(arg2, arg0, arg1, false);
-        } catch (var9) {
-            return null;
-        }
-    }
-
-    static get(arg0: number): AnimFrameSet | null {
-        const var1 = SeqType.framesetCache.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
-
-        const var2 = SeqType.loadFrameset(SeqType.bases, arg0, SeqType.anims);
-        if (var2 !== null) {
-            SeqType.framesetCache.put(BigInt(arg0), var2);
-        }
-        return var2;
-    }
-
-    static getGroupId(arg0: number): number {
-        return arg0 & 0x7f;
-    }
-
-    static getFileId(arg0: number): number {
-        return arg0 >>> 7;
-    }
-
-	// jag::oldscape::configdecoder::SeqType::Decode
+    // jag::oldscape::configdecoder::SeqType::Decode
     decode(dat: Packet): void {
         while (true) {
             const code = dat.g1();
@@ -193,7 +155,7 @@ export default class SeqType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::SeqType::PostDecode
+    // jag::oldscape::configdecoder::SeqType::PostDecode
     postDecode(): void {
         if (this.preanim_move === -1) {
             if (this.walkmerge === null) {
@@ -212,7 +174,7 @@ export default class SeqType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::SeqType::AnimateModel
+    // jag::oldscape::configdecoder::SeqType::AnimateModel
     animateModel(arg0: number, arg1: ModelLit): ModelLit {
         const var3 = this.frames![arg0];
         const var4 = SeqType.get(var3 >> 16);
@@ -226,7 +188,7 @@ export default class SeqType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::SeqType::AnimateModel90
+    // jag::oldscape::configdecoder::SeqType::AnimateModel90
     animateModel90(arg0: number, arg1: ModelLit, arg2: number): ModelLit {
         const var4 = this.frames![arg2];
         const var5 = SeqType.get(var4 >> 16);
@@ -267,7 +229,7 @@ export default class SeqType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::SeqType::SplitAnimateModel
+    // jag::oldscape::configdecoder::SeqType::SplitAnimateModel
     splitAnimateModel(arg0: number, arg1: SeqType, arg2: number, arg3: ModelLit): ModelLit {
         const var5 = this.frames![arg0];
         const var6 = SeqType.get(var5 >> 16);
@@ -289,7 +251,7 @@ export default class SeqType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::SeqType::AnimateModelWithExtra
+    // jag::oldscape::configdecoder::SeqType::AnimateModelWithExtra
     animateModelWithExtra(arg0: number, arg1: ModelLit): ModelLit {
         const var3 = this.frames![arg0];
         const var4 = SeqType.get(var3 >> 16);
@@ -316,7 +278,46 @@ export default class SeqType extends Linkable2 {
         }
     }
 
-	// jag::oldscape::configdecoder::SeqType::ResetCache
+    static loadFrameset(arg0: Js5, arg1: number, arg2: Js5): AnimFrameSet | null {
+        let var3 = true;
+        const var4 = arg2.getFileList(arg1)!;
+        for (let var5 = 0; var5 < var4.length; var5++) {
+            const var6 = arg2.peekFile(var4[var5], arg1);
+            if (var6 === null) {
+                var3 = false;
+            } else {
+                const var7 = (var6[1] & 0xff) | ((var6[0] & 0xff) << 8);
+                const var8 = arg0.peekFile(0, var7);
+                if (var8 === null) {
+                    var3 = false;
+                }
+            }
+        }
+        if (!var3) {
+            return null;
+        }
+        try {
+            return new AnimFrameSet(arg2, arg0, arg1, false);
+        } catch (var9) {
+            return null;
+        }
+    }
+
+    // jag::oldscape::configdecoder::SeqType::Get
+    static get(arg0: number): AnimFrameSet | null {
+        const var1 = SeqType.framesetCache.find(BigInt(arg0));
+        if (var1 !== null) {
+            return var1;
+        }
+
+        const var2 = SeqType.loadFrameset(SeqType.bases, arg0, SeqType.anims);
+        if (var2 !== null) {
+            SeqType.framesetCache.put(BigInt(arg0), var2);
+        }
+        return var2;
+    }
+
+    // jag::oldscape::configdecoder::SeqType::ResetCache
     static resetCache(): void {
         SeqType.recentUse.clear();
         SeqType.framesetCache.clear();

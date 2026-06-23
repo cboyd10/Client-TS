@@ -310,7 +310,7 @@ export default class IfType {
             }
             return var7;
         } else if (var5 === 2) {
-            const var9 = NpcType.list(var6).getHeadModelLit(arg2, arg0);
+            const var9 = NpcType.list(var6).getHead(arg2, arg0);
             if (var9 === null) {
                 IfType.loadingAsset = true;
                 return null;

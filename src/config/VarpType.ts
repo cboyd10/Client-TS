@@ -3,53 +3,63 @@ import LruCache from '#/datastruct/LruCache.js';
 import Packet from '#/io/Packet.js';
 import type Js5 from '#/js5/Js5.js';
 
+// jag::oldscape::configdecoder::VarpType
 export default class VarpType extends Linkable2 {
-    static readonly recentUse: LruCache<VarpType> = new LruCache(64);
+    // jag::oldscape::configdecoder::VarpType::m_pConfigClient
     static configClient: Js5;
+
+    // jag::oldscape::configdecoder::VarpType::m_numDefinitions
     static numDefinitions: number = 0;
+
+    // jag::oldscape::configdecoder::VarpType::m_recentUse
+    static readonly recentUse: LruCache<VarpType> = new LruCache(64);
 
     clientcode: number = 0;
 
-    static list(arg0: number): VarpType {
-        const var1 = VarpType.recentUse.find(BigInt(arg0));
-        if (var1 !== null) {
-            return var1;
-        }
-
-        const var2 = VarpType.configClient.getFile(arg0, 16);
-        const var3 = new VarpType();
-        if (var2 !== null) {
-            var3.decode(new Packet(var2));
-        }
-        VarpType.recentUse.put(BigInt(arg0), var3);
-        return var3;
-    }
-
-    static resetCache(): void {
-        VarpType.recentUse.clear();
-    }
-
-    static init(arg0: Js5): void {
-        VarpType.configClient = arg0;
+    // jag::oldscape::configdecoder::VarpType::Init
+    static init(config: Js5): void {
+        VarpType.configClient = config;
         VarpType.numDefinitions = VarpType.configClient.getFileIdLimit(16);
     }
 
-    decode(arg0: number, arg1: Packet): void;
-    decode(arg0: Packet): void;
-    decode(arg0: Packet | number, arg1?: Packet): void {
-        if (typeof arg0 === 'number') {
-            if (arg0 === 5) {
-                this.clientcode = arg1!.g2();
-            }
-            return;
+    // jag::oldscape::configdecoder::VarpType::List
+    static list(id: number): VarpType {
+        const cached = VarpType.recentUse.find(BigInt(id));
+        if (cached !== null) {
+            return cached;
         }
 
+        const data = VarpType.configClient.getFile(id, 16);
+        const type = new VarpType();
+        if (data !== null) {
+            type.decode(new Packet(data));
+        }
+
+        VarpType.recentUse.put(BigInt(id), type);
+        return type;
+    }
+
+    // jag::oldscape::configdecoder::VarpType::Decode
+    decode(buf: Packet): void {
         while (true) {
-            const var2 = arg0.g1();
-            if (var2 === 0) {
+            const code = buf.g1();
+            if (code === 0) {
                 return;
             }
-            this.decode(var2, arg0);
+
+            this.decodeInner(code, buf);
         }
+    }
+
+    // jag::oldscape::configdecoder::VarpType::Decode
+    decodeInner(code: number, buf: Packet): void {
+        if (code === 5) {
+            this.clientcode = buf.g2();
+        }
+    }
+
+    // jag::oldscape::configdecoder::VarpType::ResetCache
+    static resetCache(): void {
+        VarpType.recentUse.clear();
     }
 }

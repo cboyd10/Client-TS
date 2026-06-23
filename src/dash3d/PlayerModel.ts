@@ -163,7 +163,7 @@ export default class PlayerModel {
 
     getHeadModel(arg0: SeqType | null = null, arg1: number = 0): ModelLit | null {
         if (this.transmog !== -1) {
-            return NpcType.list(this.transmog).getHeadModelLit(arg1, arg0);
+            return NpcType.list(this.transmog).getHead(arg1, arg0);
         }
 
         let var3 = PlayerModel.field2616.find(this.baseId) as ModelLit | null;
