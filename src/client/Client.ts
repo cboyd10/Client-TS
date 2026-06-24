@@ -610,7 +610,7 @@ export class Client extends GameShell {
         } catch {}
         Client.settings = this.getParameter('settings') ?? '';
         Client.loginHost = this.getCodeBase().hostname;
-        this.startCommon();
+        this.startCommon(765, 503, 500);
     }
 
     override async maininit() {

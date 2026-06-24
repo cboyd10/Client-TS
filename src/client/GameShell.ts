@@ -47,13 +47,13 @@ export default abstract class GameShell {
     static readonly field658: string[] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     // com.jagex.game.runetek6.client.GameShell3.startCommon
-    public startCommon(): void {
+    public startCommon(width: number, height: number, revision: number): void {
         try {
             if (GameShell.shell === null) {
-                GameShell.sWid = 765;
-                GameShell.sHei = 503;
+                GameShell.sWid = width;
+                GameShell.sHei = height;
                 GameShell.shell = this;
-                JagException.revision = 500;
+                JagException.revision = revision;
                 void this.run();
             } else {
                 GameShell.loaded++;
