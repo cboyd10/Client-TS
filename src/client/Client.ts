@@ -468,10 +468,6 @@ export class Client extends GameShell {
     static mapQuickchat: number = 0;
     static clientpalette: Int16Array = new Int16Array(256);
     static settings: string = '';
-    static field96: number[][] = RecolsRunescape.field4062;
-    static field1596: number[][] = RecolsRunescape.field2611;
-    static field2750: number[] = RecolsRunescape.field1601;
-    static field219: number[] = RecolsRunescape.field3955;
     static field4179: number = 32767;
     static userhash: bigint = 0n;
     static readonly field1098: bigint = 7162900525229798032761816791230527296329313291232324290237849263501208207972894053929065636522363163621000728841182238772712427862772219676577293600221789n;
@@ -620,15 +616,15 @@ export class Client extends GameShell {
     override async maininit() {
         Client.clientpalette = LocType.clientpalette = NpcType.clientpalette = ObjType.clientpalette = new Int16Array(256);
         if (Client.modegame === 1) {
-            Client.field96 = RecolsStellardawn.field1810;
-            Client.field1596 = RecolsStellardawn.field3850;
-            Client.field2750 = RecolsStellardawn.field1265;
-            Client.field219 = RecolsStellardawn.field3853;
+            PlayerModel.recol1d = RecolsStellardawn.recol1d;
+            PlayerModel.recol2d = RecolsStellardawn.recol2d;
+            PlayerModel.recol2s = RecolsStellardawn.recol2s;
+            PlayerModel.recol1s = RecolsStellardawn.recol1s;
         } else {
-            Client.field219 = RecolsRunescape.field3955;
-            Client.field2750 = RecolsRunescape.field1601;
-            Client.field96 = RecolsRunescape.field4062;
-            Client.field1596 = RecolsRunescape.field2611;
+            PlayerModel.recol1s = RecolsRunescape.recol1s;
+            PlayerModel.recol2s = RecolsRunescape.recol2s;
+            PlayerModel.recol1d = RecolsRunescape.recol1d;
+            PlayerModel.recol2d = RecolsRunescape.recol2d;
         }
         ClientKeyboardListener.setupKeyCodeMap();
         ClientKeyboardListener.addListeners(GameShell.canvas!);
@@ -3592,7 +3588,7 @@ export class Client extends GameShell {
     // jag::oldscape::Client::GdmAddMapAnim
     static addMapAnim(): void {
         for (let var0 = Client.spotanims.head(); var0 !== null; var0 = Client.spotanims.next()) {
-            const var1 = var0.field4474;
+            const var1 = var0.spotanim;
             if (var1.level !== Client.minusedlevel || var1.animComplete) {
                 var0.unlink();
             } else if (var1.startCycle <= Client.loopCycle) {
@@ -4240,9 +4236,9 @@ export class Client extends GameShell {
             }
         }
         for (let var26 = Client.locChanges.head() as LocChange | null; var26 !== null; var26 = Client.locChanges.next() as LocChange | null) {
-            var26.field3059 -= var8;
-            var26.field3052 -= var7;
-            if (var26.field3059 < 0 || var26.field3052 < 0 || var26.field3059 >= 104 || var26.field3052 >= 104) {
+            var26.x -= var8;
+            var26.z -= var7;
+            if (var26.x < 0 || var26.z < 0 || var26.x >= 104 || var26.z >= 104) {
                 var26.unlink();
             }
         }
@@ -6915,8 +6911,8 @@ export class Client extends GameShell {
                 }
 
                 for (let loc = Client.locChanges.head(); loc !== null; loc = Client.locChanges.next()) {
-                    if (loc.field3059 >= Client.zoneUpdateX && loc.field3059 < Client.zoneUpdateX + 8 && loc.field3052 >= Client.zoneUpdateZ && loc.field3052 < Client.zoneUpdateZ + 8 && loc.field3055 === Client.minusedlevel) {
-                        loc.field3061 = 0;
+                    if (loc.x >= Client.zoneUpdateX && loc.x < Client.zoneUpdateX + 8 && loc.z >= Client.zoneUpdateZ && loc.z < Client.zoneUpdateZ + 8 && loc.level === Client.minusedlevel) {
+                        loc.endTime = 0;
                     }
                 }
 
@@ -7142,7 +7138,7 @@ export class Client extends GameShell {
                         var74.locOffsetY = var84;
                         var74.locStartCycle = Client.loopCycle + var69;
                         var74.locOffsetZ = var76 * 64 + var71 * 128;
-                        var74.locModel = var87.field3984 as ModelLit;
+                        var74.locModel = var87.model as ModelLit;
                         var74.locOffsetX = var72 * 128 + var77 * 64;
                         if (var66 > var67) {
                             const var88: number = var66;
@@ -7284,7 +7280,7 @@ export class Client extends GameShell {
     static locChangeCreate(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: number): void {
         let var9: LocChange | null = null;
         for (let var10 = Client.locChanges.head(); var10 !== null; var10 = Client.locChanges.next()) {
-            if (arg6 === var10.field3055 && arg7 === var10.field3059 && var10.field3052 === arg1 && var10.field3063 === arg2) {
+            if (arg6 === var10.level && arg7 === var10.x && var10.z === arg1 && var10.layer === arg2) {
                 var9 = var10;
                 break;
             }
@@ -7292,26 +7288,26 @@ export class Client extends GameShell {
 
         if (var9 === null) {
             var9 = new LocChange();
-            var9.field3052 = arg1;
-            var9.field3063 = arg2;
-            var9.field3059 = arg7;
-            var9.field3055 = arg6;
+            var9.z = arg1;
+            var9.layer = arg2;
+            var9.x = arg7;
+            var9.level = arg6;
             Client.locChangeSetOld(var9);
             Client.locChanges.push(var9);
         }
 
-        var9.field3062 = arg5;
-        var9.field3068 = arg3;
-        var9.field3061 = arg4;
-        var9.field3051 = arg8;
-        var9.field3054 = arg0;
+        var9.newShape = arg5;
+        var9.newAngle = arg3;
+        var9.endTime = arg4;
+        var9.newType = arg8;
+        var9.startTime = arg0;
     }
 
     // jag::oldscape::Client::LocChangePostBuildCorrect
     static locChangePostBuildCorrect(): void {
         for (let var0 = Client.locChanges.head(); var0 !== null; var0 = Client.locChanges.next()) {
-            if (var0.field3061 === -1) {
-                var0.field3054 = 0;
+            if (var0.endTime === -1) {
+                var0.startTime = 0;
                 Client.locChangeSetOld(var0);
             } else {
                 var0.unlink();
@@ -7322,55 +7318,55 @@ export class Client extends GameShell {
     // jag::oldscape::Client::LocChangeSetOld
     static locChangeSetOld(arg0: LocChange): void {
         let var1: SceneTag = 0n;
-        if (arg0.field3063 === 0) {
-            var1 = World.wallType(arg0.field3055, arg0.field3059, arg0.field3052);
+        if (arg0.layer === 0) {
+            var1 = World.wallType(arg0.level, arg0.x, arg0.z);
         }
         let var3: number = 0;
         let var4: number = 0;
         let var5: number = -1;
-        if (arg0.field3063 === 1) {
-            var1 = World.decorType(arg0.field3055, arg0.field3059, arg0.field3052);
+        if (arg0.layer === 1) {
+            var1 = World.decorType(arg0.level, arg0.x, arg0.z);
         }
-        if (arg0.field3063 === 2) {
-            var1 = World.sceneType(arg0.field3055, arg0.field3059, arg0.field3052);
+        if (arg0.layer === 2) {
+            var1 = World.sceneType(arg0.level, arg0.x, arg0.z);
         }
-        if (arg0.field3063 === 3) {
-            var1 = World.gdType(arg0.field3055, arg0.field3059, arg0.field3052);
+        if (arg0.layer === 3) {
+            var1 = World.gdType(arg0.level, arg0.x, arg0.z);
         }
         if (BigInt(var1) !== 0n) {
             var4 = (Number(BigInt.asIntN(32, BigInt(var1))) >> 20) & 0x3;
             var5 = Number((BigInt(var1) >> 32n) & 0x7fffffffn);
             var3 = (Number(BigInt.asIntN(32, BigInt(var1))) >> 14) & 0x1f;
         }
-        arg0.field3064 = var4;
-        arg0.field3053 = var5;
-        arg0.field3060 = var3;
+        arg0.oldAngle = var4;
+        arg0.oldType = var5;
+        arg0.oldShape = var3;
     }
 
     // jag::oldscape::Client::LocChangeDoQueue
     static locChangeDoQueue(): void {
         for (let var0 = Client.locChanges.head(); var0 !== null; var0 = Client.locChanges.next()) {
-            if (var0.field3061 > 0) {
-                var0.field3061--;
+            if (var0.endTime > 0) {
+                var0.endTime--;
             }
 
-            if (var0.field3061 !== 0) {
-                if (var0.field3054 > 0) {
-                    var0.field3054--;
+            if (var0.endTime !== 0) {
+                if (var0.startTime > 0) {
+                    var0.startTime--;
                 }
 
-                if (var0.field3054 === 0 && var0.field3059 >= 1 && var0.field3052 >= 1 && var0.field3059 <= 102 && var0.field3052 <= 102 && (var0.field3051 < 0 || ClientBuild.changeLocAvailable(var0.field3062, var0.field3051))) {
-                    ClientBuild.changeLocUnchecked(var0.field3055, var0.field3063, var0.field3052, var0.field3062, var0.field3051, var0.field3068, var0.field3059);
-                    var0.field3054 = -1;
+                if (var0.startTime === 0 && var0.x >= 1 && var0.z >= 1 && var0.x <= 102 && var0.z <= 102 && (var0.newType < 0 || ClientBuild.changeLocAvailable(var0.newShape, var0.newType))) {
+                    ClientBuild.changeLocUnchecked(var0.level, var0.layer, var0.z, var0.newShape, var0.newType, var0.newAngle, var0.x);
+                    var0.startTime = -1;
 
-                    if (var0.field3051 === var0.field3053 && var0.field3053 === -1) {
+                    if (var0.newType === var0.oldType && var0.oldType === -1) {
                         var0.unlink();
-                    } else if (var0.field3051 === var0.field3053 && var0.field3064 === var0.field3068 && var0.field3060 === var0.field3062) {
+                    } else if (var0.newType === var0.oldType && var0.oldAngle === var0.newAngle && var0.oldShape === var0.newShape) {
                         var0.unlink();
                     }
                 }
-            } else if (var0.field3053 < 0 || ClientBuild.changeLocAvailable(var0.field3060, var0.field3053)) {
-                ClientBuild.changeLocUnchecked(var0.field3055, var0.field3063, var0.field3052, var0.field3060, var0.field3053, var0.field3064, var0.field3059);
+            } else if (var0.oldType < 0 || ClientBuild.changeLocAvailable(var0.oldShape, var0.oldType)) {
+                ClientBuild.changeLocUnchecked(var0.level, var0.layer, var0.z, var0.oldShape, var0.oldType, var0.oldAngle, var0.x);
                 var0.unlink();
             }
         }

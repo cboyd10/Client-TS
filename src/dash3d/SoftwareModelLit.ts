@@ -1,7 +1,6 @@
 import ModelLit from '#/dash3d/ModelLit.js';
 import Pix3D from '#/dash3d/Pix3D.js';
 import AnimFrameSet from '#/dash3d/AnimFrameSet.js';
-import Pix2D from '#/graphics/Pix2D.js';
 import type ModelUnlit from '#/dash3d/ModelUnlit.js';
 import type { SceneTag } from '#/dash3d/ModelSource.js';
 

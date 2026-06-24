@@ -1,8 +1,9 @@
+// jag::oldscape::dash3d::PointNormal
 export default class PointNormal {
+    x: number = 0;
     y: number = 0;
     z: number = 0;
     w: number = 0;
-    x: number = 0;
 
     constructor();
     constructor(arg0: PointNormal);

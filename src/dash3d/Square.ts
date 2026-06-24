@@ -8,35 +8,36 @@ import QuickGround from '#/dash3d/QuickGround.js';
 import Wall from '#/dash3d/Wall.js';
 import Decor from '#/dash3d/Decor.js';
 
+// jag::oldscape::dash3d::Square
 export default class Square extends Linkable {
-    spriteSpans: number = 0;
-    readonly spriteSpan: Int32Array = new Int32Array(5);
-    readonly sprites: (Sprite | null)[] = new Array(5).fill(null);
-    readonly z: number;
     level: number;
-    readonly originalLevel: number;
     readonly x: number;
-    backWallTypes: number = 0;
-    drawLevel: number = 0;
-    blockLocSpans: number = 0;
-    checkLocSpans: number = 0;
-    inverseBlockLocSpans: number = 0;
-    spriteCount: number = 0;
+    readonly z: number;
+    readonly originalLevel: number;
+    quickGround: QuickGround | null = null;
+    ground: Ground | null = null;
     wall: Wall | null = null;
+    decor: Decor | null = null;
     groundDecor: GroundDecor | null = null;
     groundObject: GroundObject | null = null;
-    linkedSquare: Square | null = null;
-    ground: Ground | null = null;
-    decor: Decor | null = null;
-    quickGround: QuickGround | null = null;
+    spriteCount: number = 0;
+    readonly sprites: (Sprite | null)[] = new Array(5).fill(null);
+    readonly spriteSpan: Int32Array = new Int32Array(5);
+    spriteSpans: number = 0;
+    drawLevel: number = 0;
     drawFront: boolean = false;
-    drawSprites: boolean = false;
     drawBack: boolean = false;
+    drawSprites: boolean = false;
+    checkLocSpans: number = 0;
+    blockLocSpans: number = 0;
+    inverseBlockLocSpans: number = 0;
+    backWallTypes: number = 0;
+    linkedSquare: Square | null = null;
 
-    constructor(arg0: number, arg1: number, arg2: number) {
+    constructor(level: number, x: number, z: number) {
         super();
-        this.z = arg2;
-        this.originalLevel = this.level = arg0;
-        this.x = arg1;
+        this.z = z;
+        this.originalLevel = this.level = level;
+        this.x = x;
     }
 }

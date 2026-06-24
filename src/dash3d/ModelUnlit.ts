@@ -10,57 +10,77 @@ import SoftwareModelLit from '#/dash3d/SoftwareModelLit.js';
 import type Js5 from '#/js5/Js5.js';
 
 export default class ModelUnlit extends ModelSource {
-    // unlit model
-
-    faceLabel: Int32Array | null = null;
-    minX: number = 0;
-    textureDirection: Int8Array | null = null;
-    textureSpeed: Int8Array | null = null;
-    faceVertexB: Int32Array | null = null;
-    field1519: number = 0;
-    maxX: number = 0;
-    textureRenderType: Int8Array | null = null;
-    pointX: Int32Array | null = null;
-    contrast: number = 0;
-    textureScaleZ: Int16Array | null = null;
-    pointY: Int32Array | null = null;
-    faceTextureN: Int16Array | null = null;
-    textureRotation: Int8Array | null = null;
-    maxZ: number = 0;
-    faceRenderType: Int8Array | null = null;
-    static readonly sinTable: Int32Array = Pix3D.sinTable;
-    faceColour: Int16Array | null = null;
-    vertexLabel: Int32Array | null = null;
-    textureScaleX: Int16Array | null = null;
-    static readonly shareMap: Int32Array = new Int32Array(10000);
-    static shareTic: number = 0;
-    static readonly cosTable: Int32Array = Pix3D.cosTable;
-    static readonly shareMap2: Int32Array = new Int32Array(10000);
-    numFaces: number = 0;
-    boundsCalculated: boolean = false;
+    // jag::oldscape::dash3d::ModelLit::m_numPoints
     numPoints: number = 0;
-    priority: number = 0;
-    numT: number = 0;
+
+    // jag::oldscape::dash3d::ModelLit::m_pointX
+    pointX: Int32Array | null = null;
+
+    // jag::oldscape::dash3d::ModelLit::m_pointY
+    pointY: Int32Array | null = null;
+
+    // jag::oldscape::dash3d::ModelLit::m_pointZ
+    pointZ: Int32Array | null = null;
+
+    // jag::oldscape::dash3d::ModelLit::m_numFaces
+    numFaces: number = 0;
+
+    faceVertexA: Int32Array | null = null;
+    faceVertexB: Int32Array | null = null;
+    faceVertexC: Int32Array | null = null;
+    faceRenderType: Int8Array | null = null;
     facePriority: Int8Array | null = null;
     faceAlpha: Int8Array | null = null;
-    faceTextureId: Int16Array | null = null;
     faceTextureAxis: Int8Array | null = null;
-    pointZ: Int32Array | null = null;
-    faceVertexA: Int32Array | null = null;
-    faceVertexC: Int32Array | null = null;
+    faceColour: Int16Array | null = null;
+    faceTextureId: Int16Array | null = null;
+    priority: number = 0;
+
+    // jag::oldscape::dash3d::ModelLit::m_numT
+    numT: number = 0;
+
+    textureRenderType: Int8Array | null = null;
     faceTextureP: Int16Array | null = null;
     faceTextureM: Int16Array | null = null;
+    faceTextureN: Int16Array | null = null;
+    textureScaleX: Int16Array | null = null;
     textureScaleY: Int16Array | null = null;
+    textureScaleZ: Int16Array | null = null;
+    textureRotation: Int8Array | null = null;
+    textureSpeed: Int8Array | null = null;
+    textureDirection: Int8Array | null = null;
     textureTranslation: Int8Array | null = null;
-    field1502: Int8Array | null = null;
+    vertexLabel: Int32Array | null = null;
+    faceLabel: Int32Array | null = null;
     labelVertices: (Int32Array | null)[] | null = null;
     labelFaces: (Int32Array | null)[] | null = null;
-    pointNormal: (PointNormal | null)[] | null = null;
     faceNormal: (FaceNormal | null)[] | null = null;
+    pointNormal: (PointNormal | null)[] | null = null;
     sharedPointNormal: (PointNormal | null)[] | null = null;
     ambient: number = 0;
+    contrast: number = 0;
+    boundsCalculated: boolean = false;
     maxY: number = 0;
+    minX: number = 0;
+    maxX: number = 0;
     minZ: number = 0;
+    maxZ: number = 0;
+
+    // jag::oldscape::dash3d::ModelUnlitImpl::m_shareMap
+    static readonly shareMap: Int32Array = new Int32Array(10000);
+
+    // jag::oldscape::dash3d::ModelUnlitImpl::m_shareMap2
+    static readonly shareMap2: Int32Array = new Int32Array(10000);
+
+    // jag::oldscape::dash3d::ModelUnlitImpl::m_shareTic
+    static shareTic: number = 0;
+
+    static readonly sinTable: Int32Array = Pix3D.sinTable;
+    static readonly cosTable: Int32Array = Pix3D.cosTable;
+
+    // todo: identify
+    field1519: number = 0;
+    field1502: Int8Array | null = null;
 
     static method543(arg0: Int32Array[], arg1: number, arg2: number): number {
         const var3 = arg1 >> 7;

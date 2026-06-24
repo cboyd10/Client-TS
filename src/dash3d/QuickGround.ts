@@ -1,19 +1,20 @@
+// jag::oldscape::dash3d::QuickGround
 export default class QuickGround {
-    readonly colourNW: number;
     readonly colourSW: number;
-    readonly texture: number;
+    readonly colourSE: number;
     readonly colourNE: number;
+    readonly colourNW: number;
+    readonly texture: number;
     flat: boolean = true;
     readonly minimapRgb: number;
-    readonly colourSE: number;
 
-    constructor(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: boolean) {
-        this.colourNW = arg3;
-        this.flat = arg6;
-        this.colourSW = arg0;
-        this.colourSE = arg1;
-        this.texture = arg4;
-        this.minimapRgb = arg5;
-        this.colourNE = arg2;
+    constructor(colourSW: number, colourSE: number, colourNE: number, colourNW: number, texture: number, minimapRgb: number, flat: boolean) {
+        this.colourNW = colourNW;
+        this.flat = flat;
+        this.colourSW = colourSW;
+        this.colourSE = colourSE;
+        this.texture = texture;
+        this.minimapRgb = minimapRgb;
+        this.colourNE = colourNE;
     }
 }

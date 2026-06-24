@@ -418,7 +418,7 @@ export default class LocType extends Linkable2 {
         if (var12 === null) {
             const var13 = this.buildModel(arg6, arg0);
             if (var13 === null) {
-                LocType.mc3.field3984 = null;
+                LocType.mc3.model = null;
                 return LocType.mc3;
             }
             var13.method563();
@@ -442,7 +442,7 @@ export default class LocType extends Linkable2 {
                 var12 = var12.hillSkew(this.skewType, this.skewAmount, arg2, arg1, arg3, arg7, arg5);
             }
         }
-        LocType.mc3.field3984 = var12;
+        LocType.mc3.model = var12;
         return LocType.mc3;
     }
 
@@ -472,7 +472,7 @@ export default class LocType extends Linkable2 {
             }
             var12 = var12.hillSkew(this.skewType, this.skewAmount, arg6, arg7, arg1, arg0, arg3, false);
         }
-        LocType.mc3.field3984 = var12;
+        LocType.mc3.model = var12;
         return LocType.mc3;
     }
 

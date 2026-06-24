@@ -13,7 +13,6 @@ import ClientBuild from '#/client/ClientBuild.js';
 
 import LinkList from '#/datastruct/LinkList.js';
 
-import Pix2D from '#/graphics/Pix2D.js';
 import Pix3D from '#/dash3d/Pix3D.js';
 import ModelUnlit from '#/dash3d/ModelUnlit.js';
 

@@ -2,10 +2,16 @@ import type AnimFrameSet from '#/dash3d/AnimFrameSet.js';
 import ModelSource, { type SceneTag } from '#/dash3d/ModelSource.js';
 
 export default abstract class ModelLit extends ModelSource {
+    // jag::oldscape::dash3d::MousePickingHelper::m_mouseCheck
     static mouseCheck: boolean = false;
+
+    // jag::oldscape::dash3d::MousePickingHelper::m_mouseX
     static mouseX: number = 0;
+
+    // jag::oldscape::dash3d::MousePickingHelper::m_mouseY
     static mouseY: number = 0;
 
+    // jag::oldscape::dash3d::ModelLit::m_useAABBMouseCheck
     useAABBMouseCheck: boolean = false;
 
     static method195(arg0: Int32Array[], arg1: number, arg2: number): number {

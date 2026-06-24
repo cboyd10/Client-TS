@@ -1,46 +1,5 @@
+// jag::oldscape::dash3d::Ground
 export default class Ground {
-    // prettier-ignore
-    static readonly defShapeP: Int8Array[] = [
-    Int8Array.of(1, 3, 5, 7),
-    Int8Array.of(1, 3, 5, 7),
-    Int8Array.of(1, 3, 5, 7),
-    Int8Array.of(1, 3, 5, 7, 6),
-    Int8Array.of(1, 3, 5, 7, 6),
-    Int8Array.of(1, 3, 5, 7, 6),
-    Int8Array.of(1, 3, 5, 7, 6),
-    Int8Array.of(1, 3, 5, 7, 2, 6),
-    Int8Array.of(1, 3, 5, 7, 2, 8),
-    Int8Array.of(1, 3, 5, 7, 2, 8),
-    Int8Array.of(1, 3, 5, 7, 11, 12),
-    Int8Array.of(1, 3, 5, 7, 11, 12),
-    Int8Array.of(1, 3, 5, 7, 13, 14)
-    ]; // shape points
-
-    // prettier-ignore
-    static readonly defShapeF: Int8Array[] = [
-    Int8Array.of(0, 1, 2, 3, 0, 0, 1, 3),
-    Int8Array.of(1, 1, 2, 3, 1, 0, 1, 3),
-    Int8Array.of(0, 1, 2, 3, 1, 0, 1, 3),
-    Int8Array.of(0, 0, 1, 2, 0, 0, 2, 4, 1, 0, 4, 3),
-    Int8Array.of(0, 0, 1, 4, 0, 0, 4, 3, 1, 1, 2, 4),
-    Int8Array.of(0, 0, 4, 3, 1, 0, 1, 2, 1, 0, 2, 4),
-    Int8Array.of(0, 1, 2, 4, 1, 0, 1, 4, 1, 0, 4, 3),
-    Int8Array.of(0, 4, 1, 2, 0, 4, 2, 5, 1, 0, 4, 5, 1, 0, 5, 3),
-    Int8Array.of(0, 4, 1, 2, 0, 4, 2, 3, 0, 4, 3, 5, 1, 0, 4, 5),
-    Int8Array.of(0, 0, 4, 5, 1, 4, 1, 2, 1, 4, 2, 3, 1, 4, 3, 5),
-    Int8Array.of(0, 0, 1, 5, 0, 1, 4, 5, 0, 1, 2, 4, 1, 0, 5, 3, 1, 5, 4, 3, 1, 4, 2, 3),
-    Int8Array.of(1, 0, 1, 5, 1, 1, 4, 5, 1, 1, 2, 4, 0, 0, 5, 3, 0, 5, 4, 3, 0, 4, 2, 3),
-    Int8Array.of(1, 0, 5, 4, 1, 0, 1, 5, 0, 0, 4, 3, 0, 4, 5, 3, 0, 5, 2, 3, 0, 1, 2, 5)
-    ]; // shape faces
-
-    static readonly drawVertexX: Int32Array = new Int32Array(6);
-    static readonly drawVertexY: Int32Array = new Int32Array(6);
-    static readonly drawTextureVertexX: Int32Array = new Int32Array(6);
-    static readonly drawTextureVertexY: Int32Array = new Int32Array(6);
-    static readonly drawTextureVertexZ: Int32Array = new Int32Array(6);
-
-    // ----
-
     readonly vertexX: Int32Array;
     readonly vertexY: Int32Array;
     readonly vertexZ: Int32Array;
@@ -52,14 +11,55 @@ export default class Ground {
     readonly faceVertexC: Int32Array;
     faceTexture: Int32Array | null = null;
     flat: boolean = true;
-    readonly minimapUnderlay: number;
-    readonly minimapOverlay: number;
     readonly overlayShape: number;
     readonly overlayRotation: number;
+    readonly minimapOverlay: number;
+    readonly minimapUnderlay: number;
+    static readonly drawVertexX: Int32Array = new Int32Array(6);
+    static readonly drawVertexY: Int32Array = new Int32Array(6);
+    static readonly drawTextureVertexX: Int32Array = new Int32Array(6);
+    static readonly drawTextureVertexY: Int32Array = new Int32Array(6);
+    static readonly drawTextureVertexZ: Int32Array = new Int32Array(6);
+
+    // jag::oldscape::dash3d::Ground::m_defShapeP
+    // prettier-ignore
+    static readonly defShapeP: Int8Array[] = [
+        Int8Array.of(1, 3, 5, 7),
+        Int8Array.of(1, 3, 5, 7),
+        Int8Array.of(1, 3, 5, 7),
+        Int8Array.of(1, 3, 5, 7, 6),
+        Int8Array.of(1, 3, 5, 7, 6),
+        Int8Array.of(1, 3, 5, 7, 6),
+        Int8Array.of(1, 3, 5, 7, 6),
+        Int8Array.of(1, 3, 5, 7, 2, 6),
+        Int8Array.of(1, 3, 5, 7, 2, 8),
+        Int8Array.of(1, 3, 5, 7, 2, 8),
+        Int8Array.of(1, 3, 5, 7, 11, 12),
+        Int8Array.of(1, 3, 5, 7, 11, 12),
+        Int8Array.of(1, 3, 5, 7, 13, 14)
+    ]; // shape points
+
+    // jag::oldscape::dash3d::Ground::m_defShapeF
+    // prettier-ignore
+    static readonly defShapeF: Int8Array[] = [
+        Int8Array.of(0, 1, 2, 3, 0, 0, 1, 3),
+        Int8Array.of(1, 1, 2, 3, 1, 0, 1, 3),
+        Int8Array.of(0, 1, 2, 3, 1, 0, 1, 3),
+        Int8Array.of(0, 0, 1, 2, 0, 0, 2, 4, 1, 0, 4, 3),
+        Int8Array.of(0, 0, 1, 4, 0, 0, 4, 3, 1, 1, 2, 4),
+        Int8Array.of(0, 0, 4, 3, 1, 0, 1, 2, 1, 0, 2, 4),
+        Int8Array.of(0, 1, 2, 4, 1, 0, 1, 4, 1, 0, 4, 3),
+        Int8Array.of(0, 4, 1, 2, 0, 4, 2, 5, 1, 0, 4, 5, 1, 0, 5, 3),
+        Int8Array.of(0, 4, 1, 2, 0, 4, 2, 3, 0, 4, 3, 5, 1, 0, 4, 5),
+        Int8Array.of(0, 0, 4, 5, 1, 4, 1, 2, 1, 4, 2, 3, 1, 4, 3, 5),
+        Int8Array.of(0, 0, 1, 5, 0, 1, 4, 5, 0, 1, 2, 4, 1, 0, 5, 3, 1, 5, 4, 3, 1, 4, 2, 3),
+        Int8Array.of(1, 0, 1, 5, 1, 1, 4, 5, 1, 1, 2, 4, 0, 0, 5, 3, 0, 5, 4, 3, 0, 4, 2, 3),
+        Int8Array.of(1, 0, 5, 4, 1, 0, 1, 5, 0, 0, 4, 3, 0, 4, 5, 3, 0, 5, 2, 3, 0, 1, 2, 5)
+    ]; // shape faces
 
     constructor(
-        arg0: number,
-        arg1: number,
+        overlayShape: number,
+        overlayRotation: number,
         arg2: number,
         arg3: number,
         arg4: number,
@@ -75,17 +75,17 @@ export default class Ground {
         arg14: number,
         arg15: number,
         arg16: number,
-        arg17: number,
-        arg18: number
+        minimapOverlay: number,
+        minimapUnderlay: number
     ) {
         if (arg5 !== arg6 || arg5 !== arg7 || arg5 !== arg8) {
             this.flat = false;
         }
-        this.overlayShape = arg0;
-        this.overlayRotation = arg1;
-        this.minimapOverlay = arg17;
-        this.minimapUnderlay = arg18;
-        const var20 = Ground.defShapeP[arg0];
+        this.overlayShape = overlayShape;
+        this.overlayRotation = overlayRotation;
+        this.minimapOverlay = minimapOverlay;
+        this.minimapUnderlay = minimapUnderlay;
+        const var20 = Ground.defShapeP[overlayShape];
         const var21 = var20.length;
         this.vertexX = new Int32Array(var21);
         this.vertexY = new Int32Array(var21);
@@ -97,13 +97,13 @@ export default class Ground {
         for (let var26 = 0; var26 < var21; var26++) {
             let var27 = var20[var26];
             if ((var27 & 0x1) === 0 && var27 <= 8) {
-                var27 = ((var27 - arg1 - arg1 - 1) & 0x7) + 1;
+                var27 = ((var27 - overlayRotation - overlayRotation - 1) & 0x7) + 1;
             }
             if (var27 > 8 && var27 <= 12) {
-                var27 = ((var27 - arg1 - 9) & 0x3) + 9;
+                var27 = ((var27 - overlayRotation - 9) & 0x3) + 9;
             }
             if (var27 > 12 && var27 <= 16) {
-                var27 = ((var27 - arg1 - 13) & 0x3) + 13;
+                var27 = ((var27 - overlayRotation - 13) & 0x3) + 13;
             }
             let var28: number;
             let var29: number;
@@ -213,7 +213,7 @@ export default class Ground {
             var22[var26] = var31;
             var23[var26] = var32;
         }
-        const var33 = Ground.defShapeF[arg0];
+        const var33 = Ground.defShapeF[overlayShape];
         const var34 = (var33.length / 4) | 0;
         this.faceVertexA = new Int32Array(var34);
         this.faceVertexB = new Int32Array(var34);
@@ -232,13 +232,13 @@ export default class Ground {
             let var40 = var33[var35 + 3];
             var35 += 4;
             if (var38 < 4) {
-                var38 = (var38 - arg1) & 0x3;
+                var38 = (var38 - overlayRotation) & 0x3;
             }
             if (var39 < 4) {
-                var39 = (var39 - arg1) & 0x3;
+                var39 = (var39 - overlayRotation) & 0x3;
             }
             if (var40 < 4) {
-                var40 = (var40 - arg1) & 0x3;
+                var40 = (var40 - overlayRotation) & 0x3;
             }
             this.faceVertexA[var36] = var38;
             this.faceVertexB[var36] = var39;

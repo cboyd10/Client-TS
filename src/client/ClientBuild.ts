@@ -569,7 +569,7 @@ export default class ClientBuild {
                 let var27: ModelSource | null;
                 if (var10.anim === -1 && var10.multiloc === null) {
                     const var26 = var10.getModel(22, var21, var17, var18, arg0, var20, arg2, var19);
-                    var27 = var26.field3984;
+                    var27 = var26.model;
                 } else {
                     var27 = new ClientLocAnim(arg5, 22, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
                 }
@@ -582,7 +582,7 @@ export default class ClientBuild {
             let var29: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var28 = var10.getModel(10, var21, var17, var18, arg0, var20, arg2, var19);
-                var29 = var28.field3984;
+                var29 = var28.model;
             } else {
                 var29 = new ClientLocAnim(arg5, 10, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -612,7 +612,7 @@ export default class ClientBuild {
             let var35: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var34 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
-                var35 = var34.field3984;
+                var35 = var34.model;
             } else {
                 var35 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -627,7 +627,7 @@ export default class ClientBuild {
             let var36: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var37 = var10.getModel(0, var21, var17, var18, arg0, var20, arg2, var19);
-                var36 = var37.field3984;
+                var36 = var37.model;
             } else {
                 var36 = new ClientLocAnim(arg5, 0, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -677,7 +677,7 @@ export default class ClientBuild {
             let var38: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var39 = var10.getModel(1, var21, var17, var18, arg0, var20, arg2, var19);
-                var38 = var39.field3984;
+                var38 = var39.model;
             } else {
                 var38 = new ClientLocAnim(arg5, 1, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -702,9 +702,9 @@ export default class ClientBuild {
             let var42: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var43 = var10.getModel(2, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-                var41 = var43.field3984;
+                var41 = var43.model;
                 const var44 = var10.getModel(2, var21, var17, var18, arg0, var20, var40, var19);
-                var42 = var44.field3984;
+                var42 = var44.model;
             } else {
                 var41 = new ClientLocAnim(arg5, 2, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
                 var42 = new ClientLocAnim(arg5, 2, var40, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
@@ -735,7 +735,7 @@ export default class ClientBuild {
             let var46: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var45 = var10.getModel(3, var21, var17, var18, arg0, var20, arg2, var19);
-                var46 = var45.field3984;
+                var46 = var45.model;
             } else {
                 var46 = new ClientLocAnim(arg5, 3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -758,7 +758,7 @@ export default class ClientBuild {
             let var47: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var48 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
-                var47 = var48.field3984;
+                var47 = var48.model;
             } else {
                 var47 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -773,7 +773,7 @@ export default class ClientBuild {
             let var49: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var50 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
-                var49 = var50.field3984;
+                var49 = var50.model;
             } else {
                 var49 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -787,7 +787,7 @@ export default class ClientBuild {
             let var54: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var55 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
-                var54 = var55.field3984;
+                var54 = var55.model;
             } else {
                 var54 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -801,7 +801,7 @@ export default class ClientBuild {
             let var59: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var60 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-                var59 = var60.field3984;
+                var59 = var60.model;
             } else {
                 var59 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -811,7 +811,7 @@ export default class ClientBuild {
             let var63: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var62 = var10.getModel(4, var21, var17, var18, arg0, var20, var61 + 4, var19);
-                var63 = var62.field3984;
+                var63 = var62.model;
             } else {
                 var63 = new ClientLocAnim(arg5, 4, var61 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
             }
@@ -827,9 +827,9 @@ export default class ClientBuild {
             let var69: ModelSource | null;
             if (var10.anim === -1 && var10.multiloc === null) {
                 const var70 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-                var68 = var70.field3984;
+                var68 = var70.model;
                 const var71 = var10.getModel(4, var21, var17, var18, arg0, var20, var67 + 4, var19);
-                var69 = var71.field3984;
+                var69 = var71.model;
             } else {
                 var68 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
                 var69 = new ClientLocAnim(arg5, 4, var67 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);

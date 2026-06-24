@@ -90,7 +90,7 @@ export default class ClientLocAnim extends ModelSource {
         } else {
             var14 = var2.getTempModel(var10, var11, this.shape, var13, this.animFrame, this.anim, var9, var12, this.angle);
         }
-        return var14 === null ? null : var14.field3984;
+        return var14 === null ? null : var14.model;
     }
 
     override method87(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: SceneTag): void {

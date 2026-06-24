@@ -2,54 +2,94 @@ import Pix2D from '#/graphics/Pix2D.js';
 import type TextureProvider from '#/dash3d/TextureProvider.js';
 import IntMath from '#/util/IntMath.js';
 
+// jag::oldscape::dash3d::Pix3D
 export default class Pix3D {
-    static brightness: number = 1.0;
+    // jag::oldscape::dash3d::Pix3D::SetHClip
+    static hclip: boolean = false;
+
+    static opaque: boolean = false;
+    static lowMem: boolean = false;
+
+    // jag::oldscape::dash3d::Pix3D::SetLowDetail
+    static lowDetail: boolean = true;
+
+    // jag::oldscape::dash3d::Pix3D::SetTrans
     static trans: number = 0;
-    static readonly colourTable: Int32Array = new Int32Array(65536);
+
+    static originX: number = 0;
+    static originY: number = 0;
     static sizeX: number = 0;
     static sizeY: number = 0;
-    static readonly divTable2: Int32Array = new Int32Array(2048);
-    static opaque: boolean = false;
-    static readonly cosTable: Int32Array = new Int32Array(2048);
-    static lowDetail: boolean = true;
-    static textureManager: TextureProvider;
-
-    static readonly divTable: Int32Array = new Int32Array(512);
-    static hclip: boolean = false;
-    static readonly sinTable: Int32Array = new Int32Array(2048);
-    static scanline: Int32Array = new Int32Array(1024);
-    static originY: number = 0;
-    static lowMem: boolean = false;
-    static originX: number = 0;
-    static textureFallback: boolean = false;
     static minX: number = 0;
     static maxX: number = 0;
     static minY: number = 0;
     static maxY: number = 0;
+    static scanline: Int32Array = new Int32Array(1024);
+
+    // jag::oldscape::dash3d::Pix3D::m_colourTable
+    static readonly colourTable: Int32Array = new Int32Array(65536);
+
+    static textureManager: TextureProvider;
+
+    // jag::oldscape::dash3d::Pix3D::m_divTable
+    static readonly divTable: Int32Array = new Int32Array(512);
+
+    // jag::oldscape::dash3d::Pix3D::m_divTable2
+    static readonly divTable2: Int32Array = new Int32Array(2048);
+
+    // jag::oldscape::dash3d::Pix3D::m_sinTable
+    static readonly sinTable: Int32Array = new Int32Array(2048);
+
+    // jag::oldscape::dash3d::Pix3D::m_cosTable
+    static readonly cosTable: Int32Array = new Int32Array(2048);
+
+    static brightness: number = 1.0;
+    static textureFallback: boolean = false;
 
     static {
-        for (let var0: number = 1; var0 < 512; var0++) {
-            Pix3D.divTable[var0] = (32768 / var0) | 0;
+        for (let i: number = 1; i < 512; i++) {
+            Pix3D.divTable[i] = (32768 / i) | 0;
         }
 
-        for (let var1: number = 1; var1 < 2048; var1++) {
-            Pix3D.divTable2[var1] = (65536 / var1) | 0;
+        for (let i: number = 1; i < 2048; i++) {
+            Pix3D.divTable2[i] = (65536 / i) | 0;
         }
 
-        for (let var2: number = 0; var2 < 2048; var2++) {
-            Pix3D.sinTable[var2] = (Math.sin(var2 * 0.0030679615) * 65536.0) | 0;
-            Pix3D.cosTable[var2] = (Math.cos(var2 * 0.0030679615) * 65536.0) | 0;
+        for (let i: number = 0; i < 2048; i++) {
+            Pix3D.sinTable[i] = (Math.sin(i * 0.0030679615) * 65536.0) | 0;
+            Pix3D.cosTable[i] = (Math.cos(i * 0.0030679615) * 65536.0) | 0;
         }
     }
 
-    static setHClip(arg0: number, arg1: number, arg2: number): void {
-        Pix3D.hclip = arg0 < 0 || arg0 > Pix3D.sizeX || arg1 < 0 || arg1 > Pix3D.sizeX || arg2 < 0 || arg2 > Pix3D.sizeX;
+    // jag::oldscape::dash3d::Pix3D::SetRenderClipping
+    static setRenderClipping(): void {
+        Pix3D.setClipping(Pix2D.clipMinX, Pix2D.clipMinY, Pix2D.clipMaxX, Pix2D.clipMaxY);
+    }
+
+    // jag::oldscape::dash3d::Pix3D::SetClipping
+    static setClipping(arg0: number, arg1: number, arg2: number, arg3: number): void {
+        Pix3D.sizeX = arg2 - arg0;
+        Pix3D.sizeY = arg3 - arg1;
+        Pix3D.resetOrigin();
+        if (Pix3D.scanline.length < Pix3D.sizeY) {
+            Pix3D.scanline = new Int32Array(IntMath.bitceil(Pix3D.sizeY));
+        }
+        let var4 = arg1 * Pix2D.width + arg0;
+        for (let var5: number = 0; var5 < Pix3D.sizeY; var5++) {
+            Pix3D.scanline[var5] = var4;
+            var4 += Pix2D.width;
+        }
     }
 
     static getClipX(): number {
         return Pix3D.scanline[0] % Pix2D.width;
     }
 
+    static getClipY(): number {
+        return (Pix3D.scanline[0] / Pix2D.width) | 0;
+    }
+
+    // jag::oldscape::dash3d::Pix3D::ResetOrigin
     static resetOrigin(): void {
         Pix3D.originX = (Pix3D.sizeX / 2) | 0;
         Pix3D.originY = (Pix3D.sizeY / 2) | 0;
@@ -59,11 +99,30 @@ export default class Pix3D {
         Pix3D.maxY = Pix3D.sizeY - Pix3D.originY;
     }
 
+    // jag::oldscape::dash3d::Pix3D::SetOrigin
+    static setOrigin(arg0: number, arg1: number): void {
+        const var2 = Pix3D.scanline[0];
+        const var3 = (var2 / Pix2D.width) | 0;
+        const var4 = var2 - var3 * Pix2D.width;
+        Pix3D.originX = arg0 - var4;
+        Pix3D.originY = arg1 - var3;
+        Pix3D.minX = -Pix3D.originX;
+        Pix3D.maxX = Pix3D.sizeX - Pix3D.originX;
+        Pix3D.minY = -Pix3D.originY;
+        Pix3D.maxY = Pix3D.sizeY - Pix3D.originY;
+    }
+
+    // jag::oldscape::dash3d::Pix3D::SetTextures
+    static setTextures(arg0: TextureProvider): void {
+        Pix3D.textureManager = arg0;
+    }
+
     static setBrightness(arg0: number): void {
         Pix3D.brightness = arg0;
         Pix3D.brightness = Pix3D.brightness + Math.random() * 0.03 - 0.015;
     }
 
+    // jag::oldscape::dash3d::Pix3D::InitColourTable
     static initColourTable(): void;
     static initColourTable(brightness: number): void;
     static initColourTable(brightness?: number): void {
@@ -149,14 +208,9 @@ export default class Pix3D {
         }
     }
 
-    static textureLightColour(arg0: number, arg1: number): number {
-        let var2 = (arg1 * (arg0 & 0x7f)) >> 7;
-        if (var2 < 2) {
-            var2 = 2;
-        } else if (var2 > 126) {
-            var2 = 126;
-        }
-        return (arg0 & 0xff80) + var2;
+    // jag::oldscape::dash3d::Pix3D::SetHClip
+    static setHClip(arg0: number, arg1: number, arg2: number): void {
+        Pix3D.hclip = arg0 < 0 || arg0 > Pix3D.sizeX || arg1 < 0 || arg1 > Pix3D.sizeX || arg2 < 0 || arg2 > Pix3D.sizeX;
     }
 
     static gouraudTriangle(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: number): void {
@@ -612,18 +666,6 @@ export default class Pix3D {
                 }
             }
         }
-    }
-
-    static setOrigin(arg0: number, arg1: number): void {
-        const var2 = Pix3D.scanline[0];
-        const var3 = (var2 / Pix2D.width) | 0;
-        const var4 = var2 - var3 * Pix2D.width;
-        Pix3D.originX = arg0 - var4;
-        Pix3D.originY = arg1 - var3;
-        Pix3D.minX = -Pix3D.originX;
-        Pix3D.maxX = Pix3D.sizeX - Pix3D.originX;
-        Pix3D.minY = -Pix3D.originY;
-        Pix3D.maxY = Pix3D.sizeY - Pix3D.originY;
     }
 
     static gouraudRaster(arg0: Int32Array, arg1: number, arg2: number, arg3: number, arg4: number, arg5: number): void {
@@ -1120,18 +1162,6 @@ export default class Pix3D {
                 }
             }
         }
-    }
-
-    static getClipY(): number {
-        return (Pix3D.scanline[0] / Pix2D.width) | 0;
-    }
-
-    static setRenderClipping(): void {
-        Pix3D.setClipping(Pix2D.clipMinX, Pix2D.clipMinY, Pix2D.clipMaxX, Pix2D.clipMaxY);
-    }
-
-    static setTextures(arg0: TextureProvider): void {
-        Pix3D.textureManager = arg0;
     }
 
     static flatRaster(arg0: Int32Array, arg1: number, arg2: number, arg3: number, arg4: number): void {
@@ -1802,6 +1832,373 @@ export default class Pix3D {
         }
     }
 
+    static textureRaster(arg0: Int32Array, arg1: Int32Array, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: number, arg9: number, arg10: number, arg11: number, arg12: number): void {
+        if (Pix3D.hclip) {
+            if (arg4 > Pix3D.sizeX) {
+                arg4 = Pix3D.sizeX;
+            }
+            if (arg3 < 0) {
+                arg3 = 0;
+            }
+        }
+        if (arg3 >= arg4) {
+            return;
+        }
+        let var13 = arg2 + arg3;
+        let var14 = (arg5 + arg6 * arg3) | 0;
+        const var15 = arg4 - arg3;
+
+        if (!Pix3D.lowMem) {
+            const var74 = arg3 - Pix3D.originX;
+            const var75 = (arg7 + (((arg10 >> 3) * var74) | 0)) | 0;
+            const var76 = (arg8 + (((arg11 >> 3) * var74) | 0)) | 0;
+            const var77 = (arg9 + (((arg12 >> 3) * var74) | 0)) | 0;
+            const var78 = var77 >> 14;
+            let var79: number;
+            let var80: number;
+            if (var78 === 0) {
+                var79 = 0;
+                var80 = 0;
+            } else {
+                var79 = Math.trunc(var75 / var78) | 0;
+                var80 = Math.trunc(var76 / var78) | 0;
+            }
+            let var81 = (var75 + arg10) | 0;
+            let var82 = (var76 + arg11) | 0;
+            let var83 = (var77 + arg12) | 0;
+            let var84 = var83 >> 14;
+            let var85: number;
+            let var86: number;
+            if (var84 === 0) {
+                var85 = 0;
+                var86 = 0;
+            } else {
+                var85 = Math.trunc(var81 / var84) | 0;
+                var86 = Math.trunc(var82 / var84) | 0;
+            }
+            let var87 = ((var79 << 18) + var80) | 0;
+            let var88 = ((((var85 - var79) >> 3) << 18) + ((var86 - var80) >> 3)) | 0;
+            let var89 = var15 >> 3;
+            const var90 = arg6 << 3;
+            let var91 = var14 >> 8;
+            if (Pix3D.opaque) {
+                if (var89 > 0) {
+                    do {
+                        const var92 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
+                        arg0[var13++] = ((((var92 & 0xff00ff) * var91) & 0xff00ff00) + (((var92 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var93 = var87 + var88;
+                        const var94 = arg1[(var93 & 0x3f80) + (var93 >>> 25)];
+                        arg0[var13++] = ((((var94 & 0xff00ff) * var91) & 0xff00ff00) + (((var94 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var95 = var93 + var88;
+                        const var96 = arg1[(var95 & 0x3f80) + (var95 >>> 25)];
+                        arg0[var13++] = ((((var96 & 0xff00ff) * var91) & 0xff00ff00) + (((var96 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var97 = var95 + var88;
+                        const var98 = arg1[(var97 & 0x3f80) + (var97 >>> 25)];
+                        arg0[var13++] = ((((var98 & 0xff00ff) * var91) & 0xff00ff00) + (((var98 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var99 = var97 + var88;
+                        const var100 = arg1[(var99 & 0x3f80) + (var99 >>> 25)];
+                        arg0[var13++] = ((((var100 & 0xff00ff) * var91) & 0xff00ff00) + (((var100 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var101 = var99 + var88;
+                        const var102 = arg1[(var101 & 0x3f80) + (var101 >>> 25)];
+                        arg0[var13++] = ((((var102 & 0xff00ff) * var91) & 0xff00ff00) + (((var102 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var103 = var101 + var88;
+                        const var104 = arg1[(var103 & 0x3f80) + (var103 >>> 25)];
+                        arg0[var13++] = ((((var104 & 0xff00ff) * var91) & 0xff00ff00) + (((var104 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var105 = var103 + var88;
+                        const var106 = arg1[(var105 & 0x3f80) + (var105 >>> 25)];
+                        arg0[var13++] = ((((var106 & 0xff00ff) * var91) & 0xff00ff00) + (((var106 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        const var107 = var85;
+                        const var108 = var86;
+                        var81 = (var81 + arg10) | 0;
+                        var82 = (var82 + arg11) | 0;
+                        var83 = (var83 + arg12) | 0;
+                        const var109 = var83 >> 14;
+                        if (var109 === 0) {
+                            var85 = 0;
+                            var86 = 0;
+                        } else {
+                            var85 = Math.trunc(var81 / var109) | 0;
+                            var86 = Math.trunc(var82 / var109) | 0;
+                        }
+                        var87 = ((var107 << 18) + var108) | 0;
+                        var88 = ((((var85 - var107) >> 3) << 18) + ((var86 - var108) >> 3)) | 0;
+                        var14 = (var14 + var90) | 0;
+                        var91 = var14 >> 8;
+                        var89--;
+                    } while (var89 > 0);
+                }
+                let var110 = (arg4 - arg3) & 0x7;
+                if (var110 > 0) {
+                    do {
+                        const var111 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
+                        arg0[var13++] = ((((var111 & 0xff00ff) * var91) & 0xff00ff00) + (((var111 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        var87 = (var87 + var88) | 0;
+                        var110--;
+                    } while (var110 > 0);
+                    return;
+                }
+            } else {
+                if (var89 > 0) {
+                    do {
+                        const var112 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
+                        if (var112 !== 0) {
+                            arg0[var13] = ((((var112 & 0xff00ff) * var91) & 0xff00ff00) + (((var112 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var113 = var87 + var88;
+                        const var114 = arg1[(var113 & 0x3f80) + (var113 >>> 25)];
+                        if (var114 !== 0) {
+                            arg0[var13] = ((((var114 & 0xff00ff) * var91) & 0xff00ff00) + (((var114 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var115 = var113 + var88;
+                        const var116 = arg1[(var115 & 0x3f80) + (var115 >>> 25)];
+                        if (var116 !== 0) {
+                            arg0[var13] = ((((var116 & 0xff00ff) * var91) & 0xff00ff00) + (((var116 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var117 = var115 + var88;
+                        const var118 = arg1[(var117 & 0x3f80) + (var117 >>> 25)];
+                        if (var118 !== 0) {
+                            arg0[var13] = ((((var118 & 0xff00ff) * var91) & 0xff00ff00) + (((var118 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var119 = var117 + var88;
+                        const var120 = arg1[(var119 & 0x3f80) + (var119 >>> 25)];
+                        if (var120 !== 0) {
+                            arg0[var13] = ((((var120 & 0xff00ff) * var91) & 0xff00ff00) + (((var120 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var121 = var119 + var88;
+                        const var122 = arg1[(var121 & 0x3f80) + (var121 >>> 25)];
+                        if (var122 !== 0) {
+                            arg0[var13] = ((((var122 & 0xff00ff) * var91) & 0xff00ff00) + (((var122 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var123 = var121 + var88;
+                        const var124 = arg1[(var123 & 0x3f80) + (var123 >>> 25)];
+                        if (var124 !== 0) {
+                            arg0[var13] = ((((var124 & 0xff00ff) * var91) & 0xff00ff00) + (((var124 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var125 = var123 + var88;
+                        const var126 = arg1[(var125 & 0x3f80) + (var125 >>> 25)];
+                        if (var126 !== 0) {
+                            arg0[var13] = ((((var126 & 0xff00ff) * var91) & 0xff00ff00) + (((var126 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        const var127 = var85;
+                        const var128 = var86;
+                        var81 = (var81 + arg10) | 0;
+                        var82 = (var82 + arg11) | 0;
+                        var83 = (var83 + arg12) | 0;
+                        const var129 = var83 >> 14;
+                        if (var129 === 0) {
+                            var85 = 0;
+                            var86 = 0;
+                        } else {
+                            var85 = Math.trunc(var81 / var129) | 0;
+                            var86 = Math.trunc(var82 / var129) | 0;
+                        }
+                        var87 = ((var127 << 18) + var128) | 0;
+                        var88 = ((((var85 - var127) >> 3) << 18) + ((var86 - var128) >> 3)) | 0;
+                        var14 = (var14 + var90) | 0;
+                        var91 = var14 >> 8;
+                        var89--;
+                    } while (var89 > 0);
+                }
+                let var130 = (arg4 - arg3) & 0x7;
+                if (var130 > 0) {
+                    do {
+                        const var131 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
+                        if (var131 !== 0) {
+                            arg0[var13] = ((((var131 & 0xff00ff) * var91) & 0xff00ff00) + (((var131 & 0xff00) * var91) & 0xff0000)) >> 8;
+                        }
+                        var13++;
+                        var87 = (var87 + var88) | 0;
+                        var130--;
+                    } while (var130 > 0);
+                }
+            }
+            return;
+        }
+
+        const var16 = arg3 - Pix3D.originX;
+        const var17 = (arg7 + (((arg10 >> 3) * var16) | 0)) | 0;
+        const var18 = (arg8 + (((arg11 >> 3) * var16) | 0)) | 0;
+        const var19 = (arg9 + (((arg12 >> 3) * var16) | 0)) | 0;
+        const var20 = var19 >> 12;
+        let var21: number;
+        let var22: number;
+        if (var20 === 0) {
+            var21 = 0;
+            var22 = 0;
+        } else {
+            var21 = Math.trunc(var17 / var20) | 0;
+            var22 = Math.trunc(var18 / var20) | 0;
+        }
+        let var23 = (var17 + arg10) | 0;
+        let var24 = (var18 + arg11) | 0;
+        let var25 = (var19 + arg12) | 0;
+        let var26 = var25 >> 12;
+        let var27: number;
+        let var28: number;
+        if (var26 === 0) {
+            var27 = 0;
+            var28 = 0;
+        } else {
+            var27 = Math.trunc(var23 / var26) | 0;
+            var28 = Math.trunc(var24 / var26) | 0;
+        }
+        let var29 = ((var21 << 20) + var22) | 0;
+        let var30 = ((((var27 - var21) >> 3) << 20) + ((var28 - var22) >> 3)) | 0;
+        let var31 = var15 >> 3;
+        const var32 = arg6 << 3;
+        let var33 = var14 >> 8;
+        if (Pix3D.opaque) {
+            if (var31 > 0) {
+                do {
+                    const var34 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
+                    arg0[var13++] = ((((var34 & 0xff00ff) * var33) & 0xff00ff00) + (((var34 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var35 = var29 + var30;
+                    const var36 = arg1[(var35 & 0xfc0) + (var35 >>> 26)];
+                    arg0[var13++] = ((((var36 & 0xff00ff) * var33) & 0xff00ff00) + (((var36 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var37 = var35 + var30;
+                    const var38 = arg1[(var37 & 0xfc0) + (var37 >>> 26)];
+                    arg0[var13++] = ((((var38 & 0xff00ff) * var33) & 0xff00ff00) + (((var38 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var39 = var37 + var30;
+                    const var40 = arg1[(var39 & 0xfc0) + (var39 >>> 26)];
+                    arg0[var13++] = ((((var40 & 0xff00ff) * var33) & 0xff00ff00) + (((var40 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var41 = var39 + var30;
+                    const var42 = arg1[(var41 & 0xfc0) + (var41 >>> 26)];
+                    arg0[var13++] = ((((var42 & 0xff00ff) * var33) & 0xff00ff00) + (((var42 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var43 = var41 + var30;
+                    const var44 = arg1[(var43 & 0xfc0) + (var43 >>> 26)];
+                    arg0[var13++] = ((((var44 & 0xff00ff) * var33) & 0xff00ff00) + (((var44 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var45 = var43 + var30;
+                    const var46 = arg1[(var45 & 0xfc0) + (var45 >>> 26)];
+                    arg0[var13++] = ((((var46 & 0xff00ff) * var33) & 0xff00ff00) + (((var46 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var47 = var45 + var30;
+                    const var48 = arg1[(var47 & 0xfc0) + (var47 >>> 26)];
+                    arg0[var13++] = ((((var48 & 0xff00ff) * var33) & 0xff00ff00) + (((var48 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    const var49 = var27;
+                    const var50 = var28;
+                    var23 = (var23 + arg10) | 0;
+                    var24 = (var24 + arg11) | 0;
+                    var25 = (var25 + arg12) | 0;
+                    const var51 = var25 >> 12;
+                    if (var51 === 0) {
+                        var27 = 0;
+                        var28 = 0;
+                    } else {
+                        var27 = Math.trunc(var23 / var51) | 0;
+                        var28 = Math.trunc(var24 / var51) | 0;
+                    }
+                    var29 = ((var49 << 20) + var50) | 0;
+                    var30 = ((((var27 - var49) >> 3) << 20) + ((var28 - var50) >> 3)) | 0;
+                    var14 = (var14 + var32) | 0;
+                    var33 = var14 >> 8;
+                    var31--;
+                } while (var31 > 0);
+            }
+            let var52 = (arg4 - arg3) & 0x7;
+            if (var52 > 0) {
+                do {
+                    const var53 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
+                    arg0[var13++] = ((((var53 & 0xff00ff) * var33) & 0xff00ff00) + (((var53 & 0xff00) * var33) & 0xff0000)) >> 8;
+                    var29 = (var29 + var30) | 0;
+                    var52--;
+                } while (var52 > 0);
+                return;
+            }
+            return;
+        }
+        if (var31 > 0) {
+            do {
+                const var54 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
+                if (var54 !== 0) {
+                    arg0[var13] = ((((var54 & 0xff00ff) * var33) & 0xff00ff00) + (((var54 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var55 = var29 + var30;
+                const var56 = arg1[(var55 & 0xfc0) + (var55 >>> 26)];
+                if (var56 !== 0) {
+                    arg0[var13] = ((((var56 & 0xff00ff) * var33) & 0xff00ff00) + (((var56 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var57 = var55 + var30;
+                const var58 = arg1[(var57 & 0xfc0) + (var57 >>> 26)];
+                if (var58 !== 0) {
+                    arg0[var13] = ((((var58 & 0xff00ff) * var33) & 0xff00ff00) + (((var58 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var59 = var57 + var30;
+                const var60 = arg1[(var59 & 0xfc0) + (var59 >>> 26)];
+                if (var60 !== 0) {
+                    arg0[var13] = ((((var60 & 0xff00ff) * var33) & 0xff00ff00) + (((var60 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var61 = var59 + var30;
+                const var62 = arg1[(var61 & 0xfc0) + (var61 >>> 26)];
+                if (var62 !== 0) {
+                    arg0[var13] = ((((var62 & 0xff00ff) * var33) & 0xff00ff00) + (((var62 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var63 = var61 + var30;
+                const var64 = arg1[(var63 & 0xfc0) + (var63 >>> 26)];
+                if (var64 !== 0) {
+                    arg0[var13] = ((((var64 & 0xff00ff) * var33) & 0xff00ff00) + (((var64 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var65 = var63 + var30;
+                const var66 = arg1[(var65 & 0xfc0) + (var65 >>> 26)];
+                if (var66 !== 0) {
+                    arg0[var13] = ((((var66 & 0xff00ff) * var33) & 0xff00ff00) + (((var66 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var67 = var65 + var30;
+                const var68 = arg1[(var67 & 0xfc0) + (var67 >>> 26)];
+                if (var68 !== 0) {
+                    arg0[var13] = ((((var68 & 0xff00ff) * var33) & 0xff00ff00) + (((var68 & 0xff00) * var33) & 0xff0000)) >> 8;
+                }
+                var13++;
+                const var69 = var27;
+                const var70 = var28;
+                var23 = (var23 + arg10) | 0;
+                var24 = (var24 + arg11) | 0;
+                var25 = (var25 + arg12) | 0;
+                const var71 = var25 >> 12;
+                if (var71 === 0) {
+                    var27 = 0;
+                    var28 = 0;
+                } else {
+                    var27 = Math.trunc(var23 / var71) | 0;
+                    var28 = Math.trunc(var24 / var71) | 0;
+                }
+                var29 = ((var69 << 20) + var70) | 0;
+                var30 = ((((var27 - var69) >> 3) << 20) + ((var28 - var70) >> 3)) | 0;
+                var14 = (var14 + var32) | 0;
+                var33 = var14 >> 8;
+                var31--;
+            } while (var31 > 0);
+        }
+        let var72 = (arg4 - arg3) & 0x7;
+        if (var72 <= 0) {
+            return;
+        }
+        do {
+            const var73 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
+            if (var73 !== 0) {
+                arg0[var13] = ((((var73 & 0xff00ff) * var33) & 0xff00ff00) + (((var73 & 0xff00) * var33) & 0xff0000)) >> 8;
+            }
+            var13++;
+            var29 = (var29 + var30) | 0;
+            var72--;
+        } while (var72 > 0);
+        return;
+    }
+
+    // jag::oldscape::dash3d::SoftwarePix3D::TextureTriangleAffine
     static textureTriangleAffine(
         arg0: number,
         arg1: number,
@@ -2390,386 +2787,7 @@ export default class Pix3D {
         }
     }
 
-    static textureRaster(arg0: Int32Array, arg1: Int32Array, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: number, arg9: number, arg10: number, arg11: number, arg12: number): void {
-        if (Pix3D.hclip) {
-            if (arg4 > Pix3D.sizeX) {
-                arg4 = Pix3D.sizeX;
-            }
-            if (arg3 < 0) {
-                arg3 = 0;
-            }
-        }
-        if (arg3 >= arg4) {
-            return;
-        }
-        let var13 = arg2 + arg3;
-        let var14 = (arg5 + arg6 * arg3) | 0;
-        const var15 = arg4 - arg3;
-
-        if (!Pix3D.lowMem) {
-            const var74 = arg3 - Pix3D.originX;
-            const var75 = (arg7 + (((arg10 >> 3) * var74) | 0)) | 0;
-            const var76 = (arg8 + (((arg11 >> 3) * var74) | 0)) | 0;
-            const var77 = (arg9 + (((arg12 >> 3) * var74) | 0)) | 0;
-            const var78 = var77 >> 14;
-            let var79: number;
-            let var80: number;
-            if (var78 === 0) {
-                var79 = 0;
-                var80 = 0;
-            } else {
-                var79 = Math.trunc(var75 / var78) | 0;
-                var80 = Math.trunc(var76 / var78) | 0;
-            }
-            let var81 = (var75 + arg10) | 0;
-            let var82 = (var76 + arg11) | 0;
-            let var83 = (var77 + arg12) | 0;
-            let var84 = var83 >> 14;
-            let var85: number;
-            let var86: number;
-            if (var84 === 0) {
-                var85 = 0;
-                var86 = 0;
-            } else {
-                var85 = Math.trunc(var81 / var84) | 0;
-                var86 = Math.trunc(var82 / var84) | 0;
-            }
-            let var87 = ((var79 << 18) + var80) | 0;
-            let var88 = ((((var85 - var79) >> 3) << 18) + ((var86 - var80) >> 3)) | 0;
-            let var89 = var15 >> 3;
-            const var90 = arg6 << 3;
-            let var91 = var14 >> 8;
-            if (Pix3D.opaque) {
-                if (var89 > 0) {
-                    do {
-                        const var92 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
-                        arg0[var13++] = ((((var92 & 0xff00ff) * var91) & 0xff00ff00) + (((var92 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var93 = var87 + var88;
-                        const var94 = arg1[(var93 & 0x3f80) + (var93 >>> 25)];
-                        arg0[var13++] = ((((var94 & 0xff00ff) * var91) & 0xff00ff00) + (((var94 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var95 = var93 + var88;
-                        const var96 = arg1[(var95 & 0x3f80) + (var95 >>> 25)];
-                        arg0[var13++] = ((((var96 & 0xff00ff) * var91) & 0xff00ff00) + (((var96 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var97 = var95 + var88;
-                        const var98 = arg1[(var97 & 0x3f80) + (var97 >>> 25)];
-                        arg0[var13++] = ((((var98 & 0xff00ff) * var91) & 0xff00ff00) + (((var98 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var99 = var97 + var88;
-                        const var100 = arg1[(var99 & 0x3f80) + (var99 >>> 25)];
-                        arg0[var13++] = ((((var100 & 0xff00ff) * var91) & 0xff00ff00) + (((var100 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var101 = var99 + var88;
-                        const var102 = arg1[(var101 & 0x3f80) + (var101 >>> 25)];
-                        arg0[var13++] = ((((var102 & 0xff00ff) * var91) & 0xff00ff00) + (((var102 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var103 = var101 + var88;
-                        const var104 = arg1[(var103 & 0x3f80) + (var103 >>> 25)];
-                        arg0[var13++] = ((((var104 & 0xff00ff) * var91) & 0xff00ff00) + (((var104 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var105 = var103 + var88;
-                        const var106 = arg1[(var105 & 0x3f80) + (var105 >>> 25)];
-                        arg0[var13++] = ((((var106 & 0xff00ff) * var91) & 0xff00ff00) + (((var106 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        const var107 = var85;
-                        const var108 = var86;
-                        var81 = (var81 + arg10) | 0;
-                        var82 = (var82 + arg11) | 0;
-                        var83 = (var83 + arg12) | 0;
-                        const var109 = var83 >> 14;
-                        if (var109 === 0) {
-                            var85 = 0;
-                            var86 = 0;
-                        } else {
-                            var85 = Math.trunc(var81 / var109) | 0;
-                            var86 = Math.trunc(var82 / var109) | 0;
-                        }
-                        var87 = ((var107 << 18) + var108) | 0;
-                        var88 = ((((var85 - var107) >> 3) << 18) + ((var86 - var108) >> 3)) | 0;
-                        var14 = (var14 + var90) | 0;
-                        var91 = var14 >> 8;
-                        var89--;
-                    } while (var89 > 0);
-                }
-                let var110 = (arg4 - arg3) & 0x7;
-                if (var110 > 0) {
-                    do {
-                        const var111 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
-                        arg0[var13++] = ((((var111 & 0xff00ff) * var91) & 0xff00ff00) + (((var111 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        var87 = (var87 + var88) | 0;
-                        var110--;
-                    } while (var110 > 0);
-                    return;
-                }
-            } else {
-                if (var89 > 0) {
-                    do {
-                        const var112 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
-                        if (var112 !== 0) {
-                            arg0[var13] = ((((var112 & 0xff00ff) * var91) & 0xff00ff00) + (((var112 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var113 = var87 + var88;
-                        const var114 = arg1[(var113 & 0x3f80) + (var113 >>> 25)];
-                        if (var114 !== 0) {
-                            arg0[var13] = ((((var114 & 0xff00ff) * var91) & 0xff00ff00) + (((var114 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var115 = var113 + var88;
-                        const var116 = arg1[(var115 & 0x3f80) + (var115 >>> 25)];
-                        if (var116 !== 0) {
-                            arg0[var13] = ((((var116 & 0xff00ff) * var91) & 0xff00ff00) + (((var116 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var117 = var115 + var88;
-                        const var118 = arg1[(var117 & 0x3f80) + (var117 >>> 25)];
-                        if (var118 !== 0) {
-                            arg0[var13] = ((((var118 & 0xff00ff) * var91) & 0xff00ff00) + (((var118 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var119 = var117 + var88;
-                        const var120 = arg1[(var119 & 0x3f80) + (var119 >>> 25)];
-                        if (var120 !== 0) {
-                            arg0[var13] = ((((var120 & 0xff00ff) * var91) & 0xff00ff00) + (((var120 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var121 = var119 + var88;
-                        const var122 = arg1[(var121 & 0x3f80) + (var121 >>> 25)];
-                        if (var122 !== 0) {
-                            arg0[var13] = ((((var122 & 0xff00ff) * var91) & 0xff00ff00) + (((var122 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var123 = var121 + var88;
-                        const var124 = arg1[(var123 & 0x3f80) + (var123 >>> 25)];
-                        if (var124 !== 0) {
-                            arg0[var13] = ((((var124 & 0xff00ff) * var91) & 0xff00ff00) + (((var124 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var125 = var123 + var88;
-                        const var126 = arg1[(var125 & 0x3f80) + (var125 >>> 25)];
-                        if (var126 !== 0) {
-                            arg0[var13] = ((((var126 & 0xff00ff) * var91) & 0xff00ff00) + (((var126 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        const var127 = var85;
-                        const var128 = var86;
-                        var81 = (var81 + arg10) | 0;
-                        var82 = (var82 + arg11) | 0;
-                        var83 = (var83 + arg12) | 0;
-                        const var129 = var83 >> 14;
-                        if (var129 === 0) {
-                            var85 = 0;
-                            var86 = 0;
-                        } else {
-                            var85 = Math.trunc(var81 / var129) | 0;
-                            var86 = Math.trunc(var82 / var129) | 0;
-                        }
-                        var87 = ((var127 << 18) + var128) | 0;
-                        var88 = ((((var85 - var127) >> 3) << 18) + ((var86 - var128) >> 3)) | 0;
-                        var14 = (var14 + var90) | 0;
-                        var91 = var14 >> 8;
-                        var89--;
-                    } while (var89 > 0);
-                }
-                let var130 = (arg4 - arg3) & 0x7;
-                if (var130 > 0) {
-                    do {
-                        const var131 = arg1[(var87 & 0x3f80) + (var87 >>> 25)];
-                        if (var131 !== 0) {
-                            arg0[var13] = ((((var131 & 0xff00ff) * var91) & 0xff00ff00) + (((var131 & 0xff00) * var91) & 0xff0000)) >> 8;
-                        }
-                        var13++;
-                        var87 = (var87 + var88) | 0;
-                        var130--;
-                    } while (var130 > 0);
-                }
-            }
-            return;
-        }
-
-        const var16 = arg3 - Pix3D.originX;
-        const var17 = (arg7 + (((arg10 >> 3) * var16) | 0)) | 0;
-        const var18 = (arg8 + (((arg11 >> 3) * var16) | 0)) | 0;
-        const var19 = (arg9 + (((arg12 >> 3) * var16) | 0)) | 0;
-        const var20 = var19 >> 12;
-        let var21: number;
-        let var22: number;
-        if (var20 === 0) {
-            var21 = 0;
-            var22 = 0;
-        } else {
-            var21 = Math.trunc(var17 / var20) | 0;
-            var22 = Math.trunc(var18 / var20) | 0;
-        }
-        let var23 = (var17 + arg10) | 0;
-        let var24 = (var18 + arg11) | 0;
-        let var25 = (var19 + arg12) | 0;
-        let var26 = var25 >> 12;
-        let var27: number;
-        let var28: number;
-        if (var26 === 0) {
-            var27 = 0;
-            var28 = 0;
-        } else {
-            var27 = Math.trunc(var23 / var26) | 0;
-            var28 = Math.trunc(var24 / var26) | 0;
-        }
-        let var29 = ((var21 << 20) + var22) | 0;
-        let var30 = ((((var27 - var21) >> 3) << 20) + ((var28 - var22) >> 3)) | 0;
-        let var31 = var15 >> 3;
-        const var32 = arg6 << 3;
-        let var33 = var14 >> 8;
-        if (Pix3D.opaque) {
-            if (var31 > 0) {
-                do {
-                    const var34 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
-                    arg0[var13++] = ((((var34 & 0xff00ff) * var33) & 0xff00ff00) + (((var34 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var35 = var29 + var30;
-                    const var36 = arg1[(var35 & 0xfc0) + (var35 >>> 26)];
-                    arg0[var13++] = ((((var36 & 0xff00ff) * var33) & 0xff00ff00) + (((var36 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var37 = var35 + var30;
-                    const var38 = arg1[(var37 & 0xfc0) + (var37 >>> 26)];
-                    arg0[var13++] = ((((var38 & 0xff00ff) * var33) & 0xff00ff00) + (((var38 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var39 = var37 + var30;
-                    const var40 = arg1[(var39 & 0xfc0) + (var39 >>> 26)];
-                    arg0[var13++] = ((((var40 & 0xff00ff) * var33) & 0xff00ff00) + (((var40 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var41 = var39 + var30;
-                    const var42 = arg1[(var41 & 0xfc0) + (var41 >>> 26)];
-                    arg0[var13++] = ((((var42 & 0xff00ff) * var33) & 0xff00ff00) + (((var42 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var43 = var41 + var30;
-                    const var44 = arg1[(var43 & 0xfc0) + (var43 >>> 26)];
-                    arg0[var13++] = ((((var44 & 0xff00ff) * var33) & 0xff00ff00) + (((var44 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var45 = var43 + var30;
-                    const var46 = arg1[(var45 & 0xfc0) + (var45 >>> 26)];
-                    arg0[var13++] = ((((var46 & 0xff00ff) * var33) & 0xff00ff00) + (((var46 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var47 = var45 + var30;
-                    const var48 = arg1[(var47 & 0xfc0) + (var47 >>> 26)];
-                    arg0[var13++] = ((((var48 & 0xff00ff) * var33) & 0xff00ff00) + (((var48 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    const var49 = var27;
-                    const var50 = var28;
-                    var23 = (var23 + arg10) | 0;
-                    var24 = (var24 + arg11) | 0;
-                    var25 = (var25 + arg12) | 0;
-                    const var51 = var25 >> 12;
-                    if (var51 === 0) {
-                        var27 = 0;
-                        var28 = 0;
-                    } else {
-                        var27 = Math.trunc(var23 / var51) | 0;
-                        var28 = Math.trunc(var24 / var51) | 0;
-                    }
-                    var29 = ((var49 << 20) + var50) | 0;
-                    var30 = ((((var27 - var49) >> 3) << 20) + ((var28 - var50) >> 3)) | 0;
-                    var14 = (var14 + var32) | 0;
-                    var33 = var14 >> 8;
-                    var31--;
-                } while (var31 > 0);
-            }
-            let var52 = (arg4 - arg3) & 0x7;
-            if (var52 > 0) {
-                do {
-                    const var53 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
-                    arg0[var13++] = ((((var53 & 0xff00ff) * var33) & 0xff00ff00) + (((var53 & 0xff00) * var33) & 0xff0000)) >> 8;
-                    var29 = (var29 + var30) | 0;
-                    var52--;
-                } while (var52 > 0);
-                return;
-            }
-            return;
-        }
-        if (var31 > 0) {
-            do {
-                const var54 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
-                if (var54 !== 0) {
-                    arg0[var13] = ((((var54 & 0xff00ff) * var33) & 0xff00ff00) + (((var54 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var55 = var29 + var30;
-                const var56 = arg1[(var55 & 0xfc0) + (var55 >>> 26)];
-                if (var56 !== 0) {
-                    arg0[var13] = ((((var56 & 0xff00ff) * var33) & 0xff00ff00) + (((var56 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var57 = var55 + var30;
-                const var58 = arg1[(var57 & 0xfc0) + (var57 >>> 26)];
-                if (var58 !== 0) {
-                    arg0[var13] = ((((var58 & 0xff00ff) * var33) & 0xff00ff00) + (((var58 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var59 = var57 + var30;
-                const var60 = arg1[(var59 & 0xfc0) + (var59 >>> 26)];
-                if (var60 !== 0) {
-                    arg0[var13] = ((((var60 & 0xff00ff) * var33) & 0xff00ff00) + (((var60 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var61 = var59 + var30;
-                const var62 = arg1[(var61 & 0xfc0) + (var61 >>> 26)];
-                if (var62 !== 0) {
-                    arg0[var13] = ((((var62 & 0xff00ff) * var33) & 0xff00ff00) + (((var62 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var63 = var61 + var30;
-                const var64 = arg1[(var63 & 0xfc0) + (var63 >>> 26)];
-                if (var64 !== 0) {
-                    arg0[var13] = ((((var64 & 0xff00ff) * var33) & 0xff00ff00) + (((var64 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var65 = var63 + var30;
-                const var66 = arg1[(var65 & 0xfc0) + (var65 >>> 26)];
-                if (var66 !== 0) {
-                    arg0[var13] = ((((var66 & 0xff00ff) * var33) & 0xff00ff00) + (((var66 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var67 = var65 + var30;
-                const var68 = arg1[(var67 & 0xfc0) + (var67 >>> 26)];
-                if (var68 !== 0) {
-                    arg0[var13] = ((((var68 & 0xff00ff) * var33) & 0xff00ff00) + (((var68 & 0xff00) * var33) & 0xff0000)) >> 8;
-                }
-                var13++;
-                const var69 = var27;
-                const var70 = var28;
-                var23 = (var23 + arg10) | 0;
-                var24 = (var24 + arg11) | 0;
-                var25 = (var25 + arg12) | 0;
-                const var71 = var25 >> 12;
-                if (var71 === 0) {
-                    var27 = 0;
-                    var28 = 0;
-                } else {
-                    var27 = Math.trunc(var23 / var71) | 0;
-                    var28 = Math.trunc(var24 / var71) | 0;
-                }
-                var29 = ((var69 << 20) + var70) | 0;
-                var30 = ((((var27 - var69) >> 3) << 20) + ((var28 - var70) >> 3)) | 0;
-                var14 = (var14 + var32) | 0;
-                var33 = var14 >> 8;
-                var31--;
-            } while (var31 > 0);
-        }
-        let var72 = (arg4 - arg3) & 0x7;
-        if (var72 <= 0) {
-            return;
-        }
-        do {
-            const var73 = arg1[(var29 & 0xfc0) + (var29 >>> 26)];
-            if (var73 !== 0) {
-                arg0[var13] = ((((var73 & 0xff00ff) * var33) & 0xff00ff00) + (((var73 & 0xff00) * var33) & 0xff0000)) >> 8;
-            }
-            var13++;
-            var29 = (var29 + var30) | 0;
-            var72--;
-        } while (var72 > 0);
-        return;
-    }
-
-    static setClipping(arg0: number, arg1: number, arg2: number, arg3: number): void {
-        Pix3D.sizeX = arg2 - arg0;
-        Pix3D.sizeY = arg3 - arg1;
-        Pix3D.resetOrigin();
-        if (Pix3D.scanline.length < Pix3D.sizeY) {
-            Pix3D.scanline = new Int32Array(IntMath.bitceil(Pix3D.sizeY));
-        }
-        let var4 = arg1 * Pix2D.width + arg0;
-        for (let var5: number = 0; var5 < Pix3D.sizeY; var5++) {
-            Pix3D.scanline[var5] = var4;
-            var4 += Pix2D.width;
-        }
-    }
-
+    // jag::oldscape::dash3d::SoftwarePix3D::TextureRasterAffine
     static textureRasterAffine(arg0: Int32Array, arg1: Int32Array, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: number, arg9: number, arg10: number, arg11: number, arg12: number): void {
         if (Pix3D.hclip) {
             if (arg4 > Pix3D.sizeX) {
@@ -3078,5 +3096,16 @@ export default class Pix3D {
             var66--;
         } while (var66 > 0);
         return;
+    }
+
+    // jag::oldscape::dash3d::Pix3D::TextureLightColour
+    static textureLightColour(arg0: number, arg1: number): number {
+        let var2 = (arg1 * (arg0 & 0x7f)) >> 7;
+        if (var2 < 2) {
+            var2 = 2;
+        } else if (var2 > 126) {
+            var2 = 126;
+        }
+        return (arg0 & 0xff80) + var2;
     }
 }

@@ -3,24 +3,24 @@ import ModelSourceNode from '#/datastruct/ModelSourceNode.js';
 import ModelSource from '#/dash3d/ModelSource.js';
 
 export default class ModelSourceCache {
-    readonly field389: LruCache<ModelSourceNode> = new LruCache(30);
+    readonly cache: LruCache<ModelSourceNode> = new LruCache(30);
 
     constructor(_size: number) {}
 
-    put(arg0: bigint, arg1: ModelSource): void {
-        this.field389.put(arg0, new ModelSourceNode(arg1));
+    put(key: bigint, arg1: ModelSource): void {
+        this.cache.put(key, new ModelSourceNode(arg1));
     }
 
-    method133(arg0: bigint): void {
-        this.field389.remove(arg0);
+    remove(key: bigint): void {
+        this.cache.remove(key);
     }
 
     clear(): void {
-        this.field389.clear();
+        this.cache.clear();
     }
 
-    find(arg0: bigint): ModelSource | null {
-        const var3 = this.field389.find(arg0);
-        return var3 == null ? null : var3.field1829;
+    find(key: bigint): ModelSource | null {
+        const var3 = this.cache.find(key);
+        return var3 == null ? null : var3.model;
     }
 }
