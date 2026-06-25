@@ -1,4 +1,4 @@
-import ByteArrayNode2 from '#/datastruct/ByteArrayNode2.js';
+import TextureNoiseTable from '#/dash3d/TextureNoiseTable.js';
 import Texture from '#/dash3d/Texture.js';
 import TextureOp from '#/dash3d/TextureOp.js';
 import Packet from '#/io/Packet.js';
@@ -120,7 +120,7 @@ export default class TextureOpVoronoi extends TextureOp {
     }
 
     override postDecode(): void {
-        this.permTable = ByteArrayNode2.method1072(this.seed);
+        this.permTable = TextureNoiseTable.get(this.seed);
         this.generateJitter();
     }
 

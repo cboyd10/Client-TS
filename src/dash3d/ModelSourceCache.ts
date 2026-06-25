@@ -1,5 +1,5 @@
 import LruCache from '#/datastruct/LruCache.js';
-import ModelSourceNode from '#/datastruct/ModelSourceNode.js';
+import ModelSourceNode from '#/dash3d/ModelSourceNode.js';
 import ModelSource from '#/dash3d/ModelSource.js';
 
 export default class ModelSourceCache {

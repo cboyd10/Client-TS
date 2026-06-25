@@ -45,10 +45,10 @@ import ClientEntity from '#/dash3d/ClientEntity.js';
 import ClientLocAnim from '#/dash3d/ClientLocAnim.js';
 import ClientNpc from '#/dash3d/ClientNpc.js';
 import ClientObj from '#/dash3d/ClientObj.js';
-import ClientObjNode from '#/datastruct/ClientObjNode.js';
+import ClientObjNode from '#/dash3d/ClientObjNode.js';
 import ClientPlayer from '#/dash3d/ClientPlayer.js';
 import ClientProj from '#/dash3d/ClientProj.js';
-import ClientProjNode2 from '#/datastruct/ClientProjNode2.js';
+import ClientProjNode from '#/dash3d/ClientProjNode.js';
 import CollisionMap, { BuildArea } from '#/dash3d/CollisionMap.js';
 import PlayerModel from '#/dash3d/PlayerModel.js';
 import Statics from '#/deob/Statics.js';
@@ -317,7 +317,7 @@ export class Client extends GameShell {
     static readonly ANGLE_TO_DIR: readonly number[] = [768, 1024, 1280, 512, 1536, 256, 0, 1792];
     static groundObj: (LinkList<ClientObjNode> | null)[][][] = Array.from({ length: BuildArea.LEVELS }, () => Array.from({ length: BuildArea.SIZE }, () => new Array(BuildArea.SIZE).fill(null)));
     static locChanges: LinkList<LocChange> = new LinkList();
-    static projectiles: LinkList<ClientProjNode2> = new LinkList();
+    static projectiles: LinkList<ClientProjNode> = new LinkList();
     static spotanims: LinkList<MapSpotAnimNode> = new LinkList();
     static statEffectiveLevel: Int32Array = new Int32Array(25);
     static statBaseLevel: Int32Array = new Int32Array(25);
@@ -3557,7 +3557,7 @@ export class Client extends GameShell {
     // jag::oldscape::Client::GdmAddProjectiles
     static addProjectiles(): void {
         for (let var0 = Client.projectiles.head(); var0 !== null; var0 = Client.projectiles.next()) {
-            const var1 = var0.field315;
+            const var1 = var0.proj;
             if (var1.level !== Client.minusedlevel || Client.loopCycle > var1.t2) {
                 var0.unlink();
             } else if (var1.t1 <= Client.loopCycle) {
@@ -7009,7 +7009,7 @@ export class Client extends GameShell {
                 const var16: ClientProj = new ClientProj(var6, Client.minusedlevel, var14, var13, Client.getAvH(var14, var13, Client.minusedlevel) - var7, var9 - -Client.loopCycle, Client.loopCycle + var10, var11, var12, var5, var8);
                 const var17: number = var3 * 64;
                 var16.setTarget(var17, var9 + Client.loopCycle, Client.getAvH(var17, var15, Client.minusedlevel) + -var8, var15);
-                Client.projectiles.push(new ClientProjNode2(var16));
+                Client.projectiles.push(new ClientProjNode(var16));
             }
         } else if (Client.ptype === 135) {
             const var18: number = Client.in.g1_alt1();
@@ -7207,7 +7207,7 @@ export class Client extends GameShell {
                         var104
                     );
                     var113.setTarget(var111, var105 + Client.loopCycle, Client.getAvH(var111, var110, Client.minusedlevel) + -var104, var110);
-                    Client.projectiles.push(new ClientProjNode2(var113));
+                    Client.projectiles.push(new ClientProjNode(var113));
                 }
             } else if (Client.ptype === 198) {
                 const var114: number = Client.in.g1_alt1();
