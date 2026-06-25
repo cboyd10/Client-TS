@@ -101,6 +101,7 @@ import PcmPlayer from '#/sound/PcmPlayer.js';
 import WaveStream from '#/sound/WaveStream.js';
 import PacketBit from '#/io/PacketBit.js';
 import JagString from '#/jstring/JagString.js';
+import { ClientProt } from '#/client/ClientProt.js';
 
 const enum ClientMainState {
     LOADING = 0,
@@ -1754,7 +1755,7 @@ export class Client extends GameShell {
         if (!Client.mouseTracked) {
             Client.mouseTracking.length = 0;
         } else if (ClientMouseListener.mouseClickButton !== 0 || Client.mouseTracking.length >= 40) {
-            Client.out.p1Enc(111);
+            Client.out.p1Enc(ClientProt.EVENT_MOUSE_MOVE);
             Client.out.p1(0);
             const start = Client.out.pos;
             let count = 0;
@@ -1849,7 +1850,7 @@ export class Client extends GameShell {
                 button = 1;
             }
 
-            Client.out.p1Enc(63);
+            Client.out.p1Enc(ClientProt.EVENT_MOUSE_CLICK);
             Client.out.p4_alt2((button << 19) + ((delta << 20) + pos));
         }
 
@@ -1864,18 +1865,18 @@ export class Client extends GameShell {
         if (Client.sendCamera && Client.sendCameraDelay <= 0) {
             Client.sendCameraDelay = 20;
             Client.sendCamera = false;
-            Client.out.p1Enc(173);
+            Client.out.p1Enc(ClientProt.EVENT_CAMERA_POSITION);
             Client.out.p2_alt2(Client.orbitCameraYaw);
             Client.out.p2(Client.orbitCameraPitch);
         }
 
         if (GameShell.focus && !Client.focusIn) {
             Client.focusIn = true;
-            Client.out.p1Enc(130);
+            Client.out.p1Enc(ClientProt.EVENT_APPLET_FOCUS);
             Client.out.p1(1);
         } else if (!GameShell.focus && Client.focusIn) {
             Client.focusIn = false;
-            Client.out.p1Enc(130);
+            Client.out.p1Enc(ClientProt.EVENT_APPLET_FOCUS);
             Client.out.p1(0);
         }
 
@@ -1966,7 +1967,7 @@ export class Client extends GameShell {
                             com.swapSlots(Client.objDragSlot, Client.hoveredSlot);
                         }
 
-                        Client.out.p1Enc(207);
+                        Client.out.p1Enc(ClientProt.INV_BUTTOND);
                         Client.out.p4_alt1(com.parentId);
                         Client.out.p2_alt1(Client.objDragSlot);
                         Client.out.p1_alt3(mode);
@@ -2109,7 +2110,7 @@ export class Client extends GameShell {
             Client.logoutTimer = 250;
             ClientMouseListener.setIdleTimer(4000);
 
-            Client.out.p1Enc(226);
+            Client.out.p1Enc(ClientProt.IDLE_TIMER);
         }
 
         Client.macroCameraCycle++;
@@ -2173,7 +2174,7 @@ export class Client extends GameShell {
             Client.macroCameraXModifier = -2;
         }
         if (Client.noTimeoutTimer > 50) {
-            Client.out.p1Enc(19);
+            Client.out.p1Enc(ClientProt.NO_TIMEOUT);
         }
 
         try {
@@ -2700,7 +2701,7 @@ export class Client extends GameShell {
             }
         }
 
-        Client.out.p1Enc(175);
+        Client.out.p1Enc(ClientProt.CLIENT_CHEAT);
         Client.out.p1(arg0.length - 1);
         Client.out.pjstr(arg0.substring(2));
     }
@@ -2907,7 +2908,7 @@ export class Client extends GameShell {
             }
             Client.playingJingle = false;
         } else if (Client.midiVolume !== 0 && Client.nextMidiSong !== -1 && !MidiManager.isInitialised()) {
-            Client.out.p1Enc(133);
+            Client.out.p1Enc(ClientProt.SOUND_SONGEND);
             Client.out.p4(Client.nextMidiSong);
             Client.nextMidiSong = -1;
         }
@@ -4266,7 +4267,7 @@ export class Client extends GameShell {
             return;
         }
 
-        Client.out.p1Enc(19);
+        Client.out.p1Enc(ClientProt.NO_TIMEOUT);
         try {
             Client.stream.write(Client.out.pos, Client.out.data);
             Client.out.pos = 0;
@@ -4402,7 +4403,7 @@ export class Client extends GameShell {
         }
         Client.setMainState(30);
         Client.doAudio();
-        Client.out.p1Enc(213);
+        Client.out.p1Enc(ClientProt.MAP_BUILD_COMPLETE);
         GameShell.doneslowupdate();
     }
 
@@ -5263,15 +5264,15 @@ export class Client extends GameShell {
         let var6: number = arg1[arg3];
 
         if (arg0 === 0) {
-            Client.out.p1Enc(200);
+            Client.out.p1Enc(ClientProt.MOVE_GAMECLICK);
             Client.out.p1(var4 + var4 + 3);
         }
         if (arg0 === 1) {
-            Client.out.p1Enc(199);
+            Client.out.p1Enc(ClientProt.MOVE_MINIMAPCLICK);
             Client.out.p1(var4 + var4 + 17);
         }
         if (arg0 === 2) {
-            Client.out.p1Enc(159);
+            Client.out.p1Enc(ClientProt.MOVE_OPCLICK);
             Client.out.p1(var4 + var4 + 3);
         }
 
@@ -8242,7 +8243,7 @@ export class Client extends GameShell {
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossCycle = 0;
                 Client.crossY = ClientMouseListener.mouseClickY;
-                Client.out.p1Enc(192);
+                Client.out.p1Enc(ClientProt.OPPLAYERU);
                 Client.out.p2_alt2(Client.objComId);
                 Client.out.p4_alt1(Client.objSelectedComId);
                 Client.out.p2(Client.objSelectedSlot);
@@ -8254,12 +8255,12 @@ export class Client extends GameShell {
             Client.crossX = ClientMouseListener.mouseClickX;
             Client.crossY = ClientMouseListener.mouseClickY;
             Client.crossMode = 2;
-            Client.out.p1Enc(191);
+            Client.out.p1Enc(ClientProt.OPOBJ6);
             Client.out.p2(var6);
         }
         if (var3 === 7) {
             Client.interactWithLoc(var2, var4, var1);
-            Client.out.p1Enc(53);
+            Client.out.p1Enc(ClientProt.OPLOC1);
             Client.out.p2(Number((BigInt(var4) >> 32n) & 0x7fffffffn));
             Client.out.p2_alt3(Client.mapBuildBaseZ + var2);
             Client.out.p2_alt3(var1 + Client.mapBuildBaseX);
@@ -8290,12 +8291,12 @@ export class Client extends GameShell {
                 Client.crossMode = 2;
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossX = ClientMouseListener.mouseClickX;
-                Client.out.p1Enc(65);
+                Client.out.p1Enc(ClientProt.OPPLAYER1);
                 Client.out.p2_alt1(var6);
             }
         }
         if (var3 === 40) {
-            Client.out.p1Enc(196);
+            Client.out.p1Enc(ClientProt.IF_BUTTONT);
             Client.out.p2_alt3(Client.targetCom);
             Client.out.p4(Client.targetSub);
             Client.out.p4_alt2(var2);
@@ -8309,7 +8310,7 @@ export class Client extends GameShell {
                 Client.crossMode = 2;
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossX = ClientMouseListener.mouseClickX;
-                Client.out.p1Enc(78);
+                Client.out.p1Enc(ClientProt.OPNPC3);
                 Client.out.p2_alt2(var6);
             }
         }
@@ -8321,7 +8322,7 @@ export class Client extends GameShell {
                 Client.crossMode = 2;
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossY = ClientMouseListener.mouseClickY;
-                Client.out.p1Enc(151);
+                Client.out.p1Enc(ClientProt.OPPLAYER2);
                 Client.out.p2(var6);
             }
         }
@@ -8333,12 +8334,12 @@ export class Client extends GameShell {
                 Client.crossCycle = 0;
                 Client.crossMode = 2;
                 Client.crossY = ClientMouseListener.mouseClickY;
-                Client.out.p1Enc(71);
+                Client.out.p1Enc(ClientProt.OPNPC5);
                 Client.out.p2(var6);
             }
         }
         if (var3 === 39) {
-            Client.out.p1Enc(35);
+            Client.out.p1Enc(ClientProt.OPHELDT);
             Client.out.p2_alt3(var6);
             Client.out.p2(Client.targetCom);
             Client.out.p4_alt3(Client.targetSub);
@@ -8349,7 +8350,7 @@ export class Client extends GameShell {
             Client.selectedItem = var1;
         }
         if (var3 === 36) {
-            Client.out.p1Enc(109);
+            Client.out.p1Enc(ClientProt.IF_BUTTON);
             Client.out.p4(var2);
             const var13: IfType = IfType.get(var2)!;
             if (var13.scripts !== null && var13.scripts[0]![0] === 5) {
@@ -8361,7 +8362,7 @@ export class Client extends GameShell {
         if (var3 === 1001) {
             const var15: IfType | null = IfType.get(var2);
             if (var15 === null || var15.linkObjNumber![var1] < 100000) {
-                Client.out.p1Enc(191);
+                Client.out.p1Enc(ClientProt.OPOBJ6);
                 Client.out.p2(var6);
             } else {
                 Client.addChat(var15.linkObjNumber![var1] + ' x ' + ObjType.list(var6).name, 0, '');
@@ -8378,12 +8379,12 @@ export class Client extends GameShell {
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossCycle = 0;
-                Client.out.p1Enc(47);
+                Client.out.p1Enc(ClientProt.OPPLAYER7);
                 Client.out.p2_alt3(var6);
             }
         }
         if (var3 === 21) {
-            Client.out.p1Enc(160);
+            Client.out.p1Enc(ClientProt.OPHELD4);
             Client.out.p2_alt3(var1);
             Client.out.p4_alt1(var2);
             Client.out.p2_alt2(var6);
@@ -8392,7 +8393,7 @@ export class Client extends GameShell {
             Client.selectedItem = var1;
         }
         if (var3 === 2) {
-            Client.out.p1Enc(216);
+            Client.out.p1Enc(ClientProt.OPHELD3);
             Client.out.p4_alt3(var2);
             Client.out.p2_alt1(var1);
             Client.out.p2_alt3(var6);
@@ -8402,14 +8403,14 @@ export class Client extends GameShell {
         }
         if (var3 === 35) {
             Client.interactWithLoc(var2, var4, var1);
-            Client.out.p1Enc(13);
+            Client.out.p1Enc(ClientProt.OPLOC2);
             Client.out.p2_alt3(Number((BigInt(var4) >> 32n) & 0x7fffffffn));
             Client.out.p2_alt1(Client.mapBuildBaseX + var1);
             Client.out.p2_alt1(var2 + Client.mapBuildBaseZ);
         }
         if (var3 === 51) {
             Client.interactWithLoc(var2, var4, var1);
-            Client.out.p1Enc(94);
+            Client.out.p1Enc(ClientProt.OPLOC3);
             Client.out.p2_alt2(var1 + Client.mapBuildBaseX);
             Client.out.p2(var2 + Client.mapBuildBaseZ);
             Client.out.p2_alt3(Number((BigInt(var4) >> 32n) & 0x7fffffffn));
@@ -8422,7 +8423,7 @@ export class Client extends GameShell {
                 Client.crossMode = 2;
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossY = ClientMouseListener.mouseClickY;
-                Client.out.p1Enc(118);
+                Client.out.p1Enc(ClientProt.OPPLAYER3);
                 Client.out.p2_alt2(var6);
             }
         }
@@ -8434,7 +8435,7 @@ export class Client extends GameShell {
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossCycle = 0;
                 Client.crossMode = 2;
-                Client.out.p1Enc(30);
+                Client.out.p1Enc(ClientProt.OPNPCU);
                 Client.out.p2_alt1(Client.objSelectedSlot);
                 Client.out.p4_alt2(Client.objSelectedComId);
                 Client.out.p2_alt1(var6);
@@ -8442,7 +8443,7 @@ export class Client extends GameShell {
             }
         }
         if (var3 === 44) {
-            Client.out.p1Enc(112);
+            Client.out.p1Enc(ClientProt.INV_BUTTON4);
             Client.out.p2(var1);
             Client.out.p4_alt2(var2);
             Client.out.p2_alt3(var6);
@@ -8461,7 +8462,7 @@ export class Client extends GameShell {
                 Client.crossCycle = 0;
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossY = ClientMouseListener.mouseClickY;
-                Client.out.p1Enc(164);
+                Client.out.p1Enc(ClientProt.OPNPC1);
                 Client.out.p2(var6);
             }
         }
@@ -8474,7 +8475,7 @@ export class Client extends GameShell {
             Client.crossX = ClientMouseListener.mouseClickX;
             Client.crossMode = 2;
             Client.crossCycle = 0;
-            Client.out.p1Enc(107);
+            Client.out.p1Enc(ClientProt.OPOBJ4);
             Client.out.p2_alt1(Client.mapBuildBaseZ + var2);
             Client.out.p2_alt1(var6);
             Client.out.p2_alt3(var1 + Client.mapBuildBaseX);
@@ -8501,14 +8502,14 @@ export class Client extends GameShell {
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossCycle = 0;
                 Client.crossX = ClientMouseListener.mouseClickX;
-                Client.out.p1Enc(6);
+                Client.out.p1Enc(ClientProt.OPPLAYERT);
                 Client.out.p2_alt3(var6);
                 Client.out.p2_alt2(Client.targetCom);
                 Client.out.p4_alt2(Client.targetSub);
             }
         }
         if (var3 === 6) {
-            Client.out.p1Enc(150);
+            Client.out.p1Enc(ClientProt.INV_BUTTON1);
             Client.out.p4_alt3(var2);
             Client.out.p2_alt3(var1);
             Client.out.p2(var6);
@@ -8521,7 +8522,7 @@ export class Client extends GameShell {
         }
         if (var3 === 1004) {
             Client.interactWithLoc(var2, var4, var1);
-            Client.out.p1Enc(97);
+            Client.out.p1Enc(ClientProt.OPLOC5);
             Client.out.p2_alt3(var2 + Client.mapBuildBaseZ);
             Client.out.p2_alt3(Number((BigInt(var4) >> 32n) & 0x7fffffffn));
             Client.out.p2_alt1(var1 + Client.mapBuildBaseX);
@@ -8538,13 +8539,13 @@ export class Client extends GameShell {
             Client.crossX = ClientMouseListener.mouseClickX;
             Client.crossMode = 2;
             Client.crossCycle = 0;
-            Client.out.p1Enc(138);
+            Client.out.p1Enc(ClientProt.OPOBJ5);
             Client.out.p2_alt2(var2 + Client.mapBuildBaseZ);
             Client.out.p2(var6);
             Client.out.p2_alt2(Client.mapBuildBaseX + var1);
         }
         if (var3 === 8) {
-            Client.out.p1Enc(205);
+            Client.out.p1Enc(ClientProt.INV_BUTTON2);
             Client.out.p2_alt1(var6);
             Client.out.p2_alt2(var1);
             Client.out.p4_alt3(var2);
@@ -8553,7 +8554,7 @@ export class Client extends GameShell {
             Client.selectedItem = var1;
         }
         if (var3 === 13) {
-            Client.out.p1Enc(26);
+            Client.out.p1Enc(ClientProt.INV_BUTTON5);
             Client.out.p2(var1);
             Client.out.p2(var6);
             Client.out.p4(var2);
@@ -8570,7 +8571,7 @@ export class Client extends GameShell {
             Client.crossCycle = 0;
             Client.crossX = ClientMouseListener.mouseClickX;
             Client.crossMode = 2;
-            Client.out.p1Enc(77);
+            Client.out.p1Enc(ClientProt.OPOBJ3);
             Client.out.p2_alt3(var6);
             Client.out.p2_alt3(var2 + Client.mapBuildBaseZ);
             Client.out.p2(var1 + Client.mapBuildBaseX);
@@ -8587,13 +8588,13 @@ export class Client extends GameShell {
                     var29 = var29.getMultiNpc();
                 }
                 if (var29 !== null) {
-                    Client.out.p1Enc(127);
+                    Client.out.p1Enc(ClientProt.OPNPC6);
                     Client.out.p2_alt1(var29.id);
                 }
             }
         }
         if (var3 === 49) {
-            Client.out.p1Enc(32);
+            Client.out.p1Enc(ClientProt.INV_BUTTON3);
             Client.out.p2_alt3(var6);
             Client.out.p4(var2);
             Client.out.p2_alt3(var1);
@@ -8602,7 +8603,7 @@ export class Client extends GameShell {
             Client.selectedItem = var1;
         }
         if (var3 === 26 && Client.interactWithLoc(var2, var4, var1)) {
-            Client.out.p1Enc(170);
+            Client.out.p1Enc(ClientProt.OPLOCU);
             Client.out.p2_alt2(Client.mapBuildBaseZ + var2);
             Client.out.p4(Client.objSelectedComId);
             Client.out.p2_alt3(var1 + Client.mapBuildBaseX);
@@ -8618,7 +8619,7 @@ export class Client extends GameShell {
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossMode = 2;
-                Client.out.p1Enc(214);
+                Client.out.p1Enc(ClientProt.OPPLAYER4);
                 Client.out.p2_alt2(var6);
             }
         }
@@ -8631,7 +8632,7 @@ export class Client extends GameShell {
             Client.crossY = ClientMouseListener.mouseClickY;
             Client.crossX = ClientMouseListener.mouseClickX;
             Client.crossCycle = 0;
-            Client.out.p1Enc(84);
+            Client.out.p1Enc(ClientProt.OPOBJT);
             Client.out.p2(var1 + Client.mapBuildBaseX);
             Client.out.p2(var6);
             Client.out.p2_alt1(var2 + Client.mapBuildBaseZ);
@@ -8647,7 +8648,7 @@ export class Client extends GameShell {
             Client.crossY = ClientMouseListener.mouseClickY;
             Client.crossX = ClientMouseListener.mouseClickX;
             Client.crossCycle = 0;
-            Client.out.p1Enc(39);
+            Client.out.p1Enc(ClientProt.OPOBJ2);
             Client.out.p2_alt1(var1 + Client.mapBuildBaseX);
             Client.out.p2_alt2(var6);
             Client.out.p2_alt3(Client.mapBuildBaseZ + var2);
@@ -8660,12 +8661,12 @@ export class Client extends GameShell {
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossMode = 2;
                 Client.crossCycle = 0;
-                Client.out.p1Enc(33);
+                Client.out.p1Enc(ClientProt.OPNPC2);
                 Client.out.p2_alt1(var6);
             }
         }
         if (var3 === 24 && Client.interactWithLoc(var2, var4, var1)) {
-            Client.out.p1Enc(234);
+            Client.out.p1Enc(ClientProt.OPLOCT);
             Client.out.p2_alt1(Number((BigInt(var4) >> 32n) & 0x7fffffffn));
             Client.out.p2_alt1(Client.targetCom);
             Client.out.p4_alt3(Client.targetSub);
@@ -8673,7 +8674,7 @@ export class Client extends GameShell {
             Client.out.p2(Client.mapBuildBaseZ + var2);
         }
         if (var3 === 28) {
-            Client.out.p1Enc(154);
+            Client.out.p1Enc(ClientProt.OPHELD1);
             Client.out.p4(var2);
             Client.out.p2_alt3(var6);
             Client.out.p2_alt3(var1);
@@ -8682,7 +8683,7 @@ export class Client extends GameShell {
             Client.selectedItem = var1;
         }
         if (var3 === 20) {
-            Client.out.p1Enc(109);
+            Client.out.p1Enc(ClientProt.IF_BUTTON);
             Client.out.p4(var2);
             const var36: IfType = IfType.get(var2)!;
             if (var36.scripts !== null && var36.scripts[0]![0] === 5) {
@@ -8694,7 +8695,7 @@ export class Client extends GameShell {
             }
         }
         if (var3 === 18) {
-            Client.out.p1Enc(251);
+            Client.out.p1Enc(ClientProt.OPHELD5);
             Client.out.p2(var1);
             Client.out.p2_alt2(var6);
             Client.out.p4(var2);
@@ -8715,13 +8716,13 @@ export class Client extends GameShell {
                 Client.crossMode = 2;
                 Client.crossCycle = 0;
                 Client.crossY = ClientMouseListener.mouseClickY;
-                Client.out.p1Enc(195);
+                Client.out.p1Enc(ClientProt.OPNPC4);
                 Client.out.p2(var6);
             }
         }
         if (var3 === 33) {
             Client.interactWithLoc(var2, var4, var1);
-            Client.out.p1Enc(169);
+            Client.out.p1Enc(ClientProt.OPLOC4);
             Client.out.p2(var2 + Client.mapBuildBaseZ);
             Client.out.p2_alt1(Number((BigInt(var4) >> 32n) & 0x7fffffffn));
             Client.out.p2_alt3(Client.mapBuildBaseX + var1);
@@ -8733,12 +8734,12 @@ export class Client extends GameShell {
                 var40 = Client.clientButton(var39);
             }
             if (var40) {
-                Client.out.p1Enc(109);
+                Client.out.p1Enc(ClientProt.IF_BUTTON);
                 Client.out.p4(var2);
             }
         }
         if (var3 === 9) {
-            Client.out.p1Enc(55);
+            Client.out.p1Enc(ClientProt.OPHELD2);
             Client.out.p2_alt1(var1);
             Client.out.p4_alt1(var2);
             Client.out.p2_alt2(var6);
@@ -8755,13 +8756,13 @@ export class Client extends GameShell {
             Client.crossMode = 2;
             Client.crossX = ClientMouseListener.mouseClickX;
             Client.crossY = ClientMouseListener.mouseClickY;
-            Client.out.p1Enc(211);
+            Client.out.p1Enc(ClientProt.OPOBJ1);
             Client.out.p2_alt3(Client.mapBuildBaseX + var1);
             Client.out.p2_alt1(var2 + Client.mapBuildBaseZ);
             Client.out.p2_alt3(var6);
         }
         if (var3 === 42) {
-            Client.out.p1Enc(4);
+            Client.out.p1Enc(ClientProt.OPHELDU);
             Client.out.p2(Client.objComId);
             Client.out.p2_alt2(var6);
             Client.out.p2_alt2(Client.objSelectedSlot);
@@ -8780,7 +8781,7 @@ export class Client extends GameShell {
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossMode = 2;
-                Client.out.p1Enc(114);
+                Client.out.p1Enc(ClientProt.OPPLAYER5);
                 Client.out.p2(var6);
             }
         }
@@ -8792,7 +8793,7 @@ export class Client extends GameShell {
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossMode = 2;
-                Client.out.p1Enc(161);
+                Client.out.p1Enc(ClientProt.OPPLAYER6);
                 Client.out.p2_alt2(var6);
             }
         }
@@ -8801,7 +8802,7 @@ export class Client extends GameShell {
             Client.crossY = ClientMouseListener.mouseClickY;
             Client.crossCycle = 0;
             Client.crossX = ClientMouseListener.mouseClickX;
-            Client.out.p1Enc(166);
+            Client.out.p1Enc(ClientProt.OPLOC6);
             Client.out.p2_alt2(var6);
         }
         if (var3 === 50) {
@@ -8812,7 +8813,7 @@ export class Client extends GameShell {
                 Client.crossCycle = 0;
                 Client.crossY = ClientMouseListener.mouseClickY;
                 Client.crossX = ClientMouseListener.mouseClickX;
-                Client.out.p1Enc(204);
+                Client.out.p1Enc(ClientProt.OPPLAYER8);
                 Client.out.p2_alt3(var6);
             }
         }
@@ -8824,7 +8825,7 @@ export class Client extends GameShell {
                 Client.crossX = ClientMouseListener.mouseClickX;
                 Client.crossMode = 2;
                 Client.crossY = ClientMouseListener.mouseClickY;
-                Client.out.p1Enc(145);
+                Client.out.p1Enc(ClientProt.OPNPCT);
                 Client.out.p4_alt1(Client.targetSub);
                 Client.out.p2_alt1(var6);
                 Client.out.p2(Client.targetCom);
@@ -8839,7 +8840,7 @@ export class Client extends GameShell {
             Client.crossCycle = 0;
             Client.crossY = ClientMouseListener.mouseClickY;
             Client.crossX = ClientMouseListener.mouseClickX;
-            Client.out.p1Enc(176);
+            Client.out.p1Enc(ClientProt.OPOBJU);
             Client.out.p2_alt1(Client.mapBuildBaseZ + var2);
             Client.out.p4_alt3(Client.objSelectedComId);
             Client.out.p2_alt1(Client.objSelectedSlot);
@@ -8869,16 +8870,16 @@ export class Client extends GameShell {
                 Client.tryMove(1, 0, var5.routeZ[0], var5.routeX[0], Client.localPlayer!.routeX[0], 1, 0, 2, false, 0, Client.localPlayer!.routeZ[0]);
                 var3 = true;
                 if (arg1 === 1) {
-                    Client.out.p1Enc(65);
+                    Client.out.p1Enc(ClientProt.OPPLAYER1);
                     Client.out.p2_alt1(Client.playerIds[var4]);
                 } else if (arg1 === 4) {
-                    Client.out.p1Enc(214);
+                    Client.out.p1Enc(ClientProt.OPPLAYER4);
                     Client.out.p2_alt2(Client.playerIds[var4]);
                 } else if (arg1 === 6) {
-                    Client.out.p1Enc(161);
+                    Client.out.p1Enc(ClientProt.OPPLAYER6);
                     Client.out.p2_alt2(Client.playerIds[var4]);
                 } else if (arg1 === 7) {
-                    Client.out.p1Enc(47);
+                    Client.out.p1Enc(ClientProt.OPPLAYER7);
                     Client.out.p2_alt3(Client.playerIds[var4]);
                 }
                 break;
@@ -8927,52 +8928,52 @@ export class Client extends GameShell {
             return;
         }
         if (arg0 === 1) {
-            Client.out.p1Enc(44);
+            Client.out.p1Enc(ClientProt.IF_BUTTON1);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 2) {
-            Client.out.p1Enc(50);
+            Client.out.p1Enc(ClientProt.IF_BUTTON2);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 3) {
-            Client.out.p1Enc(103);
+            Client.out.p1Enc(ClientProt.IF_BUTTON3);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 4) {
-            Client.out.p1Enc(64);
+            Client.out.p1Enc(ClientProt.IF_BUTTON4);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 5) {
-            Client.out.p1Enc(178);
+            Client.out.p1Enc(ClientProt.IF_BUTTON5);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 6) {
-            Client.out.p1Enc(81);
+            Client.out.p1Enc(ClientProt.IF_BUTTON6);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 7) {
-            Client.out.p1Enc(236);
+            Client.out.p1Enc(ClientProt.IF_BUTTON7);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 8) {
-            Client.out.p1Enc(188);
+            Client.out.p1Enc(ClientProt.IF_BUTTON8);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 9) {
-            Client.out.p1Enc(128);
+            Client.out.p1Enc(ClientProt.IF_BUTTON9);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
         if (arg0 === 10) {
-            Client.out.p1Enc(254);
+            Client.out.p1Enc(ClientProt.IF_BUTTON10);
             Client.out.p4(arg3);
             Client.out.p2(arg2);
         }
@@ -10874,7 +10875,7 @@ export class Client extends GameShell {
                         ScriptRunner.executeScript(req, 200000);
                     }
                     if (Client.dropCom !== null && Client.serverDraggable(dragCom) !== null) {
-                        Client.out.p1Enc(135);
+                        Client.out.p1Enc(ClientProt.IF_BUTTOND);
                         Client.out.p2_alt1(dragCom.subId);
                         Client.out.p4_alt3(dragCom.parentId);
                         Client.out.p4_alt3(Client.dropCom.parentId);
@@ -11175,7 +11176,7 @@ export class Client extends GameShell {
 
     // jag::oldscape::Client::CloseModal
     static closeModal(): void {
-        Client.out.p1Enc(24);
+        Client.out.p1Enc(ClientProt.CLOSE_MODAL);
 
         for (let var0 = Client.subinterfaces.search() as SubInterface | null; var0 !== null; var0 = Client.subinterfaces.findnext() as SubInterface | null) {
             if (var0.type === 0) {
@@ -11499,7 +11500,7 @@ export class Client extends GameShell {
         Client.friendTransmitNum = Client.transmitNum;
         Client.friendCount++;
 
-        Client.out.p1Enc(82);
+        Client.out.p1Enc(ClientProt.FRIENDLIST_ADD);
         Client.out.p8(arg0);
     }
 
@@ -11538,7 +11539,7 @@ export class Client extends GameShell {
         Client.field2741[Client.privateMessageCount++] = JagString.toRawUsername(arg0);
         Client.friendTransmitNum = Client.transmitNum;
 
-        Client.out.p1Enc(28);
+        Client.out.p1Enc(ClientProt.IGNORELIST_ADD);
         Client.out.p8(arg0);
     }
 
@@ -11562,7 +11563,7 @@ export class Client extends GameShell {
                 }
 
                 Client.friendTransmitNum = Client.transmitNum;
-                Client.out.p1Enc(121);
+                Client.out.p1Enc(ClientProt.FRIENDLIST_DEL);
                 Client.out.p8(arg0);
                 return;
             }
@@ -11585,7 +11586,7 @@ export class Client extends GameShell {
                 }
 
                 Client.friendTransmitNum = Client.transmitNum;
-                Client.out.p1Enc(126);
+                Client.out.p1Enc(ClientProt.IGNORELIST_DEL);
                 Client.out.p8(arg0);
                 return;
             }
@@ -11594,7 +11595,7 @@ export class Client extends GameShell {
 
     // jag::oldscape::FriendSystem::SetFriendRank
     static setFriendRank(arg0: string, arg1: number): void {
-        Client.out.p1Enc(40);
+        Client.out.p1Enc(ClientProt.FRIEND_SETRANK);
         Client.out.p8_alt3(JagString.wrap(arg0).toUserhash());
         Client.out.p1(arg1);
     }
@@ -11613,7 +11614,7 @@ export class Client extends GameShell {
             var1++;
         }
         if (Client.friendChatList.length > var1 && Client.friendChatList[var1] !== null) {
-            Client.out.p1Enc(49);
+            Client.out.p1Enc(ClientProt.CLAN_KICKUSER);
             Client.out.p8(Client.friendChatList[var1]!.key);
         }
     }
@@ -11621,14 +11622,14 @@ export class Client extends GameShell {
     // jag::oldscape::Client::FriendsChatJoinChat
     static friendsChatJoinChat(arg0: bigint): void {
         if (arg0 !== 0n) {
-            Client.out.p1Enc(58);
+            Client.out.p1Enc(ClientProt.CLAN_JOINCHAT_LEAVECHAT);
             Client.out.p8(arg0);
         }
     }
 
     // jag::oldscape::Client::FriendsChatLeaveChat
     static friendsChatLeaveChat(): void {
-        Client.out.p1Enc(58);
+        Client.out.p1Enc(ClientProt.CLAN_JOINCHAT_LEAVECHAT);
         Client.out.p8(0n);
     }
 
@@ -11752,7 +11753,7 @@ export class Client extends GameShell {
     }
 
     static resumePauseButton(arg0: number, arg1: number): void {
-        Client.out.p1Enc(95);
+        Client.out.p1Enc(ClientProt.RESUME_PAUSEBUTTON);
         Client.out.p4_alt3(arg1);
         Client.out.p2_alt1(arg0);
     }

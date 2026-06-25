@@ -28,6 +28,7 @@ import PixfontGeneric from '#/graphics/PixfontGeneric.js';
 import SoftwarePixFont from '#/graphics/SoftwarePixFont.js';
 import Text from '#/constants/Text.js';
 import TitleScreen from '#/client/TitleScreen.js';
+import { ClientProt } from '#/client/ClientProt.js';
 
 // jag::oldscape::ScriptRunner
 export default class ScriptRunner {
@@ -1403,8 +1404,7 @@ export default class ScriptRunner {
                         if (var337.isDecimal()) {
                             var338 = var337.toInt();
                         }
-                        // RESUME_P_COUNTDIALOG
-                        Client.out.p1Enc(152);
+                        Client.out.p1Enc(ClientProt.RESUME_P_COUNTDIALOG);
                         Client.out.p4(var338);
                         continue;
                     }
@@ -1412,8 +1412,7 @@ export default class ScriptRunner {
                         // resume_namedialog
                         ssp--;
                         const var339 = this.stringStack[ssp]!;
-                        // RESUME_P_NAMEDIALOG
-                        Client.out.p1Enc(54);
+                        Client.out.p1Enc(ClientProt.RESUME_P_NAMEDIALOG);
                         Client.out.p8(JagString.fromLatin1String(var339).toUserhash());
                         continue;
                     }
@@ -1421,8 +1420,7 @@ export default class ScriptRunner {
                         // resume_stringdialog
                         ssp--;
                         const var340 = this.stringStack[ssp]!;
-                        // RESUME_P_STRINGDIALOG
-                        Client.out.p1Enc(60);
+                        Client.out.p1Enc(ClientProt.RESUME_P_STRINGDIALOG);
                         Client.out.p1(Packet.pjstrlen(var340));
                         Client.out.pjstr(var340);
                         continue;
@@ -1458,7 +1456,7 @@ export default class ScriptRunner {
                     if (opcode === 3110) {
                         isp--;
                         const var350 = this.intStack[isp];
-                        Client.out.p1Enc(194);
+                        Client.out.p1Enc(ClientProt.RESUME_P_OBJDIALOG);
                         Client.out.p2(var350);
                         continue;
                     }
@@ -2593,8 +2591,7 @@ export default class ScriptRunner {
                         Client.chatPublicMode = this.intStack[isp];
                         Client.chatPrivateMode = this.intStack[isp + 1];
                         Client.chatTradeMode = this.intStack[isp + 2];
-                        // SET_CHATFILTERSETTINGS
-                        Client.out.p1Enc(115);
+                        Client.out.p1Enc(ClientProt.SET_CHATFILTERSETTINGS);
                         Client.out.p1(Client.chatPublicMode);
                         Client.out.p1(Client.chatPrivateMode);
                         Client.out.p1(Client.chatTradeMode);
@@ -2607,8 +2604,7 @@ export default class ScriptRunner {
                         ssp--;
                         const var183 = this.stringStack[ssp]!;
                         const var184 = this.intStack[isp + 1];
-                        // SEND_SNAPSHOT
-                        Client.out.p1Enc(99);
+                        Client.out.p1Enc(ClientProt.SEND_SNAPSHOT);
                         Client.out.p8(JagString.fromLatin1String(var183).toUserhash());
                         Client.out.p1(var182 - 1);
                         Client.out.p1(var184);
@@ -2768,7 +2764,7 @@ export default class ScriptRunner {
                             }
                         }
                         // MESSAGE_PUBLIC
-                        Client.out.p1Enc(189);
+                        Client.out.p1Enc(ClientProt.MESSAGE_PUBLIC);
                         Client.out.p1(0);
                         const var194 = Client.out.pos;
                         Client.out.p1(var191);
@@ -2784,7 +2780,7 @@ export default class ScriptRunner {
                         const var196 = this.stringStack[ssp + 1]!;
                         if (Client.staffmodlevel !== 0 || (Client.underage !== 1 && Client.mapQuickchat !== 1)) {
                             // MESSAGE_PRIVATE
-                            Client.out.p1Enc(80);
+                            Client.out.p1Enc(ClientProt.MESSAGE_PRIVATE);
                             Client.out.p1(0);
                             const var197 = Client.out.pos;
                             Client.out.p8(JagString.fromLatin1String(var195).toUserhash());
@@ -2928,7 +2924,7 @@ export default class ScriptRunner {
                         continue;
                     }
                     if (opcode === 5059) {
-                        Client.out.p1Enc(197);
+                        Client.out.p1Enc(ClientProt.MESSAGE_QUICKCHAT_PUBLIC);
                         Client.out.p1(0);
                         const var221 = Client.out.pos;
                         Client.out.p1(0);
@@ -2940,7 +2936,7 @@ export default class ScriptRunner {
                     if (opcode === 5060) {
                         ssp--;
                         const var222 = this.stringStack[ssp]!;
-                        Client.out.p1Enc(242);
+                        Client.out.p1Enc(ClientProt.MESSAGE_QUICKCHAT_PRIVATE);
                         Client.out.p1(0);
                         const var223 = Client.out.pos;
                         Client.out.p8(JagString.fromLatin1String(var222).toUserhash());
@@ -2950,7 +2946,7 @@ export default class ScriptRunner {
                         continue;
                     }
                     if (opcode === 5061) {
-                        Client.out.p1Enc(197);
+                        Client.out.p1Enc(ClientProt.MESSAGE_QUICKCHAT_PUBLIC);
                         Client.out.p1(0);
                         const var224 = Client.out.pos;
                         Client.out.p1(1);
@@ -3101,7 +3097,7 @@ export default class ScriptRunner {
                         const var246 = this.stringStack[ssp + 1]!;
                         isp--;
                         const var247 = this.intStack[isp];
-                        Client.out.p1Enc(85);
+                        Client.out.p1Enc(ClientProt.URL_REQUEST);
                         Client.out.p1(Packet.pjstrlen(var245) + Packet.pjstrlen(var246) + 1);
                         Client.out.pjstr(var245);
                         Client.out.pjstr(var246);
