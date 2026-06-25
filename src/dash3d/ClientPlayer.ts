@@ -86,7 +86,7 @@ export default class ClientPlayer extends ClientEntity {
         const var13 = new Int32Array(5);
         for (let var14 = 0; var14 < 5; var14++) {
             let var15 = buf.g1();
-            if (var15 < 0 || var15 >= Client.field96[var14].length) {
+            if (var15 < 0 || var15 >= PlayerModel.recol1d[var14].length) {
                 var15 = 0;
             }
             var13[var14] = var15;
