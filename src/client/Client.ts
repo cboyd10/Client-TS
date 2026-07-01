@@ -10179,7 +10179,7 @@ export class Client extends GameShell {
                 Client.componentUpdated(arg5);
             } else if (arg2 >= arg0 - Client.scrollInputPadding && arg2 < Client.scrollInputPadding + arg0 + 16 && arg6 + 16 <= arg4 && arg4 < arg6 + arg3 - 16) {
                 if (arg1 === 0) {
-                    throw new Error('/ by zero');
+                    return;
                 }
                 let var7: number = (Math.imul(arg3, arg3 - 32) / arg1) | 0;
                 if (var7 < 8) {
@@ -10188,7 +10188,7 @@ export class Client extends GameShell {
                 const var8: number = arg3 - var7 - 32;
                 const var9: number = arg4 - ((var7 / 2) | 0) - arg6 - 16;
                 if (var8 === 0) {
-                    throw new Error('/ by zero');
+                    return;
                 }
                 arg5.scrollPosY = (Math.imul(var9, arg1 - arg3) / var8) | 0;
                 Client.componentUpdated(arg5);
@@ -10206,17 +10206,14 @@ export class Client extends GameShell {
 
     // jag::oldscape::Client::DrawScrollbar
     static drawScrollbar(arg0: number, arg1: number, arg2: number, arg3: number, arg4: number): void {
-        if (arg3 === 0) {
-            throw new Error('/ by zero');
+        if (arg3 <= 0 || arg3 <= arg1) {
+            return;
         }
         let var5: number = (Math.imul(arg1 - 32, arg1) / arg3) | 0;
         if (var5 < 8) {
             var5 = 8;
         }
         Client.scrollbar![0]!.plotSprite(arg4, arg2);
-        if (arg3 - arg1 === 0) {
-            throw new Error('/ by zero');
-        }
         const var6: number = (Math.imul(arg0, arg1 - var5 - 32) / (arg3 - arg1)) | 0;
         Client.scrollbar![1]!.plotSprite(arg4, arg1 + arg2 - 16);
         Pix2D.fillRect(arg4, arg2 + 16, 16, arg1 - 32, Client.SCROLLBAR_TRACK);
