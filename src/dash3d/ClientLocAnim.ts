@@ -71,6 +71,7 @@ export default class ClientLocAnim extends ModelSource {
             frame = this.anim.frames[this.animFrame];
         }
 
+        // todo: multiloc support
         const loc = LocType.list(this.index);
         return loc.getModel(this.shape, this.angle, this.heightSW, this.heightSE, this.heightNE, this.heightNW, frame);
     }

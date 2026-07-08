@@ -789,6 +789,7 @@ export default class ClientBuild {
 
         const typecode2: number = ((((angle << 6) + shape) | 0) << 24) >> 24;
 
+        // todo: multiloc support
         if (shape === LocShape.GROUND_DECOR) {
             if (!ClientBuild.lowMem || loc.active || loc.forcedecor) {
                 let model: ModelSource | null;
@@ -1185,6 +1186,7 @@ export default class ClientBuild {
 
         const typecode2: number = ((((angle << 6) + shape) | 0) << 24) >> 24;
 
+        // todo: multiloc support
         if (shape === LocShape.GROUND_DECOR) {
             let model: ModelSource | null;
             if (loc.anim === -1) {

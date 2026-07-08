@@ -72,7 +72,7 @@ import WordPack from '#/wordfilter/WordPack.js';
 
 import JagFX from '#/sound/JagFX.js';
 
-const CLIENT_VERSION = 274;
+const CLIENT_VERSION = 289;
 
 const MAX_PLAYER_COUNT = 2048;
 const LOCAL_PLAYER_INDEX = 2047;
@@ -4148,7 +4148,7 @@ export class Client extends GameShell {
                 this.p12?.centreStringTag('Off', 184, 41, Colour.RED, true);
             }
 
-            this.p12?.centreStringTag('Trade/duel', 324, 28, Colour.WHITE, true);
+            this.p12?.centreStringTag('Trade/compete', 324, 28, Colour.WHITE, true);
             if (this.chatTradeMode === 0) {
                 this.p12?.centreStringTag('On', 324, 41, Colour.GREEN, true);
             }
@@ -6265,7 +6265,7 @@ export class Client extends GameShell {
                     throw new Error();
                 }
 
-                const size: number = this.in.g1();
+                const size: number = this.in.g2();
                 for (let i: number = 0; i < size; i++) {
                     inv.linkObjType[i] = this.in.g2();
 
@@ -6297,7 +6297,7 @@ export class Client extends GameShell {
                 }
 
                 while (this.in.pos < this.psize) {
-                    const slot: number = this.in.g1();
+                    const slot: number = this.in.gsmart();
                     const id: number = this.in.g2();
 
                     let count: number = this.in.g1();
@@ -9296,6 +9296,7 @@ export class Client extends GameShell {
             lastTypecode = typecode;
 
             if (entityType === 2 && this.world && this.world.typeCode2(this.minusedlevel, x, z, typecode) >= 0) {
+                // todo: multiloc support
                 const loc: LocType = LocType.list(typeId);
 
                 if (this.useMode === 1) {
@@ -9592,6 +9593,14 @@ export class Client extends GameShell {
                 if (op.toLowerCase() === 'attack') {
                     if (player.combatLevel > this.localPlayer.combatLevel) {
                         priority = MiniMenuAction._PRIORITY;
+                    }
+
+                    if (this.localPlayer.team !== 0 && player.team !== 0) {
+                        if (this.localPlayer.team === player.team) {
+                            priority = MiniMenuAction._PRIORITY;
+                        } else {
+                            priority = 0;
+                        }
                     }
                 } else if (this.playerOpPriority[i]) {
                     priority = MiniMenuAction._PRIORITY;
@@ -11346,6 +11355,14 @@ export class Client extends GameShell {
                     if (userhash === this.friendUserhash[j] && this.friendNodeId[j] !== 0) {
                         friend = true;
                         break;
+                    }
+                }
+
+                if (this.localPlayer.team !== 0 && player.team !== 0) {
+                    if (this.localPlayer.team === player.team) {
+                        friend = true;
+                    } else {
+                        friend = false;
                     }
                 }
 
