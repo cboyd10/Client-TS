@@ -26,7 +26,7 @@ export default class SeqType extends Linkable2 {
     frames: Int32Array | null = null;
     iframes: Int32Array | null = null;
     delay: Int32Array | null = null;
-    sound: Int32Array[] | null = null;
+    sound: (Int32Array | null)[] | null = null;
     loops: number = -1;
     walkmerge: Int32Array | null = null;
     reachforward: boolean = false;
@@ -138,7 +138,7 @@ export default class SeqType extends Linkable2 {
             }
         } else if (code === 13) {
             const count = dat.g2();
-            this.sound = new Array(count);
+            this.sound = new Array(count).fill(null);
             for (let i = 0; i < count; i++) {
                 const len = dat.g1();
                 if (len > 0) {
