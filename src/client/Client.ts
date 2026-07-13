@@ -1921,7 +1921,7 @@ export class Client extends GameShell {
             }
         }
 
-        if (Client.objDragCom !== null || Client.dragCom !== null) {
+        if (Client.objDragCom !== null) {
             Client.componentUpdated(Client.objDragCom);
             Client.objDragCycles++;
 
