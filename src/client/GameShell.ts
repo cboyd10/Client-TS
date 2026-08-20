@@ -101,6 +101,7 @@ export default abstract class GameShell {
         canvas.onpointerenter = this.onpointerenter.bind(this);
         canvas.onpointerleave = this.onpointerleave.bind(this);
         canvas.onpointermove = this.onpointermove.bind(this);
+        canvas.onwheel = this.onwheel.bind(this);
         window.onmouseup = this.windowMouseUp.bind(this);
         window.onmousemove = this.windowMouseMove.bind(this);
 
@@ -415,6 +416,14 @@ export default abstract class GameShell {
         this.idleTimer = performance.now();
         this.mouseX = x;
         this.mouseY = y;
+    }
+
+    private onwheel(e: WheelEvent) {
+        e.preventDefault();
+        this.mouseScroll(e.deltaY);
+    }
+
+    protected mouseScroll(_deltaY: number) {
     }
 
     protected windowMouseUp(e: MouseEvent) {

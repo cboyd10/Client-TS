@@ -350,6 +350,7 @@ export class Client extends GameShell {
     private orbitCameraPitchVelocity: number = 0;
     private orbitCameraX: number = 0;
     private orbitCameraZ: number = 0;
+    private cameraZoom: number = 1200;
     private sendCameraDelay: number = 0;
     private sendCamera: boolean = false;
     private cameraPitchClamp: number = 0;
@@ -1227,7 +1228,7 @@ export class Client extends GameShell {
             const distance: Int32Array = new Int32Array(9);
             for (let x: number = 0; x < 9; x++) {
                 const angle: number = x * 32 + 128 + 15;
-                const offset: number = angle * 3 + 600;
+                const offset: number = angle * 3 + 1200;
                 const sin: number = Pix3D.sinTable[angle];
                 distance[x] = (offset * sin) >> 16;
             }
@@ -3088,6 +3089,19 @@ export class Client extends GameShell {
                                 } catch (_e) {
                                     // empty
                                 }
+                            } else if (this.chatInput.startsWith('::zoom ')) {
+                                // custom ::zoom command for setting camera distance explicitly (mobile has no scroll wheel)
+                                const arg = this.chatInput.substring(7);
+                                if (arg === '-h') {
+                                    this.addChat(0, '::zoom <number 400-1800> - sets camera distance directly. Useful on mobile, which has no scroll wheel.', '');
+                                } else {
+                                    try {
+                                        const desiredZoom = parseInt(arg) || 1200;
+                                        this.cameraZoom = Math.max(400, Math.min(1800, desiredZoom));
+                                    } catch (_e) {
+                                        // empty
+                                    }
+                                }
                             } else if (this.chatInput.startsWith('::')) {
                                 this.out.p1Enc(ClientProt.CLIENT_CHEAT);
                                 this.out.p1(this.chatInput.length - 2 + 1);
@@ -4191,7 +4205,7 @@ export class Client extends GameShell {
             const yaw: number = (this.orbitCameraYaw + this.macroCameraAngle) & 0x7ff;
 
             if (this.localPlayer) {
-                this.camFollow(pitch, yaw, this.orbitCameraX, this.getAvH(this.localPlayer.x, this.localPlayer.z, this.minusedlevel) - 50, this.orbitCameraZ, pitch * 3 + 600);
+                this.camFollow(pitch, yaw, this.orbitCameraX, this.getAvH(this.localPlayer.x, this.localPlayer.z, this.minusedlevel) - 50, this.orbitCameraZ, pitch * 3 + this.cameraZoom);
             }
         }
 
@@ -11675,6 +11689,20 @@ export class Client extends GameShell {
             this.startedInGame = this.insideGame();
             this.startedInSide = this.insideSide();
             this.startedInChat = this.insideChat();
+        }
+    }
+
+    override mouseScroll(deltaY: number) {
+        if (deltaY > 0) {
+            this.cameraZoom += 100;
+        } else if (deltaY < 0) {
+            this.cameraZoom -= 100;
+        }
+
+        if (this.cameraZoom < 400) {
+            this.cameraZoom = 400;
+        } else if (this.cameraZoom > 1800) {
+            this.cameraZoom = 1800;
         }
     }
 
