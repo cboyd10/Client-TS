@@ -72,6 +72,16 @@ export class MapView extends GameShell {
     mapdot0: Pix32 | null = null;
     mapdot1: Pix32 | null = null;
 
+    // custom: markers plotted by the item source lookup page - red for ground spawns,
+    // yellow for shop npcs, matching the minimap's item/npc dot colours
+    itemMarkers: { x: number; z: number }[] = [];
+    npcMarkers: { x: number; z: number }[] = [];
+
+    // custom: flips true once maininit() has finished loading worldmap.jag - external
+    // callers (e.g. the item source lookup page) must wait for this before calling
+    // centerOn/setMarkers
+    loaded: boolean = false;
+
     b12: PixFont | null = null;
     f11: WorldMapFont | null = null;
     f12: WorldMapFont | null = null;
@@ -123,8 +133,9 @@ export class MapView extends GameShell {
     readonly ACTIVE: number = 0x990000;
     readonly ACTIVE_BORDER_BR: number = 0x880000;
 
-    zoom: number = 4;
-    targetZoom: number = 4;
+    // custom: default to 200% instead of the original 50%
+    zoom: number = 16;
+    targetZoom: number = 16;
 
     readonly keyNames: string[] = [
         'General Store',
@@ -183,6 +194,44 @@ export class MapView extends GameShell {
         super();
 
         this.run();
+    }
+
+    // custom: re-centers the already-loaded map on a world coordinate, e.g. when
+    // the item source lookup page's "Show on Map" link is clicked
+    centerOn(worldX: number, worldZ: number): void {
+        // same basis as the default mapStartX/mapStartZ -> focusX/focusZ conversion above
+        this.focusX = worldX - this.mapOriginX;
+        this.focusZ = this.mapOriginZ + this.mapHeight - worldZ;
+        this.redraw = true;
+    }
+
+    // custom: replaces the marker lists drawn on top of the map
+    setMarkers(items: { x: number; z: number }[], npcs: { x: number; z: number }[]): void {
+        this.itemMarkers = items;
+        this.npcMarkers = npcs;
+        this.redraw = true;
+    }
+
+    // custom: converts a world coordinate to the current on-screen pixel position,
+    // using the same basis as renderWorldMap's per-tile transform
+    worldToScreen(worldX: number, worldZ: number): { x: number; y: number } {
+        const localX: number = worldX - this.mapOriginX;
+        const localZ: number = this.mapOriginZ + this.mapHeight - worldZ;
+
+        const left: number = this.focusX - ((this.sWid / this.zoom) | 0);
+        const top: number = this.focusZ - ((this.sHei / this.zoom) | 0);
+        const right: number = this.focusX + ((this.sWid / this.zoom) | 0);
+        const bottom: number = this.focusZ + ((this.sHei / this.zoom) | 0);
+
+        const visibleX: number = right - left;
+        const visibleY: number = bottom - top;
+        const widthRatio: number = ((this.sWid << 16) / visibleX) | 0;
+        const heightRatio: number = ((this.sHei << 16) / visibleY) | 0;
+
+        const x: number = (widthRatio * (localX - left)) >> 16;
+        const y: number = (heightRatio * (localZ - top)) >> 16;
+
+        return { x, y };
     }
 
     override async maininit(): Promise<void> {
@@ -317,6 +366,9 @@ export class MapView extends GameShell {
         Pix2D.drawRect(1, 1, this.overviewWidth - 2, this.overviewHeight - 2, this.INACTIVE_BORDER_TL);
 
         this.drawArea?.setPixels();
+
+        // custom:
+        this.loaded = true;
     }
 
     override async mainredraw(): Promise<void> {
@@ -331,6 +383,15 @@ export class MapView extends GameShell {
             const right: number = this.focusX + ((this.sWid / this.zoom) | 0);
             const bottom: number = this.focusZ + ((this.sHei / this.zoom) | 0);
             this.renderWorldMap(left, top, right, bottom, 0, 0, this.sWid, this.sHei);
+
+            for (const marker of this.itemMarkers) {
+                const pos = this.worldToScreen(marker.x, marker.z);
+                this.mapdot0?.plotSprite(pos.x, pos.y);
+            }
+            for (const marker of this.npcMarkers) {
+                const pos = this.worldToScreen(marker.x, marker.z);
+                this.mapdot1?.plotSprite(pos.x, pos.y);
+            }
 
             if (this.showOverview) {
                 this.overview?.quickPlotSprite(this.overviewX, this.overviewY);
@@ -421,6 +482,25 @@ export class MapView extends GameShell {
             } else {
                 this.drawStringBox(350, y, 50, 30, this.INACTIVE_BORDER_TL, this.INACTIVE, this.INACTIVE_BORDER_BR, '100%');
             }
+
+            // custom: 150/200/250% zoom levels
+            if (this.targetZoom == 12.0) {
+                this.drawStringBox(410, y, 50, 30, this.ACTIVE_BORDER_TL, this.ACTIVE, this.ACTIVE_BORDER_BR, '150%');
+            } else {
+                this.drawStringBox(410, y, 50, 30, this.INACTIVE_BORDER_TL, this.INACTIVE, this.INACTIVE_BORDER_BR, '150%');
+            }
+
+            if (this.targetZoom == 16.0) {
+                this.drawStringBox(470, y, 50, 30, this.ACTIVE_BORDER_TL, this.ACTIVE, this.ACTIVE_BORDER_BR, '200%');
+            } else {
+                this.drawStringBox(470, y, 50, 30, this.INACTIVE_BORDER_TL, this.INACTIVE, this.INACTIVE_BORDER_BR, '200%');
+            }
+
+            if (this.targetZoom == 20.0) {
+                this.drawStringBox(530, y, 50, 30, this.ACTIVE_BORDER_TL, this.ACTIVE, this.ACTIVE_BORDER_BR, '250%');
+            } else {
+                this.drawStringBox(530, y, 50, 30, this.INACTIVE_BORDER_TL, this.INACTIVE, this.INACTIVE_BORDER_BR, '250%');
+            }
         }
 
         this.redrawTimer--;
@@ -470,6 +550,18 @@ export class MapView extends GameShell {
                 this.redraw = true;
             } else if (key == '4'.charCodeAt(0)) {
                 this.targetZoom = 8.0;
+                this.redraw = true;
+            } else if (key == '5'.charCodeAt(0)) {
+                // custom: 150%
+                this.targetZoom = 12.0;
+                this.redraw = true;
+            } else if (key == '6'.charCodeAt(0)) {
+                // custom: 200%
+                this.targetZoom = 16.0;
+                this.redraw = true;
+            } else if (key == '7'.charCodeAt(0)) {
+                // custom: 250%
+                this.targetZoom = 20.0;
                 this.redraw = true;
             } else if (key == 'k'.charCodeAt(0) || key == 'K'.charCodeAt(0)) {
                 this.showKey = !this.showKey;
@@ -552,6 +644,18 @@ export class MapView extends GameShell {
                 this.nextMouseClickX = -1;
             } else if (this.mouseClickX > 350 && this.mouseClickX < 400 && this.mouseClickY > zoomY) {
                 this.targetZoom = 8.0;
+                this.nextMouseClickX = -1;
+            } else if (this.mouseClickX > 410 && this.mouseClickX < 460 && this.mouseClickY > zoomY) {
+                // custom: 150%
+                this.targetZoom = 12.0;
+                this.nextMouseClickX = -1;
+            } else if (this.mouseClickX > 470 && this.mouseClickX < 520 && this.mouseClickY > zoomY) {
+                // custom: 200%
+                this.targetZoom = 16.0;
+                this.nextMouseClickX = -1;
+            } else if (this.mouseClickX > 530 && this.mouseClickX < 580 && this.mouseClickY > zoomY) {
+                // custom: 250%
+                this.targetZoom = 20.0;
                 this.nextMouseClickX = -1;
             } else if (this.mouseClickX > this.keyX && this.mouseClickY > this.keyY + this.keyHeight && this.mouseClickX < this.keyX + this.keyWidth) {
                 this.showKey = !this.showKey;
@@ -1318,6 +1422,8 @@ export class MapView extends GameShell {
 
                 let rgb: number = 0xffffff;
                 let font: WorldMapFont | null = null;
+                // custom: 150/200/250% zoom levels reuse the largest loaded font per tier - there's
+                // no bigger font asset packed in worldmap.jag to grow into beyond 100%
                 if (labelSize == 0) {
                     if (this.zoom == 3.0) {
                         font = this.f11;
@@ -1325,7 +1431,7 @@ export class MapView extends GameShell {
                         font = this.f12;
                     } else if (this.zoom == 6.0) {
                         font = this.f14;
-                    } else if (this.zoom == 8.0) {
+                    } else if (this.zoom == 8.0 || this.zoom == 12.0 || this.zoom == 16.0 || this.zoom == 20.0) {
                         font = this.f17;
                     }
                 } else if (labelSize == 1) {
@@ -1335,7 +1441,7 @@ export class MapView extends GameShell {
                         font = this.f17;
                     } else if (this.zoom == 6.0) {
                         font = this.f19;
-                    } else if (this.zoom == 8.0) {
+                    } else if (this.zoom == 8.0 || this.zoom == 12.0 || this.zoom == 16.0 || this.zoom == 20.0) {
                         font = this.f22;
                     }
                 } else if (labelSize == 2) {
@@ -1347,7 +1453,7 @@ export class MapView extends GameShell {
                         font = this.f22;
                     } else if (this.zoom == 6.0) {
                         font = this.f26;
-                    } else if (this.zoom == 8.0) {
+                    } else if (this.zoom == 8.0 || this.zoom == 12.0 || this.zoom == 16.0 || this.zoom == 20.0) {
                         font = this.f30;
                     }
                 }
