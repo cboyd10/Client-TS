@@ -2356,14 +2356,6 @@ export class Client extends GameShell {
 
         await this.handleInputKey();
 
-        if (now - this.idleTimer > 90_000) {
-            // no input in 90s, notify the server
-            this.logoutTimer = 250;
-            this.idleTimer += 10_000; // 10s backoff
-
-            this.out.p1Enc(ClientProt.IDLE_TIMER);
-        }
-
         this.macroCameraCycle++;
         if (this.macroCameraCycle > 500) {
             this.macroCameraCycle = 0;
