@@ -158,6 +158,11 @@ export class Client extends GameShell {
     private showFps: boolean = false;
     private rebootTimer: number = 0;
 
+    private showXpTracker: boolean = localStorage.getItem('xpTrackerEnabled') === 'true';
+    private xpTrackerBaseline: Int32Array = new Int32Array(Skill.count).fill(-1);
+    private xpTrackerStartTime: Float64Array = new Float64Array(Skill.count);
+    private xpTrackerLastGain: Float64Array = new Float64Array(Skill.count);
+
     private hintType: number = 0;
     private hintNpc: number = 0;
     private hintPlayer: number = 0;
@@ -1807,6 +1812,9 @@ export class Client extends GameShell {
                 this.focus = true;
                 this.focusIn = true;
                 this.ingame = true;
+                this.xpTrackerBaseline.fill(-1);
+                this.xpTrackerStartTime.fill(0);
+                this.xpTrackerLastGain.fill(0);
                 this.out.pos = 0;
                 this.in.pos = 0;
                 this.ptype = -1;
@@ -1946,6 +1954,9 @@ export class Client extends GameShell {
                 this.loginMes2 = 'Please wait 1 minute and try again.';
             } else if (response === 15) {
                 this.ingame = true;
+                this.xpTrackerBaseline.fill(-1);
+                this.xpTrackerStartTime.fill(0);
+                this.xpTrackerLastGain.fill(0);
                 this.out.pos = 0;
                 this.in.pos = 0;
                 this.ptype = -1;
@@ -3096,6 +3107,12 @@ export class Client extends GameShell {
                             } else if (this.chatInput === '::fpsoff') {
                                 // authentic in later revs
                                 this.showFps = false;
+                            } else if (this.chatInput === '::xptrackeron') {
+                                this.showXpTracker = true;
+                                localStorage.setItem('xpTrackerEnabled', 'true');
+                            } else if (this.chatInput === '::xptrackeroff') {
+                                this.showXpTracker = false;
+                                localStorage.setItem('xpTrackerEnabled', 'false');
                             } else if (this.chatInput.startsWith('::fps ')) {
                                 // authentic in later revs
                                 try {
@@ -4935,6 +4952,50 @@ export class Client extends GameShell {
             }
         }
 
+        // custom: xp/hour tracker
+        if (this.showXpTracker) {
+            const x: number = 507;
+            let y: number = 50;
+
+            const order: number[] = [];
+            for (let stat: number = 0; stat < Skill.count; stat++) {
+                if (Skill.names[stat] === '-unused-') {
+                    continue;
+                }
+                if (this.xpTrackerBaseline[stat] === -1 || this.statXP[stat] <= this.xpTrackerBaseline[stat]) {
+                    continue;
+                }
+                order.push(stat);
+            }
+            order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
+
+            for (let i: number = 0; i < order.length; i++) {
+                const stat: number = order[i];
+                const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
+                const elapsedMs: number = Date.now() - this.xpTrackerStartTime[stat];
+                const name: string = Skill.names[stat].charAt(0).toUpperCase() + Skill.names[stat].slice(1);
+
+                let line: string = name + '  +' + gained.toLocaleString() + ' xp';
+                if (elapsedMs < 5000) {
+                    line += ' (calculating…)';
+                } else {
+                    const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
+                    line += ' (' + xpPerHour.toLocaleString() + '/hr';
+
+                    const baseLevel: number = this.statBaseLevel[stat];
+                    if (baseLevel < 99) {
+                        const xpToLevel: number = Client.levelExperience[baseLevel] - this.statXP[stat];
+                        const minutesToLevel: number = Math.round((xpToLevel / xpPerHour) * 60);
+                        line += ', ' + xpToLevel.toLocaleString() + ' to lvl ' + (baseLevel + 1) + ' (' + minutesToLevel + 'm)';
+                    }
+                    line += ')';
+                }
+
+                this.p12?.drawStringRight(line, x, y, Colour.YELLOW);
+                y += 15;
+            }
+        }
+
         if (this.rebootTimer !== 0) {
             let seconds: number = (this.rebootTimer / 50) | 0;
             const minutes: number = (seconds / 60) | 0;
@@ -6696,6 +6757,17 @@ export class Client extends GameShell {
                 const stat: number = this.in.g1();
                 const xp: number = this.in.g4();
                 const level: number = this.in.g1();
+
+                const xpTrackerNow: number = Date.now();
+                if (this.xpTrackerBaseline[stat] === -1) {
+                    // First packet for this skill since the last reset — the login/reconnect resend, not a gain.
+                    this.xpTrackerBaseline[stat] = xp;
+                } else if (xp > this.statXP[stat]) {
+                    if (this.xpTrackerStartTime[stat] === 0) {
+                        this.xpTrackerStartTime[stat] = xpTrackerNow;
+                    }
+                    this.xpTrackerLastGain[stat] = xpTrackerNow;
+                }
 
                 this.statXP[stat] = xp;
                 this.statEffectiveLevel[stat] = level;
