@@ -129,7 +129,12 @@ async function applyTerser(script: BunOutput): Promise<boolean> {
                     'message',
                     'failCount',
                     'error',
-                    'id'
+                    'id',
+
+                    // mapview: called/read from outside the bundle by view/items.ejs and view/worldmap.ejs
+                    'centerOn',
+                    'setMarkers',
+                    'loaded'
                 ]
             }
         }
