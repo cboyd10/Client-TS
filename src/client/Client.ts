@@ -500,6 +500,10 @@ export class Client extends GameShell {
     private dialogInputOpen: boolean = false;
     private dialogInput: string = '';
 
+    private bankOpen: boolean = false;
+    private bankSearchFocused: boolean = false;
+    private bankSearchInput: string = '';
+
     private reportAbuseInput: string = '';
     private reportAbuseMuteOption: boolean = false;
     private reportAbuseComId: number = -1;
@@ -3039,9 +3043,28 @@ export class Client extends GameShell {
                             this.dialogInputOpen = false;
                             this.redrawChat = true;
                         }
+                    } else if (this.bankOpen && this.bankSearchFocused) {
+                        if (key >= 32 && key <= 122 && this.bankSearchInput.length < 40) {
+                            this.bankSearchInput = this.bankSearchInput + String.fromCharCode(key);
+                        }
+
+                        if (key === 8 && this.bankSearchInput.length > 0) {
+                            this.bankSearchInput = this.bankSearchInput.substring(0, this.bankSearchInput.length - 1);
+                        }
+
+                        if (key === 27) {
+                            this.bankSearchInput = '';
+                            this.bankSearchFocused = false;
+                        }
+
+                        if (key === 13 || key === 10) {
+                            this.bankSearchFocused = false;
+                        }
                     } else if (this.chatModalId === -1) {
-                        // custom: when typing a command, you can use the debugproc character (tilde)
-                        if (key >= 32 && (key <= 122 || (this.chatInput.startsWith('::') && key <= 126)) && this.chatInput.length < 80) {
+                        // custom: bank search - '/' focuses the bank search box instead of typing into chat
+                        if (this.bankOpen && key === 47 && this.chatInput.length === 0) {
+                            this.bankSearchFocused = true;
+                        } else if (key >= 32 && (key <= 122 || (this.chatInput.startsWith('::') && key <= 126)) && this.chatInput.length < 80) {
                             this.chatInput = this.chatInput + String.fromCharCode(key);
                             this.redrawChat = true;
                         }
@@ -4856,6 +4879,9 @@ export class Client extends GameShell {
             }
         }
 
+        const wasBankOpen: boolean = this.bankOpen;
+        this.bankOpen = false;
+
         if (this.mainOverlayId !== -1) {
             this.animateInterface(this.mainOverlayId, this.worldUpdateNum);
             this.drawInterface(IfType.list[this.mainOverlayId], 0, 0, 0);
@@ -4864,6 +4890,11 @@ export class Client extends GameShell {
         if (this.mainModalId !== -1) {
             this.animateInterface(this.mainModalId, this.worldUpdateNum);
             this.drawInterface(IfType.list[this.mainModalId], 0, 0, 0);
+        }
+
+        if (wasBankOpen && !this.bankOpen) {
+            this.bankSearchFocused = false;
+            this.bankSearchInput = '';
         }
 
         this.getSpecialArea();
@@ -9962,6 +9993,12 @@ export class Client extends GameShell {
             } else if (child.type === ComponentType.TYPE_INV) {
                 let slot: number = 0;
 
+                const isBankInv: boolean = child.clientCode === ClientCode.CC_BANKMODE;
+                if (isBankInv) {
+                    this.bankOpen = true;
+                }
+                const bankSearch: string = isBankInv ? this.bankSearchInput.toLowerCase() : '';
+
                 for (let row: number = 0; row < child.height; row++) {
                     for (let col: number = 0; col < child.width; col++) {
                         if (!child.invBackgroundX || !child.invBackgroundY || !child.linkObjType || !child.linkObjNumber) {
@@ -9989,6 +10026,12 @@ export class Client extends GameShell {
 
                                 const icon: Pix32 | null = ObjType.getSprite(id, child.linkObjNumber[slot], outline);
                                 if (icon) {
+                                    let dimmed: boolean = false;
+                                    if (bankSearch.length > 0) {
+                                        const objName: string = (ObjType.list(id).name ?? '').toLowerCase();
+                                        dimmed = objName.indexOf(bankSearch) === -1;
+                                    }
+
                                     if (this.objDragArea !== 0 && this.objDragSlot === slot && this.objDragComId === child.id) {
                                         dx = this.mouseX - this.objGrabX;
                                         dy = this.mouseY - this.objGrabY;
@@ -10037,6 +10080,8 @@ export class Client extends GameShell {
                                         }
                                     } else if (this.selectedArea !== 0 && this.selectedItem === slot && this.selectedComId === child.id) {
                                         icon.transPlotSprite(slotX, slotY, 128);
+                                    } else if (dimmed) {
+                                        icon.transPlotSprite(slotX, slotY, 50);
                                     } else {
                                         icon.plotSprite(slotX, slotY);
                                     }
@@ -10706,7 +10751,9 @@ export class Client extends GameShell {
     private clientComponent(com: IfType): void {
         let clientCode: number = com.clientCode;
 
-        if ((clientCode >= ClientCode.CC_FRIENDS_START && clientCode <= ClientCode.CC_FRIENDS_END) || (clientCode >= ClientCode.CC_FRIENDS2_START && clientCode <= ClientCode.CC_FRIENDS2_END)) {
+        if (clientCode === ClientCode.CC_BANK_SEARCH_TITLE) {
+            com.text = this.bankSearchInput.length > 0 ? `Searching: ${this.bankSearchInput}` : 'The Bank of RuneScape';
+        } else if ((clientCode >= ClientCode.CC_FRIENDS_START && clientCode <= ClientCode.CC_FRIENDS_END) || (clientCode >= ClientCode.CC_FRIENDS2_START && clientCode <= ClientCode.CC_FRIENDS2_END)) {
             if (clientCode === ClientCode.CC_FRIENDS_START && this.friendServerStatus === 0) {
                 com.text = 'Loading friend list';
                 com.buttonType = 0;
@@ -11000,6 +11047,12 @@ export class Client extends GameShell {
         if (clientCode === ClientCode.CC_LOGOUT) {
             this.logoutTimer = 250;
             return true;
+        } else if (clientCode === ClientCode.CC_BANK_SEARCH_BUTTON) {
+            this.bankSearchFocused = true;
+
+            if (this.isMobile) {
+                MobileKeyboard.show();
+            }
         } else if (clientCode === ClientCode.CC_ADD_IGNORE) {
             this.redrawChat = true;
             this.dialogInputOpen = false;

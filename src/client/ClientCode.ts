@@ -17,6 +17,8 @@ export const enum ClientCode {
 
     /// bank
     CC_BANKMODE = 206,
+    CC_BANK_SEARCH_TITLE = 207,
+    CC_BANK_SEARCH_BUTTON = 208,
 
     //// player design (300-327)
     CC_CHANGE_HEAD_L = 300,
