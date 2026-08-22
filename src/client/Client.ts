@@ -85,6 +85,24 @@ const SCROLLBAR_GRIP_FOREGROUND = 0x4d4233;
 const SCROLLBAR_GRIP_HIGHLIGHT = 0x766654;
 const SCROLLBAR_GRIP_LOWLIGHT = 0x332d25;
 
+const XP_TRACKER_RECALC_MS = 3000;
+const XP_TRACKER_PANEL_WIDTH = 150;
+const XP_TRACKER_PANEL_HEIGHT = 40;
+const XP_TRACKER_PANEL_GAP = 4;
+const XP_TRACKER_RIGHT_EDGE = 507;
+const XP_TRACKER_TOP = 50;
+
+type XpTrackerPanel = {
+    name: string;
+    icon: Pix8 | null;
+    gained: number;
+    calculating: boolean;
+    xpPerHour: number;
+    xpLeft: number;
+    baseLevel: number;
+    percentToLevel: number;
+};
+
 export class Client extends GameShell {
     static nodeId: number = 10;
     static memServer: boolean = true;
@@ -162,6 +180,8 @@ export class Client extends GameShell {
     private xpTrackerBaseline: Int32Array = new Int32Array(Skill.count).fill(-1);
     private xpTrackerStartTime: Float64Array = new Float64Array(Skill.count);
     private xpTrackerLastGain: Float64Array = new Float64Array(Skill.count);
+    private xpTrackerLastRecalc: number = 0;
+    private xpTrackerPanels: XpTrackerPanel[] = [];
 
     private hintType: number = 0;
     private hintNpc: number = 0;
@@ -319,6 +339,8 @@ export class Client extends GameShell {
     private backbase2: Pix8 | null = null;
     private backhmid1: Pix8 | null = null;
     private sideicons: (Pix8 | null)[] = new TypedArray1d(13, null);
+    private staticons: (Pix8 | null)[] = new TypedArray1d(18, null);
+    private staticons2: (Pix8 | null)[] = new TypedArray1d(1, null);
     private redstone1: Pix8 | null = null;
     private redstone2: Pix8 | null = null;
     private redstone3: Pix8 | null = null;
@@ -1022,6 +1044,11 @@ export class Client extends GameShell {
             for (let i: number = 0; i < 13; i++) {
                 this.sideicons[i] = Pix8.depack(media, 'sideicons', i);
             }
+
+            for (let i: number = 0; i < 18; i++) {
+                this.staticons[i] = Pix8.depack(media, 'staticons', i);
+            }
+            this.staticons2[0] = Pix8.depack(media, 'staticons2', 0);
 
             this.compass = Pix32.depack(media, 'compass', 0);
 
@@ -4954,46 +4981,12 @@ export class Client extends GameShell {
 
         // custom: xp/hour tracker
         if (this.showXpTracker) {
-            const x: number = 507;
-            let y: number = 50;
-
-            const order: number[] = [];
-            for (let stat: number = 0; stat < Skill.count; stat++) {
-                if (Skill.names[stat] === '-unused-') {
-                    continue;
-                }
-                if (this.xpTrackerBaseline[stat] === -1 || this.statXP[stat] <= this.xpTrackerBaseline[stat]) {
-                    continue;
-                }
-                order.push(stat);
+            const now: number = Date.now();
+            if (now - this.xpTrackerLastRecalc >= XP_TRACKER_RECALC_MS) {
+                this.xpTrackerLastRecalc = now;
+                this.recalcXpTrackerPanels(now);
             }
-            order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
-
-            for (let i: number = 0; i < order.length; i++) {
-                const stat: number = order[i];
-                const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
-                const elapsedMs: number = Date.now() - this.xpTrackerStartTime[stat];
-                const name: string = Skill.names[stat].charAt(0).toUpperCase() + Skill.names[stat].slice(1);
-
-                let line: string = name + '  +' + gained.toLocaleString() + ' xp';
-                if (elapsedMs < 5000) {
-                    line += ' (calculating…)';
-                } else {
-                    const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
-                    line += ' (' + xpPerHour.toLocaleString() + '/hr';
-
-                    const baseLevel: number = this.statBaseLevel[stat];
-                    if (baseLevel < 99) {
-                        const xpToLevel: number = Client.levelExperience[baseLevel] - this.statXP[stat];
-                        const minutesToLevel: number = Math.round((xpToLevel / xpPerHour) * 60);
-                        line += ', ' + xpToLevel.toLocaleString() + ' to lvl ' + (baseLevel + 1) + ' (' + minutesToLevel + 'm)';
-                    }
-                    line += ')';
-                }
-
-                this.p12?.drawStringRight(line, x, y, Colour.YELLOW);
-                y += 15;
-            }
+            this.drawXpTrackerPanels();
         }
 
         if (this.rebootTimer !== 0) {
@@ -5006,6 +4999,87 @@ export class Client extends GameShell {
             } else {
                 this.p12?.drawString('System update in: ' + minutes + ':' + seconds, 4, 329, Colour.YELLOW);
             }
+        }
+    }
+
+    // custom: recompute xp/hour tracker panel values, throttled to XP_TRACKER_RECALC_MS
+    private recalcXpTrackerPanels(now: number): void {
+        const order: number[] = [];
+        for (let stat: number = 0; stat < Skill.count; stat++) {
+            if (Skill.names[stat] === '-unused-') {
+                continue;
+            }
+            if (this.xpTrackerBaseline[stat] === -1 || this.statXP[stat] <= this.xpTrackerBaseline[stat]) {
+                continue;
+            }
+            order.push(stat);
+        }
+        order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
+
+        this.xpTrackerPanels = order.map((stat: number): XpTrackerPanel => {
+            const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
+            const elapsedMs: number = now - this.xpTrackerStartTime[stat];
+            const name: string = Skill.names[stat].charAt(0).toUpperCase() + Skill.names[stat].slice(1);
+            const icon: Pix8 | null = stat <= 17 ? this.staticons[stat] : stat === 20 ? this.staticons2[0] : null;
+            const baseLevel: number = this.statBaseLevel[stat];
+
+            if (elapsedMs < 5000) {
+                return {name, icon, gained, calculating: true, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0};
+            }
+
+            const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
+            let xpLeft: number = 0;
+            let percentToLevel: number = 0;
+            if (baseLevel < 99) {
+                // Client.levelExperience[i] holds the xp threshold for level (i+2) — see the
+                // `stat_xp_remaining` script opcode at Client.ts:10651, which reads the same
+                // table the same way for the in-game stats tab.
+                const levelStartXp: number = baseLevel <= 1 ? 0 : Client.levelExperience[baseLevel - 2];
+                const levelEndXp: number = Client.levelExperience[baseLevel - 1];
+                xpLeft = levelEndXp - this.statXP[stat];
+                percentToLevel = Math.min(100, Math.max(0, ((this.statXP[stat] - levelStartXp) / (levelEndXp - levelStartXp)) * 100));
+            }
+
+            return {name, icon, gained, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel};
+        });
+    }
+
+    // custom: draw cached xp/hour tracker panels every frame (values only refresh on recalcXpTrackerPanels' cadence)
+    private drawXpTrackerPanels(): void {
+        let y: number = XP_TRACKER_TOP;
+        const x: number = XP_TRACKER_RIGHT_EDGE - XP_TRACKER_PANEL_WIDTH;
+
+        for (const panel of this.xpTrackerPanels) {
+            Pix2D.fillRectTrans(x, y, XP_TRACKER_PANEL_WIDTH, XP_TRACKER_PANEL_HEIGHT, Colour.BLACK, 150);
+            Pix2D.drawRect(x, y, XP_TRACKER_PANEL_WIDTH, XP_TRACKER_PANEL_HEIGHT, 0x666666);
+
+            panel.icon?.plotSprite(x + 3, y + 3);
+
+            const textX: number = x + 31;
+            if (panel.calculating) {
+                this.p12?.drawString(panel.name + '  +' + panel.gained.toLocaleString() + ' xp', textX, y + 13, Colour.YELLOW);
+                this.p12?.drawString('(calculating...)', textX, y + 26, Colour.YELLOW);
+            } else {
+                this.p12?.drawString(panel.name + '  ' + panel.xpPerHour.toLocaleString() + '/hr', textX, y + 13, Colour.YELLOW);
+                if (panel.baseLevel < 99) {
+                    this.p12?.drawString('XP Left: ' + panel.xpLeft.toLocaleString(), textX, y + 26, Colour.YELLOW);
+                } else {
+                    this.p12?.drawString('+' + panel.gained.toLocaleString() + ' xp', textX, y + 26, Colour.YELLOW);
+                }
+            }
+
+            if (!panel.calculating && panel.baseLevel < 99) {
+                const barX: number = x + 3;
+                const barY: number = y + XP_TRACKER_PANEL_HEIGHT - 8;
+                const barWidth: number = XP_TRACKER_PANEL_WIDTH - 6;
+                const filled: number = Math.round((barWidth * panel.percentToLevel) / 100);
+
+                Pix2D.drawRect(barX, barY, barWidth, 5, Colour.BLACK);
+                Pix2D.fillRect(barX, barY, filled, 5, Colour.GREEN);
+                Pix2D.fillRect(barX + filled, barY, barWidth - filled, 5, 0x333333);
+            }
+
+            y += XP_TRACKER_PANEL_HEIGHT + XP_TRACKER_PANEL_GAP;
         }
     }
 
