@@ -90,7 +90,7 @@ const XP_TRACKER_PANEL_WIDTH = 150;
 const XP_TRACKER_PANEL_HEIGHT = 40;
 const XP_TRACKER_PANEL_GAP = 4;
 const XP_TRACKER_RIGHT_EDGE = 507;
-const XP_TRACKER_TOP = 20;
+const XP_TRACKER_TOP = 50;
 
 type XpTrackerPanel = {
     name: string;
@@ -5031,8 +5031,11 @@ export class Client extends GameShell {
             let xpLeft: number = 0;
             let percentToLevel: number = 0;
             if (baseLevel < 99) {
-                const levelStartXp: number = Client.levelExperience[baseLevel - 1];
-                const levelEndXp: number = Client.levelExperience[baseLevel];
+                // Client.levelExperience[i] holds the xp threshold for level (i+2) — see the
+                // `stat_xp_remaining` script opcode at Client.ts:10651, which reads the same
+                // table the same way for the in-game stats tab.
+                const levelStartXp: number = baseLevel <= 1 ? 0 : Client.levelExperience[baseLevel - 2];
+                const levelEndXp: number = Client.levelExperience[baseLevel - 1];
                 xpLeft = levelEndXp - this.statXP[stat];
                 percentToLevel = Math.min(100, Math.max(0, ((this.statXP[stat] - levelStartXp) / (levelEndXp - levelStartXp)) * 100));
             }
