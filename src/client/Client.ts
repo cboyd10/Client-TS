@@ -87,21 +87,38 @@ const SCROLLBAR_GRIP_LOWLIGHT = 0x332d25;
 
 const XP_TRACKER_RECALC_MS = 3000;
 const XP_TRACKER_PANEL_WIDTH = 150;
-const XP_TRACKER_PANEL_HEIGHT = 40;
+const XP_TRACKER_STAT_ROW_HEIGHT = 40;
+const XP_TRACKER_BAR_HEIGHT = 20;
 const XP_TRACKER_PANEL_GAP = 4;
 const XP_TRACKER_RIGHT_EDGE = 507;
 const XP_TRACKER_TOP = 50;
+const XP_TRACKER_ICON_SIZE = 32;
+
+// custom: staticons.png is a 6x3 grid (index = row*6 + col) laid out to match the
+// classic stats interface's screen-column grouping, not Skill.names order — see
+// content/scripts/player/interfaces/stats.if's graphic=staticons,N declarations.
+const SKILL_TO_STATICON_INDEX: Record<number, number> = {0: 0, 1: 2, 2: 1, 3: 6, 4: 3, 5: 4, 6: 5, 7: 15, 8: 17, 9: 11, 10: 14, 11: 16, 12: 10, 13: 13, 14: 12, 15: 8, 16: 7, 17: 9};
 
 type XpTrackerPanel = {
-    name: string;
     icon: Pix8 | null;
-    gained: number;
     calculating: boolean;
     xpPerHour: number;
     xpLeft: number;
     baseLevel: number;
     percentToLevel: number;
+    secondsToLevel: number;
 };
+
+function xpTrackerFormatXp(n: number): string {
+    return n < 1000 ? String(n) : (n / 1000).toFixed(1) + 'k';
+}
+
+function xpTrackerFormatHms(totalSeconds: number): string {
+    const hours: number = Math.floor(totalSeconds / 3600);
+    const minutes: number = Math.floor((totalSeconds % 3600) / 60);
+    const seconds: number = totalSeconds % 60;
+    return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+}
 
 export class Client extends GameShell {
     static nodeId: number = 10;
@@ -5019,17 +5036,17 @@ export class Client extends GameShell {
         this.xpTrackerPanels = order.map((stat: number): XpTrackerPanel => {
             const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
             const elapsedMs: number = now - this.xpTrackerStartTime[stat];
-            const name: string = Skill.names[stat].charAt(0).toUpperCase() + Skill.names[stat].slice(1);
-            const icon: Pix8 | null = stat <= 17 ? this.staticons[stat] : stat === 20 ? this.staticons2[0] : null;
+            const icon: Pix8 | null = stat === 20 ? this.staticons2[0] : SKILL_TO_STATICON_INDEX[stat] !== undefined ? this.staticons[SKILL_TO_STATICON_INDEX[stat]] : null;
             const baseLevel: number = this.statBaseLevel[stat];
 
             if (elapsedMs < 5000) {
-                return {name, icon, gained, calculating: true, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0};
+                return {icon, calculating: true, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0};
             }
 
             const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
             let xpLeft: number = 0;
             let percentToLevel: number = 0;
+            let secondsToLevel: number = 0;
             if (baseLevel < 99) {
                 // Client.levelExperience[i] holds the xp threshold for level (i+2) — see the
                 // `stat_xp_remaining` script opcode at Client.ts:10651, which reads the same
@@ -5038,9 +5055,10 @@ export class Client extends GameShell {
                 const levelEndXp: number = Client.levelExperience[baseLevel - 1];
                 xpLeft = levelEndXp - this.statXP[stat];
                 percentToLevel = Math.min(100, Math.max(0, ((this.statXP[stat] - levelStartXp) / (levelEndXp - levelStartXp)) * 100));
+                secondsToLevel = xpPerHour > 0 ? Math.round((xpLeft / xpPerHour) * 3600) : 0;
             }
 
-            return {name, icon, gained, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel};
+            return {icon, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel};
         });
     }
 
@@ -5050,36 +5068,41 @@ export class Client extends GameShell {
         const x: number = XP_TRACKER_RIGHT_EDGE - XP_TRACKER_PANEL_WIDTH;
 
         for (const panel of this.xpTrackerPanels) {
-            Pix2D.fillRectTrans(x, y, XP_TRACKER_PANEL_WIDTH, XP_TRACKER_PANEL_HEIGHT, Colour.BLACK, 150);
-            Pix2D.drawRect(x, y, XP_TRACKER_PANEL_WIDTH, XP_TRACKER_PANEL_HEIGHT, 0x666666);
+            const hasBar: boolean = !panel.calculating && panel.baseLevel < 99;
+            const panelHeight: number = XP_TRACKER_STAT_ROW_HEIGHT + (hasBar ? XP_TRACKER_BAR_HEIGHT : 0);
 
-            panel.icon?.plotSprite(x + 3, y + 3);
+            Pix2D.fillRectTrans(x, y, XP_TRACKER_PANEL_WIDTH, panelHeight, Colour.BLACK, 150);
+            Pix2D.drawRect(x, y, XP_TRACKER_PANEL_WIDTH, panelHeight, 0x666666);
 
-            const textX: number = x + 31;
+            panel.icon?.scalePlotSprite(x + 4, y + 4, XP_TRACKER_ICON_SIZE, XP_TRACKER_ICON_SIZE);
+
+            const textRight: number = x + XP_TRACKER_PANEL_WIDTH - 4;
             if (panel.calculating) {
-                this.p12?.drawString(panel.name + '  +' + panel.gained.toLocaleString() + ' xp', textX, y + 13, Colour.YELLOW);
-                this.p12?.drawString('(calculating...)', textX, y + 26, Colour.YELLOW);
+                this.p12?.drawStringRight('(calculating...)', textRight, y + 24, Colour.YELLOW);
+            } else if (panel.baseLevel >= 99) {
+                this.p12?.drawStringRight('XP/hr: ' + xpTrackerFormatXp(panel.xpPerHour), textRight, y + 24, Colour.YELLOW);
             } else {
-                this.p12?.drawString(panel.name + '  ' + panel.xpPerHour.toLocaleString() + '/hr', textX, y + 13, Colour.YELLOW);
-                if (panel.baseLevel < 99) {
-                    this.p12?.drawString('XP Left: ' + panel.xpLeft.toLocaleString(), textX, y + 26, Colour.YELLOW);
-                } else {
-                    this.p12?.drawString('+' + panel.gained.toLocaleString() + ' xp', textX, y + 26, Colour.YELLOW);
-                }
+                this.p12?.drawStringRight('XP Left: ' + xpTrackerFormatXp(panel.xpLeft), textRight, y + 15, Colour.YELLOW);
+                this.p12?.drawStringRight('XP/hr: ' + xpTrackerFormatXp(panel.xpPerHour), textRight, y + 30, Colour.YELLOW);
             }
 
-            if (!panel.calculating && panel.baseLevel < 99) {
-                const barX: number = x + 3;
-                const barY: number = y + XP_TRACKER_PANEL_HEIGHT - 8;
-                const barWidth: number = XP_TRACKER_PANEL_WIDTH - 6;
+            if (hasBar) {
+                const barX: number = x + 4;
+                const barY: number = y + XP_TRACKER_STAT_ROW_HEIGHT;
+                const barWidth: number = XP_TRACKER_PANEL_WIDTH - 8;
                 const filled: number = Math.round((barWidth * panel.percentToLevel) / 100);
 
-                Pix2D.drawRect(barX, barY, barWidth, 5, Colour.BLACK);
-                Pix2D.fillRect(barX, barY, filled, 5, Colour.GREEN);
-                Pix2D.fillRect(barX + filled, barY, barWidth - filled, 5, 0x333333);
+                Pix2D.fillRect(barX, barY, filled, XP_TRACKER_BAR_HEIGHT, Colour.GREEN);
+                Pix2D.fillRect(barX + filled, barY, barWidth - filled, XP_TRACKER_BAR_HEIGHT, 0x333333);
+                Pix2D.drawRect(barX, barY, barWidth, XP_TRACKER_BAR_HEIGHT, Colour.BLACK);
+
+                const textY: number = barY + 14;
+                this.p12?.drawString(String(panel.baseLevel), barX + 3, textY, Colour.WHITE);
+                this.p12?.drawStringRight(String(panel.baseLevel + 1), barX + barWidth - 3, textY, Colour.WHITE);
+                this.p12?.centreString(xpTrackerFormatHms(panel.secondsToLevel), barX + ((barWidth / 2) | 0), textY, Colour.WHITE);
             }
 
-            y += XP_TRACKER_PANEL_HEIGHT + XP_TRACKER_PANEL_GAP;
+            y += panelHeight + XP_TRACKER_PANEL_GAP;
         }
     }
 
