@@ -5074,10 +5074,11 @@ export class Client extends GameShell {
         });
     }
 
-    // custom: load this account's hidden xp-tracker skills on login
+    // custom: load this account's hidden xp-tracker skills on login. Keyed by userhash
+    // (not the raw typed username) so case/whitespace variants of the same account share state.
     private loadXpTrackerHiddenSkills(username: string): void {
-        this.loggedInUsername = username;
-        const raw: string | null = localStorage.getItem('xpTrackerHiddenSkills:' + username);
+        this.loggedInUsername = JString.toUserhash(username).toString();
+        const raw: string | null = localStorage.getItem('xpTrackerHiddenSkills:' + this.loggedInUsername);
         this.xpTrackerHiddenSkills = new Set(raw ? (JSON.parse(raw) as number[]) : []);
     }
 
