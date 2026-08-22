@@ -99,6 +99,11 @@ const XP_TRACKER_ICON_SIZE = 32;
 // content/scripts/player/interfaces/stats.if's graphic=staticons,N declarations.
 const SKILL_TO_STATICON_INDEX: Record<number, number> = {0: 0, 1: 2, 2: 1, 3: 6, 4: 3, 5: 4, 6: 5, 7: 15, 8: 17, 9: 11, 10: 14, 11: 16, 12: 10, 13: 13, 14: 12, 15: 8, 16: 7, 17: 9};
 
+// custom: stats-tab skill button component ids (from content/pack/interface.pack's
+// `stats:<name>` entries) -> Skill.names index, for the show/hide xp-tracker menu.
+const STATS_BUTTON_COMPONENT_TO_SKILL: Record<number, number> = {8654: 0, 8655: 3, 8656: 14, 8657: 2, 8658: 16, 8659: 13, 8660: 1, 8661: 15, 8662: 10, 8663: 4, 8664: 17, 8665: 7, 8666: 5, 8667: 12, 8668: 11, 8669: 6, 8670: 9, 8671: 8, 8672: 20};
+const SKILL_DISPLAY_NAMES: Record<number, string> = {0: 'Attack', 1: 'Defence', 2: 'Strength', 3: 'Hitpoints', 4: 'Ranged', 5: 'Prayer', 6: 'Magic', 7: 'Cooking', 8: 'Woodcutting', 9: 'Fletching', 10: 'Fishing', 11: 'Firemaking', 12: 'Crafting', 13: 'Smithing', 14: 'Mining', 15: 'Herblore', 16: 'Agility', 17: 'Thieving', 20: 'Runecrafting'};
+
 type XpTrackerPanel = {
     icon: Pix8 | null;
     calculating: boolean;
@@ -199,6 +204,8 @@ export class Client extends GameShell {
     private xpTrackerLastGain: Float64Array = new Float64Array(Skill.count);
     private xpTrackerLastRecalc: number = 0;
     private xpTrackerPanels: XpTrackerPanel[] = [];
+    private xpTrackerHiddenSkills: Set<number> = new Set();
+    private loggedInUsername: string = '';
 
     private hintType: number = 0;
     private hintNpc: number = 0;
@@ -1859,6 +1866,7 @@ export class Client extends GameShell {
                 this.xpTrackerBaseline.fill(-1);
                 this.xpTrackerStartTime.fill(0);
                 this.xpTrackerLastGain.fill(0);
+                this.loadXpTrackerHiddenSkills(username);
                 this.out.pos = 0;
                 this.in.pos = 0;
                 this.ptype = -1;
@@ -2001,6 +2009,7 @@ export class Client extends GameShell {
                 this.xpTrackerBaseline.fill(-1);
                 this.xpTrackerStartTime.fill(0);
                 this.xpTrackerLastGain.fill(0);
+                this.loadXpTrackerHiddenSkills(username);
                 this.out.pos = 0;
                 this.in.pos = 0;
                 this.ptype = -1;
@@ -5026,6 +5035,9 @@ export class Client extends GameShell {
             if (Skill.names[stat] === '-unused-') {
                 continue;
             }
+            if (this.xpTrackerHiddenSkills.has(stat)) {
+                continue;
+            }
             if (this.xpTrackerBaseline[stat] === -1 || this.statXP[stat] <= this.xpTrackerBaseline[stat]) {
                 continue;
             }
@@ -5060,6 +5072,22 @@ export class Client extends GameShell {
 
             return {icon, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel};
         });
+    }
+
+    // custom: load this account's hidden xp-tracker skills on login. Keyed by userhash
+    // (not the raw typed username) so case/whitespace variants of the same account share state.
+    private loadXpTrackerHiddenSkills(username: string): void {
+        this.loggedInUsername = JString.toUserhash(username).toString();
+        const raw: string | null = localStorage.getItem('xpTrackerHiddenSkills:' + this.loggedInUsername);
+        this.xpTrackerHiddenSkills = new Set(raw ? (JSON.parse(raw) as number[]) : []);
+    }
+
+    // custom: persist this account's hidden xp-tracker skills
+    private saveXpTrackerHiddenSkills(): void {
+        if (!this.loggedInUsername) {
+            return;
+        }
+        localStorage.setItem('xpTrackerHiddenSkills:' + this.loggedInUsername, JSON.stringify(Array.from(this.xpTrackerHiddenSkills)));
     }
 
     // custom: draw cached xp/hour tracker panels every frame (values only refresh on recalcXpTrackerPanels' cadence)
@@ -9405,6 +9433,15 @@ export class Client extends GameShell {
             this.closeModal();
         }
 
+        if (action === MiniMenuAction.TOGGLE_XP_TRACKER_SKILL) {
+            if (this.xpTrackerHiddenSkills.has(a)) {
+                this.xpTrackerHiddenSkills.delete(a);
+            } else {
+                this.xpTrackerHiddenSkills.add(a);
+            }
+            this.saveXpTrackerHiddenSkills();
+        }
+
         if (action === MiniMenuAction.ABUSE_REPORT) {
             const option: string = this.menuOption[optionId];
             const tag: number = option.indexOf('@whi@');
@@ -10021,6 +10058,17 @@ export class Client extends GameShell {
                     if (!override && child.buttonText) {
                         this.menuOption[this.menuNumEntries] = child.buttonText;
                         this.menuAction[this.menuNumEntries] = MiniMenuAction.IF_BUTTON;
+                        this.menuParamC[this.menuNumEntries] = child.id;
+                        this.menuNumEntries++;
+                    }
+
+                    // custom: stats-tab skill buttons additionally get a show/hide xp-tracker toggle
+                    const trackedSkill: number | undefined = STATS_BUTTON_COMPONENT_TO_SKILL[child.id];
+                    if (trackedSkill !== undefined) {
+                        const hidden: boolean = this.xpTrackerHiddenSkills.has(trackedSkill);
+                        this.menuOption[this.menuNumEntries] = (hidden ? 'Show @lre@' : 'Hide @lre@') + SKILL_DISPLAY_NAMES[trackedSkill] + ' tracker';
+                        this.menuAction[this.menuNumEntries] = MiniMenuAction.TOGGLE_XP_TRACKER_SKILL;
+                        this.menuParamA[this.menuNumEntries] = trackedSkill;
                         this.menuParamC[this.menuNumEntries] = child.id;
                         this.menuNumEntries++;
                     }
