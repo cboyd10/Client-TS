@@ -75,4 +75,7 @@ export const enum MiniMenuAction {
     IGNORELIST_DEL = 884,
 
     MESSAGE_PRIVATE = 902,
+
+    // custom: toggle a skill's visibility in the xp/hour tracker overlay
+    TOGGLE_XP_TRACKER_SKILL = 1500,
 }
