@@ -91,6 +91,24 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
     return el;
 }
 
+function renderTotalCard(cards: XpTrackerCardData[]): HTMLElement {
+    const el: HTMLDivElement = document.createElement('div');
+    el.className = 'plugin-xptracker-total-card';
+
+    const totalGained: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpGained, 0);
+    const totalPerHour: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpPerHour, 0);
+
+    const rows: string[] = [`Total XP Gained: ${xpTrackerFormatXp(totalGained)}`, `Total XP/hr: ${xpTrackerFormatXp(totalPerHour)}`];
+    for (const row of rows) {
+        const rowEl: HTMLDivElement = document.createElement('div');
+        rowEl.className = 'plugin-xptracker-total-card-row';
+        rowEl.textContent = row;
+        el.appendChild(rowEl);
+    }
+
+    return el;
+}
+
 function renderPanel(bridge: PluginBridge): HTMLElement {
     const container: HTMLDivElement = document.createElement('div');
     container.className = 'plugin-xptracker-panel';
@@ -103,6 +121,11 @@ function renderPanel(bridge: PluginBridge): HTMLElement {
         container.appendChild(empty);
         return container;
     }
+
+    // custom: total card is always pinned first, computed fresh from `cards`
+    // on every render -- never draggable/reorderable, unaffected by any
+    // manual card order set via drag-to-reorder (#84).
+    container.appendChild(renderTotalCard(cards));
 
     for (const card of cards) {
         container.appendChild(renderCard(card));
