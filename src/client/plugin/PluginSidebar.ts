@@ -30,6 +30,8 @@ const STYLES = `
 .plugin-toggle input:checked + .plugin-toggle-slider::before { transform: translateX(14px); background: #fff; }
 .plugin-toggle input:disabled + .plugin-toggle-slider { opacity: 0.4; cursor: not-allowed; }
 .plugin-panel-empty { color: #888; padding: 8px 4px; }
+.plugin-xptracker-total-card { border: 1px solid #04A800; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #10210f; }
+.plugin-xptracker-total-card-row { color: #04A800; font-weight: bold; font-size: 12px; line-height: 16px; }
 .plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
 .plugin-xptracker-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; }
