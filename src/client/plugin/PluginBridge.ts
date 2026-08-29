@@ -13,6 +13,9 @@ export type XpTrackerCardData = {
     baseLevel: number;
     percentToLevel: number;
     secondsToLevel: number;
+    // custom (issue #87): true while this skill is auto-paused (idle timeout or
+    // logout) -- stats above hold their frozen pre-pause values while true.
+    paused: boolean;
 };
 
 // custom: the sole surface PluginSidebar (a page-level DOM component with no

@@ -49,7 +49,7 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
         barTrack.className = 'plugin-xptracker-card-bar-track';
 
         const barFill: HTMLDivElement = document.createElement('div');
-        barFill.className = 'plugin-xptracker-card-bar-fill';
+        barFill.className = card.paused ? 'plugin-xptracker-card-bar-fill plugin-xptracker-card-bar-fill--paused' : 'plugin-xptracker-card-bar-fill';
         barFill.style.width = `${card.percentToLevel}%`;
         barTrack.appendChild(barFill);
 
