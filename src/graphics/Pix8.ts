@@ -358,4 +358,37 @@ export default class Pix8 extends Pix2D {
             console.log('error in plot_scale');
         }
     }
+
+    // custom: DOM export for the plugin sidebar's XP tracker cards, which need
+    // a real <img> icon (canvas sprite rendering isn't reachable from
+    // page-level DOM code). Palette index 0 is transparent, matching
+    // plotSprite/plot's existing convention elsewhere in this class.
+    toDataURL(): string {
+        const canvas: HTMLCanvasElement = document.createElement('canvas');
+        canvas.width = this.wi;
+        canvas.height = this.hi;
+
+        const ctx: CanvasRenderingContext2D = canvas.getContext('2d')!;
+        const imageData: ImageData = ctx.createImageData(this.wi, this.hi);
+        const pixels: Uint8ClampedArray = imageData.data;
+
+        for (let i: number = 0; i < this.wi * this.hi; i++) {
+            const palIndex: number = this.data[i] & 0xff;
+            const off: number = i * 4;
+
+            if (palIndex === 0) {
+                pixels[off + 3] = 0;
+                continue;
+            }
+
+            const rgb: number = this.bpal[palIndex];
+            pixels[off] = (rgb >> 16) & 0xff;
+            pixels[off + 1] = (rgb >> 8) & 0xff;
+            pixels[off + 2] = rgb & 0xff;
+            pixels[off + 3] = 255;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        return canvas.toDataURL('image/png');
+    }
 }

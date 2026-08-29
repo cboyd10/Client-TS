@@ -34,12 +34,14 @@ const STYLES = `
 .plugin-xptracker-total-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .plugin-xptracker-total-card-label { color: #04A800; font-weight: bold; font-size: 12px; }
 .plugin-xptracker-total-card-row { color: #04A800; font-weight: bold; font-size: 12px; line-height: 16px; }
-.plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+.plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; cursor: grab; }
+.plugin-xptracker-card-dragging { opacity: 0.4; }
 .plugin-xptracker-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .plugin-xptracker-reset-btn { margin-left: auto; width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .plugin-xptracker-reset-btn:hover { background: #3a3a3a; color: #fff; }
 .plugin-xptracker-reset-btn svg { width: 11px; height: 11px; }
-.plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; }
+.plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; overflow: hidden; }
+.plugin-xptracker-card-badge img { width: 16px; height: 16px; object-fit: contain; }
 .plugin-xptracker-card-name { font-weight: bold; }
 .plugin-xptracker-card-stats { color: #cc0; font-size: 11px; margin-bottom: 4px; }
 .plugin-xptracker-card-stat-row { line-height: 14px; }
@@ -52,6 +54,13 @@ const STYLES = `
 .plugin-settings-subsection { padding: 2px 4px 8px 12px; border-bottom: 1px solid #262626; }
 .plugin-settings-subrow { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 11px; color: #ccc; gap: 6px; }
 .plugin-settings-number-input { width: 48px; background: #1b1b1b; border: 1px solid #444; color: #ddd; font-size: 11px; padding: 2px 4px; border-radius: 2px; box-sizing: border-box; }
+.plugin-xptracker-card-target-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.plugin-xptracker-card-target-input { width: 52px; background: #1b1b1b; border: 1px solid #444; color: #ddd; font-size: 11px; padding: 2px 4px; border-radius: 2px; box-sizing: border-box; }
+.plugin-xptracker-card-target-input:focus { outline: none; border-color: #04A800; }
+.plugin-xptracker-card-target-input-invalid { border-color: #c33; }
+.plugin-xptracker-card-target-clear { background: #2a2a2a; border: 1px solid #444; color: #ccc; font-size: 10px; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
+.plugin-xptracker-card-target-clear:disabled { opacity: 0.4; cursor: not-allowed; }
+.plugin-xptracker-card-target-clear:hover:not(:disabled) { background: #3a3a3a; color: #fff; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at
@@ -154,7 +163,16 @@ class PluginSidebar {
 
     private startAutoRefresh(): void {
         this.stopAutoRefresh();
-        this.refreshTimer = setInterval((): void => this.renderContent(), CONTENT_REFRESH_MS);
+        this.refreshTimer = setInterval((): void => {
+            // custom (issue #86): the auto-refresh tick tears down and rebuilds
+            // the whole content panel every second (see renderContent below).
+            // Skip a tick while an input inside it is focused so an in-progress
+            // edit (e.g. typing a target level) doesn't get wiped mid-keystroke.
+            if (this.contentPanel !== null && document.activeElement instanceof HTMLInputElement && this.contentPanel.contains(document.activeElement)) {
+                return;
+            }
+            this.renderContent();
+        }, CONTENT_REFRESH_MS);
     }
 
     private stopAutoRefresh(): void {
