@@ -1,4 +1,4 @@
-import {xpTrackerFormatHms, xpTrackerFormatXp} from '#/client/Client.js';
+import {SKILL_ACCENT_COLORS, xpTrackerFormatHms, xpTrackerFormatXp} from '#/client/Client.js';
 import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
@@ -8,13 +8,27 @@ const ICON_BAR_GRAPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 function renderCard(card: XpTrackerCardData): HTMLElement {
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-xptracker-card';
+    el.draggable = true;
+    el.dataset.skillId = String(card.skillId);
 
     const head: HTMLDivElement = document.createElement('div');
     head.className = 'plugin-xptracker-card-head';
 
+    const accentColor: string | undefined = SKILL_ACCENT_COLORS[card.skillId];
+
     const badge: HTMLDivElement = document.createElement('div');
     badge.className = 'plugin-xptracker-card-badge';
-    badge.textContent = card.skillName.slice(0, 2).toUpperCase();
+    if (accentColor) {
+        badge.style.borderColor = accentColor;
+    }
+    if (card.iconDataUrl !== null) {
+        const icon: HTMLImageElement = document.createElement('img');
+        icon.src = card.iconDataUrl;
+        icon.alt = card.skillName;
+        badge.appendChild(icon);
+    } else {
+        badge.textContent = card.skillName.slice(0, 2).toUpperCase();
+    }
     head.appendChild(badge);
 
     const name: HTMLSpanElement = document.createElement('span');
@@ -51,6 +65,9 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
         const barFill: HTMLDivElement = document.createElement('div');
         barFill.className = 'plugin-xptracker-card-bar-fill';
         barFill.style.width = `${card.percentToLevel}%`;
+        if (accentColor) {
+            barFill.style.background = accentColor;
+        }
         barTrack.appendChild(barFill);
 
         const barLevelLeft: HTMLDivElement = document.createElement('div');
@@ -114,7 +131,92 @@ function renderPanel(bridge: PluginBridge): HTMLElement {
         container.appendChild(renderCard(card));
     }
 
+    attachDragReorder(container, bridge);
+
     return container;
+}
+
+// custom: native HTML5 drag-and-drop reorder (issue #84) -- no touch/pointer
+// fallback needed since PluginSidebar.init() already early-returns on
+// isMobile(). Persists the full new skill-id order into config on drop so it
+// survives PluginSidebar's every-1000ms renderContent() rebuild, rather than
+// relying on in-memory DOM position. Drag state (draggedSkillId) is a closure
+// local, not module state -- attachDragReorder runs fresh on every renderPanel
+// call, so nothing needs to be reset between panel rebuilds.
+function attachDragReorder(container: HTMLDivElement, bridge: PluginBridge): void {
+    let draggedSkillId: number | null = null;
+
+    const cardOf = (target: EventTarget | null): HTMLElement | null => {
+        if (!(target instanceof HTMLElement)) {
+            return null;
+        }
+        return target.closest<HTMLElement>('.plugin-xptracker-card');
+    };
+
+    container.addEventListener('dragstart', (e: DragEvent): void => {
+        const card: HTMLElement | null = cardOf(e.target);
+        if (card === null || card.dataset.skillId === undefined) {
+            return;
+        }
+
+        draggedSkillId = Number(card.dataset.skillId);
+        card.classList.add('plugin-xptracker-card-dragging');
+        if (e.dataTransfer !== null) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.dataset.skillId);
+        }
+    });
+
+    container.addEventListener('dragend', (e: DragEvent): void => {
+        cardOf(e.target)?.classList.remove('plugin-xptracker-card-dragging');
+        draggedSkillId = null;
+    });
+
+    container.addEventListener('dragover', (e: DragEvent): void => {
+        if (draggedSkillId === null) {
+            return;
+        }
+
+        // required so the browser treats this container as a valid drop target
+        e.preventDefault();
+        if (e.dataTransfer !== null) {
+            e.dataTransfer.dropEffect = 'move';
+        }
+    });
+
+    container.addEventListener('drop', (e: DragEvent): void => {
+        e.preventDefault();
+
+        const dragged: number | null = draggedSkillId;
+        draggedSkillId = null;
+        if (dragged === null) {
+            return;
+        }
+
+        const dropCard: HTMLElement | null = cardOf(e.target);
+        if (dropCard === null || dropCard.dataset.skillId === undefined) {
+            return;
+        }
+
+        const dropSkillId: number = Number(dropCard.dataset.skillId);
+        if (dropSkillId === dragged) {
+            return;
+        }
+
+        const cardEls: HTMLElement[] = Array.from(container.querySelectorAll<HTMLElement>('.plugin-xptracker-card'));
+        const order: number[] = cardEls.map((el: HTMLElement): number => Number(el.dataset.skillId));
+
+        const fromIndex: number = order.indexOf(dragged);
+        const toIndex: number = order.indexOf(dropSkillId);
+        if (fromIndex === -1 || toIndex === -1) {
+            return;
+        }
+
+        order.splice(fromIndex, 1);
+        order.splice(toIndex, 0, dragged);
+
+        bridge.setPluginConfig('xpTracker', {cardOrder: order});
+    });
 }
 
 const xpTrackerPlugin: PluginDescriptor = {

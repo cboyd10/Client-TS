@@ -13,6 +13,10 @@ export type XpTrackerCardData = {
     baseLevel: number;
     percentToLevel: number;
     secondsToLevel: number;
+    // custom: pre-converted staticon sprite as a data URL (see Pix8.toDataURL),
+    // cached per skill id. null when this skill has no staticon mapping
+    // (e.g. Slayer, skill 18) -- renderCard() falls back to the text badge.
+    iconDataUrl: string | null;
 };
 
 // custom: the sole surface PluginSidebar (a page-level DOM component with no
