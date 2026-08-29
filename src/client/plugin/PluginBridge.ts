@@ -13,6 +13,9 @@ export type XpTrackerCardData = {
     baseLevel: number;
     percentToLevel: number;
     secondsToLevel: number;
+    // custom (issue #87): true while this skill is auto-paused (idle timeout or
+    // logout) -- stats above hold their frozen pre-pause values while true.
+    paused: boolean;
     // custom: per-skill level target (issue #86) read from the xpTracker
     // plugin config's `levelTargets` map -- null when no target is set (or
     // the stored value fails validation), in which case progress is toward

@@ -1,5 +1,5 @@
 import type {PluginBridge} from '#/client/plugin/PluginBridge.js';
-import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
+import type {PluginConfig, PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
 const ICON_COLUMN_WIDTH = 40;
 const CONTENT_PANEL_WIDTH = 225;
@@ -42,9 +42,13 @@ const STYLES = `
 .plugin-xptracker-card-stat-row { line-height: 14px; }
 .plugin-xptracker-card-bar-track { position: relative; height: 16px; background: #333; border: 1px solid #000; border-radius: 2px; overflow: hidden; }
 .plugin-xptracker-card-bar-fill { position: absolute; inset: 0; width: 0; background: #04A800; }
+.plugin-xptracker-card-bar-fill--paused { background: #777; }
 .plugin-xptracker-card-bar-label { position: absolute; inset: 0; text-align: center; line-height: 16px; font-size: 10px; color: #fff; }
 .plugin-xptracker-card-bar-level-left { position: absolute; left: 4px; top: 0; line-height: 16px; font-size: 10px; color: #fff; }
 .plugin-xptracker-card-bar-level-right { position: absolute; right: 4px; top: 0; line-height: 16px; font-size: 10px; color: #fff; }
+.plugin-settings-subsection { padding: 2px 4px 8px 12px; border-bottom: 1px solid #262626; }
+.plugin-settings-subrow { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 11px; color: #ccc; gap: 6px; }
+.plugin-settings-number-input { width: 48px; background: #1b1b1b; border: 1px solid #444; color: #ddd; font-size: 11px; padding: 2px 4px; border-radius: 2px; box-sizing: border-box; }
 .plugin-xptracker-card-target-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
 .plugin-xptracker-card-target-input { width: 52px; background: #1b1b1b; border: 1px solid #444; color: #ddd; font-size: 11px; padding: 2px 4px; border-radius: 2px; box-sizing: border-box; }
 .plugin-xptracker-card-target-input:focus { outline: none; border-color: #04A800; }
@@ -256,9 +260,70 @@ class PluginSidebar {
 
             row.appendChild(toggleLabel);
             list.appendChild(row);
+
+            // custom (issue #87): xpTracker-specific pause settings, shown as a small
+            // sub-section under its own row -- panel-level (not per-card), so they live
+            // here rather than inside XpTrackerPlugin.ts's renderPanel().
+            if (descriptor.id === 'xpTracker') {
+                list.appendChild(this.renderXpTrackerPauseSettings(bridge));
+            }
         }
 
         return list;
+    }
+
+    private renderXpTrackerPauseSettings(bridge: PluginBridge): HTMLElement {
+        const config: PluginConfig = bridge.getPluginConfig('xpTracker');
+        const pauseAfterMinutes: number = typeof config.pauseAfterMinutes === 'number' && config.pauseAfterMinutes > 0 ? config.pauseAfterMinutes : 0;
+        const pauseOnLogout: boolean = config.pauseOnLogout === true;
+
+        const sub: HTMLDivElement = document.createElement('div');
+        sub.className = 'plugin-settings-subsection';
+
+        const pauseAfterRow: HTMLDivElement = document.createElement('div');
+        pauseAfterRow.className = 'plugin-settings-subrow';
+
+        const pauseAfterLabel: HTMLSpanElement = document.createElement('span');
+        pauseAfterLabel.textContent = 'Pause after (minutes)';
+        pauseAfterRow.appendChild(pauseAfterLabel);
+
+        const pauseAfterInput: HTMLInputElement = document.createElement('input');
+        pauseAfterInput.type = 'number';
+        pauseAfterInput.min = '0';
+        pauseAfterInput.className = 'plugin-settings-number-input';
+        pauseAfterInput.placeholder = 'Off';
+        pauseAfterInput.value = pauseAfterMinutes > 0 ? String(pauseAfterMinutes) : '';
+        pauseAfterInput.addEventListener('change', (): void => {
+            const parsed: number = parseInt(pauseAfterInput.value, 10);
+            bridge.setPluginConfig('xpTracker', {pauseAfterMinutes: Number.isFinite(parsed) && parsed > 0 ? parsed : 0});
+        });
+        pauseAfterRow.appendChild(pauseAfterInput);
+        sub.appendChild(pauseAfterRow);
+
+        const pauseLogoutRow: HTMLDivElement = document.createElement('div');
+        pauseLogoutRow.className = 'plugin-settings-subrow';
+
+        const pauseLogoutLabel: HTMLSpanElement = document.createElement('span');
+        pauseLogoutLabel.textContent = 'Pause on logout';
+        pauseLogoutRow.appendChild(pauseLogoutLabel);
+
+        const logoutToggleLabel: HTMLLabelElement = document.createElement('label');
+        logoutToggleLabel.className = 'plugin-toggle';
+
+        const logoutToggleInput: HTMLInputElement = document.createElement('input');
+        logoutToggleInput.type = 'checkbox';
+        logoutToggleInput.checked = pauseOnLogout;
+        logoutToggleInput.addEventListener('change', (): void => bridge.setPluginConfig('xpTracker', {pauseOnLogout: logoutToggleInput.checked}));
+        logoutToggleLabel.appendChild(logoutToggleInput);
+
+        const logoutSlider: HTMLSpanElement = document.createElement('span');
+        logoutSlider.className = 'plugin-toggle-slider';
+        logoutToggleLabel.appendChild(logoutSlider);
+
+        pauseLogoutRow.appendChild(logoutToggleLabel);
+        sub.appendChild(pauseLogoutRow);
+
+        return sub;
     }
 }
 
