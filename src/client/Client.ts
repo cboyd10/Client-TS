@@ -5081,6 +5081,24 @@ export class Client extends GameShell {
         }
         order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
 
+        // custom: manual drag-to-reorder override (issue #84) -- when the DOM
+        // panel has a persisted cardOrder, re-rank by it on top of the
+        // most-recent-gain sort above; a stable sort means any card absent
+        // from cardOrder (never dragged yet, or newly tracked) keeps its
+        // most-recent-gain relative position, appended after the ranked ones.
+        const cardOrder: unknown = PluginManager.getConfig('xpTracker').cardOrder;
+        if (Array.isArray(cardOrder) && cardOrder.length > 0) {
+            const rank: Map<number, number> = new Map();
+            (cardOrder as number[]).forEach((skillId: number, index: number): void => {
+                rank.set(skillId, index);
+            });
+            order.sort((a: number, b: number): number => {
+                const rankA: number = rank.get(a) ?? Number.MAX_SAFE_INTEGER;
+                const rankB: number = rank.get(b) ?? Number.MAX_SAFE_INTEGER;
+                return rankA - rankB;
+            });
+        }
+
         const now: number = Date.now();
         return order.map((stat: number): XpTrackerCardData => {
             const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
