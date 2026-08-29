@@ -7,6 +7,10 @@ import GameShell from '#/client/GameShell.js';
 import { MiniMenuAction } from '#/client/MiniMenuAction.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
 import MouseTracking from '#/client/MouseTracking.js';
+import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
+import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
+import PluginSidebar from '#/client/plugin/PluginSidebar.js';
+import xpTrackerPlugin from '#/client/plugin/plugins/XpTrackerPlugin.js';
 import Skill from '#/client/Skill.js';
 import TitleFlames from '#/client/TitleFlames.js';
 
@@ -104,6 +108,11 @@ const SKILL_TO_STATICON_INDEX: Record<number, number> = {0: 0, 1: 2, 2: 1, 3: 6,
 const STATS_BUTTON_COMPONENT_TO_SKILL: Record<number, number> = {8654: 0, 8655: 3, 8656: 14, 8657: 2, 8658: 16, 8659: 13, 8660: 1, 8661: 15, 8662: 10, 8663: 4, 8664: 17, 8665: 7, 8666: 5, 8667: 12, 8668: 11, 8669: 6, 8670: 9, 8671: 8, 8672: 20};
 const SKILL_DISPLAY_NAMES: Record<number, string> = {0: 'Attack', 1: 'Defence', 2: 'Strength', 3: 'Hitpoints', 4: 'Ranged', 5: 'Prayer', 6: 'Magic', 7: 'Cooking', 8: 'Woodcutting', 9: 'Fletching', 10: 'Fishing', 11: 'Firemaking', 12: 'Crafting', 13: 'Smithing', 14: 'Mining', 15: 'Herblore', 16: 'Agility', 17: 'Thieving', 20: 'Runecrafting'};
 
+// custom: register every plugin the client ships with. Runs once at module
+// load, well before any Client instance (and its field initializers, which
+// read PluginManager.isEnabled) is constructed.
+PluginManager.register(xpTrackerPlugin);
+
 type XpTrackerPanel = {
     icon: Pix8 | null;
     calculating: boolean;
@@ -114,11 +123,11 @@ type XpTrackerPanel = {
     secondsToLevel: number;
 };
 
-function xpTrackerFormatXp(n: number): string {
+export function xpTrackerFormatXp(n: number): string {
     return n < 1000 ? String(n) : (n / 1000).toFixed(1) + 'k';
 }
 
-function xpTrackerFormatHms(totalSeconds: number): string {
+export function xpTrackerFormatHms(totalSeconds: number): string {
     const hours: number = Math.floor(totalSeconds / 3600);
     const minutes: number = Math.floor((totalSeconds % 3600) / 60);
     const seconds: number = totalSeconds % 60;
@@ -198,7 +207,7 @@ export class Client extends GameShell {
     private showFps: boolean = false;
     private rebootTimer: number = 0;
 
-    private showXpTracker: boolean = localStorage.getItem('xpTrackerEnabled') === 'true';
+    private showXpTracker: boolean = PluginManager.isEnabled('xpTracker');
     private xpTrackerBaseline: Int32Array = new Int32Array(Skill.count).fill(-1);
     private xpTrackerStartTime: Float64Array = new Float64Array(Skill.count);
     private xpTrackerLastGain: Float64Array = new Float64Array(Skill.count);
@@ -641,6 +650,7 @@ export class Client extends GameShell {
             Client.setHighMem();
         }
 
+        this.initPluginBridge();
         this.run();
     }
 
@@ -3162,10 +3172,10 @@ export class Client extends GameShell {
                                 this.showFps = false;
                             } else if (this.chatInput === '::xptrackeron') {
                                 this.showXpTracker = true;
-                                localStorage.setItem('xpTrackerEnabled', 'true');
+                                PluginManager.setEnabled('xpTracker', true);
                             } else if (this.chatInput === '::xptrackeroff') {
                                 this.showXpTracker = false;
-                                localStorage.setItem('xpTrackerEnabled', 'false');
+                                PluginManager.setEnabled('xpTracker', false);
                             } else if (this.chatInput.startsWith('::fps ')) {
                                 // authentic in later revs
                                 try {
@@ -5028,6 +5038,76 @@ export class Client extends GameShell {
         }
     }
 
+    // custom: populate window.pluginBridge -- the sole surface the DOM
+    // PluginSidebar (a page-level component with no access to Client's
+    // private canvas/game state) is allowed to touch -- and start the
+    // sidebar itself. Also keeps showXpTracker in sync when the plugin is
+    // toggled from the sidebar's settings list, not just via chat command.
+    private initPluginBridge(): void {
+        const bridge: PluginBridge = {
+            isLoggedIn: (): boolean => PluginManager.isLoggedIn(),
+            getPluginDescriptors: () => PluginManager.getDescriptors(),
+            isPluginEnabled: (id: string): boolean => PluginManager.isEnabled(id),
+            setPluginEnabled: (id: string, enabled: boolean): void => PluginManager.setEnabled(id, enabled),
+            getPluginConfig: (id: string): PluginConfig => PluginManager.getConfig(id),
+            setPluginConfig: (id: string, partial: PluginConfig): void => PluginManager.setConfig(id, partial),
+            onPluginChange: (listener: () => void): (() => void) => PluginManager.onChange(listener),
+            getXpTrackerCards: (): XpTrackerCardData[] => this.buildXpTrackerCards(),
+            getSidebarWidth: (): number => PluginSidebar.getTotalWidth()
+        };
+
+        window.pluginBridge = bridge;
+        PluginSidebar.init(bridge);
+
+        PluginManager.onChange((): void => {
+            this.showXpTracker = PluginManager.isEnabled('xpTracker');
+        });
+    }
+
+    // custom: DOM-friendly (no Pix8 sprite) mirror of recalcXpTrackerPanels for
+    // the plugin sidebar's XP Tracker content panel -- same inclusion rule and
+    // sort order, but NOT filtered by xpTrackerHiddenSkills (that only hides a
+    // skill from the canvas overlay, not from the plugin panel).
+    private buildXpTrackerCards(): XpTrackerCardData[] {
+        const order: number[] = [];
+        for (let stat: number = 0; stat < Skill.count; stat++) {
+            if (Skill.names[stat] === '-unused-') {
+                continue;
+            }
+            if (this.xpTrackerBaseline[stat] === -1 || this.statXP[stat] <= this.xpTrackerBaseline[stat]) {
+                continue;
+            }
+            order.push(stat);
+        }
+        order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
+
+        const now: number = Date.now();
+        return order.map((stat: number): XpTrackerCardData => {
+            const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
+            const elapsedMs: number = now - this.xpTrackerStartTime[stat];
+            const baseLevel: number = this.statBaseLevel[stat];
+            const skillName: string = SKILL_DISPLAY_NAMES[stat] ?? Skill.names[stat];
+
+            if (elapsedMs < 5000) {
+                return {skillId: stat, skillName, calculating: true, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0};
+            }
+
+            const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
+            let xpLeft: number = 0;
+            let percentToLevel: number = 0;
+            let secondsToLevel: number = 0;
+            if (baseLevel < 99) {
+                const levelStartXp: number = baseLevel <= 1 ? 0 : Client.levelExperience[baseLevel - 2];
+                const levelEndXp: number = Client.levelExperience[baseLevel - 1];
+                xpLeft = levelEndXp - this.statXP[stat];
+                percentToLevel = Math.min(100, Math.max(0, ((this.statXP[stat] - levelStartXp) / (levelEndXp - levelStartXp)) * 100));
+                secondsToLevel = xpPerHour > 0 ? Math.round((xpLeft / xpPerHour) * 3600) : 0;
+            }
+
+            return {skillId: stat, skillName, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel};
+        });
+    }
+
     // custom: recompute xp/hour tracker panel values, throttled to XP_TRACKER_RECALC_MS
     private recalcXpTrackerPanels(now: number): void {
         const order: number[] = [];
@@ -5074,20 +5154,25 @@ export class Client extends GameShell {
         });
     }
 
-    // custom: load this account's hidden xp-tracker skills on login. Keyed by userhash
-    // (not the raw typed username) so case/whitespace variants of the same account share state.
+    // custom: switch PluginManager to this account's scope on login. Keyed by
+    // userhash (not the raw typed username) so case/whitespace variants of the
+    // same account share state. Then load its hidden xp-tracker skills from
+    // the xpTracker plugin's config blob.
     private loadXpTrackerHiddenSkills(username: string): void {
         this.loggedInUsername = JString.toUserhash(username).toString();
-        const raw: string | null = localStorage.getItem('xpTrackerHiddenSkills:' + this.loggedInUsername);
-        this.xpTrackerHiddenSkills = new Set(raw ? (JSON.parse(raw) as number[]) : []);
+        PluginManager.setLoggedInUsername(this.loggedInUsername);
+
+        const hiddenSkills: unknown = PluginManager.getConfig('xpTracker').hiddenSkills;
+        this.xpTrackerHiddenSkills = new Set(Array.isArray(hiddenSkills) ? (hiddenSkills as number[]) : []);
     }
 
-    // custom: persist this account's hidden xp-tracker skills
+    // custom: persist this account's hidden xp-tracker skills into the
+    // xpTracker plugin's config blob
     private saveXpTrackerHiddenSkills(): void {
         if (!this.loggedInUsername) {
             return;
         }
-        localStorage.setItem('xpTrackerHiddenSkills:' + this.loggedInUsername, JSON.stringify(Array.from(this.xpTrackerHiddenSkills)));
+        PluginManager.setConfig('xpTracker', {hiddenSkills: Array.from(this.xpTrackerHiddenSkills)});
     }
 
     // custom: draw cached xp/hour tracker panels every frame (values only refresh on recalcXpTrackerPanels' cadence)
