@@ -211,6 +211,13 @@ export class Client extends GameShell {
     private xpTrackerBaseline: Int32Array = new Int32Array(Skill.count).fill(-1);
     private xpTrackerStartTime: Float64Array = new Float64Array(Skill.count);
     private xpTrackerLastGain: Float64Array = new Float64Array(Skill.count);
+    // custom (issue #87): -1 = not currently paused, else the timestamp this skill's
+    // current pause window started (idle timeout or logout). xpTrackerPausedAccumMs is
+    // the running total of prior finalized pause windows, excluded from the xp/hr
+    // elapsed-time denominator in buildXpTrackerCards(). Deliberately NOT reset
+    // alongside baseline/startTime/lastGain on login (see issue #87's Out of Scope).
+    private xpTrackerPausedAt: Float64Array = new Float64Array(Skill.count).fill(-1);
+    private xpTrackerPausedAccumMs: Float64Array = new Float64Array(Skill.count);
     private xpTrackerLastRecalc: number = 0;
     private xpTrackerPanels: XpTrackerPanel[] = [];
     private xpTrackerHiddenSkills: Set<number> = new Set();
@@ -2523,6 +2530,23 @@ export class Client extends GameShell {
     private async logout(): Promise<void> {
         if (this.stream) {
             this.stream.close();
+        }
+
+        // custom (issue #87): pause every currently-tracked skill (baseline !== -1)
+        // when the xpTracker plugin's "pause on logout" setting is enabled, regardless
+        // of each skill's own idle timer. This is the single real logout path -- every
+        // logout call site (lostCon(), the ServerProt.LOGOUT handler, disconnect/error
+        // handling) routes through here. Skips a skill already paused so its existing
+        // window (started by an earlier idle timeout) isn't clobbered.
+        const xpTrackerConfig: PluginConfig = PluginManager.getConfig('xpTracker');
+        if (xpTrackerConfig.pauseOnLogout === true) {
+            const logoutNow: number = Date.now();
+            for (let stat: number = 0; stat < Skill.count; stat++) {
+                if (this.xpTrackerBaseline[stat] === -1 || this.xpTrackerPausedAt[stat] !== -1) {
+                    continue;
+                }
+                this.xpTrackerPausedAt[stat] = logoutNow;
+            }
         }
 
         this.stream = null;
@@ -5082,14 +5106,40 @@ export class Client extends GameShell {
         order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
 
         const now: number = Date.now();
+
+        // custom (issue #87): pauseAfterMinutes <= 0 (absent/empty/0) disables
+        // idle auto-pause entirely -- pause-on-logout can still mark a skill
+        // paused via xpTrackerPausedAt regardless of this setting.
+        const xpTrackerConfig: PluginConfig = PluginManager.getConfig('xpTracker');
+        const pauseAfterMinutes: number = typeof xpTrackerConfig.pauseAfterMinutes === 'number' && xpTrackerConfig.pauseAfterMinutes > 0 ? xpTrackerConfig.pauseAfterMinutes : 0;
+
         return order.map((stat: number): XpTrackerCardData => {
             const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
-            const elapsedMs: number = now - this.xpTrackerStartTime[stat];
             const baseLevel: number = this.statBaseLevel[stat];
             const skillName: string = SKILL_DISPLAY_NAMES[stat] ?? Skill.names[stat];
 
+            // custom (issue #87): detect a fresh idle-timeout crossing and start this
+            // skill's pause window at the exact instant it crossed (not "now"), so the
+            // frozen elapsedMs below is accurate to the second. A pause already started
+            // by logout() (xpTrackerPausedAt already set) is left alone.
+            if (this.xpTrackerPausedAt[stat] === -1 && pauseAfterMinutes > 0) {
+                const idleSinceMs: number = now - this.xpTrackerLastGain[stat];
+                if (idleSinceMs >= pauseAfterMinutes * 60000) {
+                    this.xpTrackerPausedAt[stat] = this.xpTrackerLastGain[stat] + pauseAfterMinutes * 60000;
+                }
+            }
+            const paused: boolean = this.xpTrackerPausedAt[stat] !== -1;
+
+            // custom (issue #87): while paused, both the raw wall-clock time since
+            // tracking started and the paused-so-far duration grow at the same rate, so
+            // subtracting one from the other yields a constant -- freezing
+            // xpPerHour/xpLeft/percentToLevel/secondsToLevel below with no separate
+            // pre-pause snapshot fields needed.
+            const pausedSoFarMs: number = this.xpTrackerPausedAccumMs[stat] + (paused ? now - this.xpTrackerPausedAt[stat] : 0);
+            const elapsedMs: number = now - this.xpTrackerStartTime[stat] - pausedSoFarMs;
+
             if (elapsedMs < 5000) {
-                return {skillId: stat, skillName, calculating: true, xpGained: gained, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0};
+                return {skillId: stat, skillName, calculating: true, xpGained: gained, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0, paused};
             }
 
             const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
@@ -5104,7 +5154,7 @@ export class Client extends GameShell {
                 secondsToLevel = xpPerHour > 0 ? Math.round((xpLeft / xpPerHour) * 3600) : 0;
             }
 
-            return {skillId: stat, skillName, calculating: false, xpGained: gained, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel};
+            return {skillId: stat, skillName, calculating: false, xpGained: gained, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel, paused};
         });
     }
 
@@ -6977,6 +7027,14 @@ export class Client extends GameShell {
                         this.xpTrackerStartTime[stat] = xpTrackerNow;
                     }
                     this.xpTrackerLastGain[stat] = xpTrackerNow;
+
+                    // custom (issue #87): auto-resume + finalize paused-duration
+                    // accounting the moment a paused skill gains xp again -- no
+                    // explicit "unpause" action needed.
+                    if (this.xpTrackerPausedAt[stat] !== -1) {
+                        this.xpTrackerPausedAccumMs[stat] += xpTrackerNow - this.xpTrackerPausedAt[stat];
+                        this.xpTrackerPausedAt[stat] = -1;
+                    }
                 }
 
                 this.statXP[stat] = xp;
