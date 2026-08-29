@@ -32,7 +32,8 @@ const STYLES = `
 .plugin-panel-empty { color: #888; padding: 8px 4px; }
 .plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
 .plugin-xptracker-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; }
+.plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; overflow: hidden; }
+.plugin-xptracker-card-badge img { width: 16px; height: 16px; object-fit: contain; }
 .plugin-xptracker-card-name { font-weight: bold; }
 .plugin-xptracker-card-stats { color: #cc0; font-size: 11px; margin-bottom: 4px; }
 .plugin-xptracker-card-bar-track { position: relative; height: 16px; background: #333; border: 1px solid #000; border-radius: 2px; overflow: hidden; }

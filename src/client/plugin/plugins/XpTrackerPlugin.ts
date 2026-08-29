@@ -1,4 +1,4 @@
-import {xpTrackerFormatHms, xpTrackerFormatXp} from '#/client/Client.js';
+import {SKILL_ACCENT_COLORS, xpTrackerFormatHms, xpTrackerFormatXp} from '#/client/Client.js';
 import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
@@ -12,9 +12,21 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
     const head: HTMLDivElement = document.createElement('div');
     head.className = 'plugin-xptracker-card-head';
 
+    const accentColor: string | undefined = SKILL_ACCENT_COLORS[card.skillId];
+
     const badge: HTMLDivElement = document.createElement('div');
     badge.className = 'plugin-xptracker-card-badge';
-    badge.textContent = card.skillName.slice(0, 2).toUpperCase();
+    if (accentColor) {
+        badge.style.borderColor = accentColor;
+    }
+    if (card.iconDataUrl !== null) {
+        const icon: HTMLImageElement = document.createElement('img');
+        icon.src = card.iconDataUrl;
+        icon.alt = card.skillName;
+        badge.appendChild(icon);
+    } else {
+        badge.textContent = card.skillName.slice(0, 2).toUpperCase();
+    }
     head.appendChild(badge);
 
     const name: HTMLSpanElement = document.createElement('span');
@@ -42,6 +54,9 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
         const barFill: HTMLDivElement = document.createElement('div');
         barFill.className = 'plugin-xptracker-card-bar-fill';
         barFill.style.width = `${card.percentToLevel}%`;
+        if (accentColor) {
+            barFill.style.background = accentColor;
+        }
         barTrack.appendChild(barFill);
 
         const barLabel: HTMLDivElement = document.createElement('div');

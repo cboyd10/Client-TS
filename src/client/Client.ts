@@ -108,6 +108,35 @@ const SKILL_TO_STATICON_INDEX: Record<number, number> = {0: 0, 1: 2, 2: 1, 3: 6,
 const STATS_BUTTON_COMPONENT_TO_SKILL: Record<number, number> = {8654: 0, 8655: 3, 8656: 14, 8657: 2, 8658: 16, 8659: 13, 8660: 1, 8661: 15, 8662: 10, 8663: 4, 8664: 17, 8665: 7, 8666: 5, 8667: 12, 8668: 11, 8669: 6, 8670: 9, 8671: 8, 8672: 20};
 const SKILL_DISPLAY_NAMES: Record<number, string> = {0: 'Attack', 1: 'Defence', 2: 'Strength', 3: 'Hitpoints', 4: 'Ranged', 5: 'Prayer', 6: 'Magic', 7: 'Cooking', 8: 'Woodcutting', 9: 'Fletching', 10: 'Fishing', 11: 'Firemaking', 12: 'Crafting', 13: 'Smithing', 14: 'Mining', 15: 'Herblore', 16: 'Agility', 17: 'Thieving', 20: 'Runecrafting'};
 
+// custom: skill-cape-accent colors for the XP tracker plugin panel's per-card
+// badge border / bar fill (issue #82). Keyed by skill id, same id space as
+// SKILL_DISPLAY_NAMES/SKILL_TO_STATICON_INDEX above. Includes skill 18
+// (Slayer) even though it has no staticon sprite (see SKILL_TO_STATICON_INDEX)
+// -- buildXpTrackerCards()/recalcXpTrackerPanels() don't filter by Skill.used,
+// only by the literal '-unused-' name, so a Slayer card can still appear.
+export const SKILL_ACCENT_COLORS: Record<number, string> = {
+    0: '#C1272D',
+    1: '#1E40AF',
+    2: '#C2410C',
+    3: '#E11D48',
+    4: '#15803D',
+    5: '#CBD5E1',
+    6: '#4F46E5',
+    7: '#DB2777',
+    8: '#78350F',
+    9: '#84CC16',
+    10: '#0891B2',
+    11: '#EA580C',
+    12: '#0D9488',
+    13: '#64748B',
+    14: '#B45309',
+    15: '#22C55E',
+    16: '#38BDF8',
+    17: '#7E22CE',
+    18: '#B91C1C',
+    20: '#6D28D9'
+};
+
 // custom: register every plugin the client ships with. Runs once at module
 // load, well before any Client instance (and its field initializers, which
 // read PluginManager.isEnabled) is constructed.
@@ -374,6 +403,11 @@ export class Client extends GameShell {
     private sideicons: (Pix8 | null)[] = new TypedArray1d(13, null);
     private staticons: (Pix8 | null)[] = new TypedArray1d(18, null);
     private staticons2: (Pix8 | null)[] = new TypedArray1d(1, null);
+    // custom: iconDataUrl cache for the XP tracker plugin panel (issue #82),
+    // keyed by skill id. Built once lazily on first buildXpTrackerCards() call
+    // (staticons/staticons2 are loaded well before login, see Client.ts:~1107)
+    // so each skill's sprite-to-dataURL conversion runs at most once.
+    private xpTrackerIconCache: Map<number, string | null> | null = null;
     private redstone1: Pix8 | null = null;
     private redstone2: Pix8 | null = null;
     private redstone3: Pix8 | null = null;
@@ -5064,6 +5098,25 @@ export class Client extends GameShell {
         });
     }
 
+    // custom: lazily build (once) and return the iconDataUrl cache used by
+    // buildXpTrackerCards(). Same icon resolution as recalcXpTrackerPanels'
+    // Pix8 lookup (Client.ts:~5155), converted to a data URL via
+    // Pix8.toDataURL() and cached per skill id -- not re-converted per call.
+    private getXpTrackerIconCache(): Map<number, string | null> {
+        if (!this.xpTrackerIconCache) {
+            const cache: Map<number, string | null> = new Map();
+            for (let stat: number = 0; stat < Skill.count; stat++) {
+                if (Skill.names[stat] === '-unused-') {
+                    continue;
+                }
+                const icon: Pix8 | null = stat === 20 ? this.staticons2[0] : SKILL_TO_STATICON_INDEX[stat] !== undefined ? this.staticons[SKILL_TO_STATICON_INDEX[stat]] : null;
+                cache.set(stat, icon ? icon.toDataURL() : null);
+            }
+            this.xpTrackerIconCache = cache;
+        }
+        return this.xpTrackerIconCache;
+    }
+
     // custom: DOM-friendly (no Pix8 sprite) mirror of recalcXpTrackerPanels for
     // the plugin sidebar's XP Tracker content panel -- same inclusion rule and
     // sort order, but NOT filtered by xpTrackerHiddenSkills (that only hides a
@@ -5082,14 +5135,16 @@ export class Client extends GameShell {
         order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
 
         const now: number = Date.now();
+        const iconCache: Map<number, string | null> = this.getXpTrackerIconCache();
         return order.map((stat: number): XpTrackerCardData => {
             const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
             const elapsedMs: number = now - this.xpTrackerStartTime[stat];
             const baseLevel: number = this.statBaseLevel[stat];
             const skillName: string = SKILL_DISPLAY_NAMES[stat] ?? Skill.names[stat];
+            const iconDataUrl: string | null = iconCache.get(stat) ?? null;
 
             if (elapsedMs < 5000) {
-                return {skillId: stat, skillName, calculating: true, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0};
+                return {skillId: stat, skillName, calculating: true, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0, iconDataUrl};
             }
 
             const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
@@ -5104,7 +5159,7 @@ export class Client extends GameShell {
                 secondsToLevel = xpPerHour > 0 ? Math.round((xpLeft / xpPerHour) * 3600) : 0;
             }
 
-            return {skillId: stat, skillName, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel};
+            return {skillId: stat, skillName, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel, iconDataUrl};
         });
     }
 
