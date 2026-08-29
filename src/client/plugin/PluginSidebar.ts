@@ -31,9 +31,14 @@ const STYLES = `
 .plugin-toggle input:disabled + .plugin-toggle-slider { opacity: 0.4; cursor: not-allowed; }
 .plugin-panel-empty { color: #888; padding: 8px 4px; }
 .plugin-xptracker-total-card { border: 1px solid #04A800; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #10210f; }
+.plugin-xptracker-total-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.plugin-xptracker-total-card-label { color: #04A800; font-weight: bold; font-size: 12px; }
 .plugin-xptracker-total-card-row { color: #04A800; font-weight: bold; font-size: 12px; line-height: 16px; }
 .plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
 .plugin-xptracker-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.plugin-xptracker-reset-btn { margin-left: auto; width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.plugin-xptracker-reset-btn:hover { background: #3a3a3a; color: #fff; }
+.plugin-xptracker-reset-btn svg { width: 11px; height: 11px; }
 .plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; }
 .plugin-xptracker-card-name { font-weight: bold; }
 .plugin-xptracker-card-stats { color: #cc0; font-size: 11px; margin-bottom: 4px; }

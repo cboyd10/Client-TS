@@ -30,6 +30,12 @@ export type PluginBridge = {
     setPluginConfig(id: string, partial: PluginConfig): void;
     onPluginChange(listener: () => void): () => void;
     getXpTrackerCards(): XpTrackerCardData[];
+    // custom (issue #88): re-seed one skill's tracked session (baseline/start
+    // time/last-gain/pause state) to a fresh start, without touching any
+    // per-skill config (e.g. a level target). The skill drops out of
+    // getXpTrackerCards() until it next gains xp, same as a never-tracked
+    // skill.
+    resetXpTrackerSkill(skillId: number): void;
     // custom: total horizontal px the sidebar currently occupies (40px icon
     // column, +225px more while a content panel is open) -- read by
     // client.ejs's setSize('auto') so the canvas never renders clipped
