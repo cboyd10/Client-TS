@@ -28,12 +28,21 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
     stats.className = 'plugin-xptracker-card-stats';
     if (card.calculating) {
         stats.textContent = '(calculating...)';
-    } else if (card.baseLevel >= 99) {
-        stats.textContent = `XP/hr: ${xpTrackerFormatXp(card.xpPerHour)}`;
+        el.appendChild(stats);
     } else {
-        stats.textContent = `XP/hr: ${xpTrackerFormatXp(card.xpPerHour)} — XP left: ${xpTrackerFormatXp(card.xpLeft)}`;
+        const rows: string[] = [`XP Gained: ${xpTrackerFormatXp(card.xpGained)}`, `XP/hr: ${xpTrackerFormatXp(card.xpPerHour)}`];
+        if (card.baseLevel < 99) {
+            rows.push(`XP Left: ${xpTrackerFormatXp(card.xpLeft)}`);
+            rows.push(`TTL: ${card.xpPerHour > 0 ? xpTrackerFormatHms(card.secondsToLevel) : '--'}`);
+        }
+        for (const row of rows) {
+            const rowEl: HTMLDivElement = document.createElement('div');
+            rowEl.className = 'plugin-xptracker-card-stat-row';
+            rowEl.textContent = row;
+            stats.appendChild(rowEl);
+        }
+        el.appendChild(stats);
     }
-    el.appendChild(stats);
 
     if (!card.calculating && card.baseLevel < 99) {
         const barTrack: HTMLDivElement = document.createElement('div');
@@ -44,10 +53,20 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
         barFill.style.width = `${card.percentToLevel}%`;
         barTrack.appendChild(barFill);
 
+        const barLevelLeft: HTMLDivElement = document.createElement('div');
+        barLevelLeft.className = 'plugin-xptracker-card-bar-level-left';
+        barLevelLeft.textContent = String(card.baseLevel);
+        barTrack.appendChild(barLevelLeft);
+
         const barLabel: HTMLDivElement = document.createElement('div');
         barLabel.className = 'plugin-xptracker-card-bar-label';
-        barLabel.textContent = card.xpPerHour > 0 ? xpTrackerFormatHms(card.secondsToLevel) : '';
+        barLabel.textContent = `${card.percentToLevel.toFixed(0)}%`;
         barTrack.appendChild(barLabel);
+
+        const barLevelRight: HTMLDivElement = document.createElement('div');
+        barLevelRight.className = 'plugin-xptracker-card-bar-level-right';
+        barLevelRight.textContent = String(card.baseLevel + 1);
+        barTrack.appendChild(barLevelRight);
 
         el.appendChild(barTrack);
     }

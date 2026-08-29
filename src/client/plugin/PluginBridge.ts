@@ -7,6 +7,7 @@ export type XpTrackerCardData = {
     skillId: number;
     skillName: string;
     calculating: boolean;
+    xpGained: number;
     xpPerHour: number;
     xpLeft: number;
     baseLevel: number;
