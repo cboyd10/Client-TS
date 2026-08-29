@@ -30,15 +30,19 @@ const STYLES = `
 .plugin-toggle input:checked + .plugin-toggle-slider::before { transform: translateX(14px); background: #fff; }
 .plugin-toggle input:disabled + .plugin-toggle-slider { opacity: 0.4; cursor: not-allowed; }
 .plugin-panel-empty { color: #888; padding: 8px 4px; }
-.plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+.plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; cursor: grab; }
+.plugin-xptracker-card-dragging { opacity: 0.4; }
 .plugin-xptracker-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; overflow: hidden; }
 .plugin-xptracker-card-badge img { width: 16px; height: 16px; object-fit: contain; }
 .plugin-xptracker-card-name { font-weight: bold; }
 .plugin-xptracker-card-stats { color: #cc0; font-size: 11px; margin-bottom: 4px; }
+.plugin-xptracker-card-stat-row { line-height: 14px; }
 .plugin-xptracker-card-bar-track { position: relative; height: 16px; background: #333; border: 1px solid #000; border-radius: 2px; overflow: hidden; }
 .plugin-xptracker-card-bar-fill { position: absolute; inset: 0; width: 0; background: #04A800; }
-.plugin-xptracker-card-bar-label { position: relative; text-align: center; line-height: 16px; font-size: 10px; color: #fff; }
+.plugin-xptracker-card-bar-label { position: absolute; inset: 0; text-align: center; line-height: 16px; font-size: 10px; color: #fff; }
+.plugin-xptracker-card-bar-level-left { position: absolute; left: 4px; top: 0; line-height: 16px; font-size: 10px; color: #fff; }
+.plugin-xptracker-card-bar-level-right { position: absolute; right: 4px; top: 0; line-height: 16px; font-size: 10px; color: #fff; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at
