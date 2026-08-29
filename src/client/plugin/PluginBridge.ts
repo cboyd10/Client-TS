@@ -13,6 +13,11 @@ export type XpTrackerCardData = {
     baseLevel: number;
     percentToLevel: number;
     secondsToLevel: number;
+    // custom: per-skill level target (issue #86) read from the xpTracker
+    // plugin config's `levelTargets` map -- null when no target is set (or
+    // the stored value fails validation), in which case progress is toward
+    // baseLevel + 1 exactly as before.
+    targetLevel: number | null;
     // custom: pre-converted staticon sprite as a data URL (see Pix8.toDataURL),
     // cached per skill id. null when this skill has no staticon mapping
     // (e.g. Slayer, skill 18) -- renderCard() falls back to the text badge.

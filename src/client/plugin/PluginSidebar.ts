@@ -45,6 +45,13 @@ const STYLES = `
 .plugin-xptracker-card-bar-label { position: absolute; inset: 0; text-align: center; line-height: 16px; font-size: 10px; color: #fff; }
 .plugin-xptracker-card-bar-level-left { position: absolute; left: 4px; top: 0; line-height: 16px; font-size: 10px; color: #fff; }
 .plugin-xptracker-card-bar-level-right { position: absolute; right: 4px; top: 0; line-height: 16px; font-size: 10px; color: #fff; }
+.plugin-xptracker-card-target-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.plugin-xptracker-card-target-input { width: 52px; background: #1b1b1b; border: 1px solid #444; color: #ddd; font-size: 11px; padding: 2px 4px; border-radius: 2px; box-sizing: border-box; }
+.plugin-xptracker-card-target-input:focus { outline: none; border-color: #04A800; }
+.plugin-xptracker-card-target-input-invalid { border-color: #c33; }
+.plugin-xptracker-card-target-clear { background: #2a2a2a; border: 1px solid #444; color: #ccc; font-size: 10px; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
+.plugin-xptracker-card-target-clear:disabled { opacity: 0.4; cursor: not-allowed; }
+.plugin-xptracker-card-target-clear:hover:not(:disabled) { background: #3a3a3a; color: #fff; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at
@@ -147,7 +154,16 @@ class PluginSidebar {
 
     private startAutoRefresh(): void {
         this.stopAutoRefresh();
-        this.refreshTimer = setInterval((): void => this.renderContent(), CONTENT_REFRESH_MS);
+        this.refreshTimer = setInterval((): void => {
+            // custom (issue #86): the auto-refresh tick tears down and rebuilds
+            // the whole content panel every second (see renderContent below).
+            // Skip a tick while an input inside it is focused so an in-progress
+            // edit (e.g. typing a target level) doesn't get wiped mid-keystroke.
+            if (this.contentPanel !== null && document.activeElement instanceof HTMLInputElement && this.contentPanel.contains(document.activeElement)) {
+                return;
+            }
+            this.renderContent();
+        }, CONTENT_REFRESH_MS);
     }
 
     private stopAutoRefresh(): void {

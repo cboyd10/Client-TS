@@ -5134,6 +5134,14 @@ export class Client extends GameShell {
         }
         order.sort((a: number, b: number): number => this.xpTrackerLastGain[b] - this.xpTrackerLastGain[a]);
 
+        // custom (issue #86): per-skill level targets override the next-level
+        // math below. Keyed by skill id (stringified, matching how
+        // JSON.stringify renders the numeric key) inside the xpTracker
+        // plugin's config blob -- same `PluginManager.getConfig`/`setConfig`
+        // blob as `hiddenSkills`.
+        const rawLevelTargets: unknown = PluginManager.getConfig('xpTracker').levelTargets;
+        const levelTargets: Record<string, unknown> = typeof rawLevelTargets === 'object' && rawLevelTargets !== null ? (rawLevelTargets as Record<string, unknown>) : {};
+
         // custom: manual drag-to-reorder override (issue #84) -- when the DOM
         // panel has a persisted cardOrder, re-rank by it on top of the
         // most-recent-gain sort above; a stable sort means any card absent
@@ -5161,8 +5169,11 @@ export class Client extends GameShell {
             const skillName: string = SKILL_DISPLAY_NAMES[stat] ?? Skill.names[stat];
             const iconDataUrl: string | null = iconCache.get(stat) ?? null;
 
+            const rawTarget: unknown = levelTargets[String(stat)];
+            const targetLevel: number | null = typeof rawTarget === 'number' && Number.isInteger(rawTarget) && rawTarget >= 2 && rawTarget <= 99 ? rawTarget : null;
+
             if (elapsedMs < 5000) {
-                return {skillId: stat, skillName, calculating: true, xpGained: gained, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0, iconDataUrl};
+                return {skillId: stat, skillName, calculating: true, xpGained: gained, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0, targetLevel, iconDataUrl};
             }
 
             const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
@@ -5171,13 +5182,26 @@ export class Client extends GameShell {
             let secondsToLevel: number = 0;
             if (baseLevel < 99) {
                 const levelStartXp: number = baseLevel <= 1 ? 0 : Client.levelExperience[baseLevel - 2];
-                const levelEndXp: number = Client.levelExperience[baseLevel - 1];
-                xpLeft = levelEndXp - this.statXP[stat];
-                percentToLevel = Math.min(100, Math.max(0, ((this.statXP[stat] - levelStartXp) / (levelEndXp - levelStartXp)) * 100));
+                const levelEndXp: number = targetLevel !== null ? Client.levelExperience[targetLevel - 2] : Client.levelExperience[baseLevel - 1];
+
+                if (this.statXP[stat] >= levelEndXp) {
+                    // Target (or, same as before #86, the next level) already
+                    // reached -- clamp at 100% directly instead of trusting the
+                    // ratio below, since a target that was never cleared can go
+                    // stale once baseLevel keeps climbing past it (levelEndXp
+                    // then sits *behind* levelStartXp, which would otherwise
+                    // divide out to a negative/zero percentage).
+                    xpLeft = 0;
+                    percentToLevel = 100;
+                } else {
+                    xpLeft = levelEndXp - this.statXP[stat];
+                    const denom: number = levelEndXp - levelStartXp;
+                    percentToLevel = denom > 0 ? Math.min(100, Math.max(0, ((this.statXP[stat] - levelStartXp) / denom) * 100)) : 0;
+                }
                 secondsToLevel = xpPerHour > 0 ? Math.round((xpLeft / xpPerHour) * 3600) : 0;
             }
 
-            return {skillId: stat, skillName, calculating: false, xpGained: gained, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel, iconDataUrl};
+            return {skillId: stat, skillName, calculating: false, xpGained: gained, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel, targetLevel, iconDataUrl};
         });
     }
 
