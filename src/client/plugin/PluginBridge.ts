@@ -16,6 +16,15 @@ export type XpTrackerCardData = {
     // custom (issue #87): true while this skill is auto-paused (idle timeout or
     // logout) -- stats above hold their frozen pre-pause values while true.
     paused: boolean;
+    // custom: per-skill level target (issue #86) read from the xpTracker
+    // plugin config's `levelTargets` map -- null when no target is set (or
+    // the stored value fails validation), in which case progress is toward
+    // baseLevel + 1 exactly as before.
+    targetLevel: number | null;
+    // custom: pre-converted staticon sprite as a data URL (see Pix8.toDataURL),
+    // cached per skill id. null when this skill has no staticon mapping
+    // (e.g. Slayer, skill 18) -- renderCard() falls back to the text badge.
+    iconDataUrl: string | null;
 };
 
 // custom: the sole surface PluginSidebar (a page-level DOM component with no

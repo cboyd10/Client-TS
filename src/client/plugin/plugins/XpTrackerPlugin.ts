@@ -1,20 +1,121 @@
-import {xpTrackerFormatHms, xpTrackerFormatXp} from '#/client/Client.js';
+import {SKILL_ACCENT_COLORS, xpTrackerFormatHms, xpTrackerFormatXp} from '#/client/Client.js';
 import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
 // custom: Feather-style "bar-chart-2" line icon (MIT-licensed glyph set).
 const ICON_BAR_GRAPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
 
-function renderCard(card: XpTrackerCardData): HTMLElement {
+// custom (issue #86): read the raw stored target straight from the plugin
+// config blob (not from XpTrackerCardData -- which only carries derived,
+// already-validated numbers recomputed once a second) so the control's
+// displayed value always mirrors exactly what's persisted.
+function readStoredTarget(bridge: PluginBridge, skillId: number): number | null {
+    const levelTargets: unknown = bridge.getPluginConfig('xpTracker').levelTargets;
+    if (typeof levelTargets !== 'object' || levelTargets === null) {
+        return null;
+    }
+    const raw: unknown = (levelTargets as Record<string, unknown>)[String(skillId)];
+    return typeof raw === 'number' && Number.isInteger(raw) ? raw : null;
+}
+
+function readLevelTargets(bridge: PluginBridge): Record<string, number> {
+    const levelTargets: unknown = bridge.getPluginConfig('xpTracker').levelTargets;
+    return typeof levelTargets === 'object' && levelTargets !== null ? {...(levelTargets as Record<string, number>)} : {};
+}
+
+// custom (issue #86): inline target-level number input + clear button for a
+// card's bar area. Validates as an integer strictly greater than baseLevel
+// and at most 99 on commit (Enter or blur); an invalid value is flagged and
+// left uncommitted -- the stored config is never touched.
+function renderTargetControl(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement {
+    const row: HTMLDivElement = document.createElement('div');
+    row.className = 'plugin-xptracker-card-target-row';
+
+    const input: HTMLInputElement = document.createElement('input');
+    input.type = 'number';
+    input.className = 'plugin-xptracker-card-target-input';
+    input.placeholder = 'Target lvl';
+    input.min = String(card.baseLevel + 1);
+    input.max = '99';
+    input.step = '1';
+    const stored: number | null = readStoredTarget(bridge, card.skillId);
+    if (stored !== null) {
+        input.value = String(stored);
+    }
+
+    const clearButton: HTMLButtonElement = document.createElement('button');
+    clearButton.type = 'button';
+    clearButton.className = 'plugin-xptracker-card-target-clear';
+    clearButton.textContent = 'Clear';
+    clearButton.title = 'Clear target level';
+    clearButton.disabled = stored === null;
+
+    const commit = (): void => {
+        const raw: string = input.value.trim();
+        if (raw === '') {
+            return;
+        }
+
+        const parsed: number = Number(raw);
+        if (!Number.isInteger(parsed) || parsed <= card.baseLevel || parsed > 99) {
+            input.classList.add('plugin-xptracker-card-target-input-invalid');
+            return;
+        }
+        input.classList.remove('plugin-xptracker-card-target-input-invalid');
+
+        const levelTargets: Record<string, number> = readLevelTargets(bridge);
+        levelTargets[String(card.skillId)] = parsed;
+        bridge.setPluginConfig('xpTracker', {levelTargets});
+        clearButton.disabled = false;
+    };
+
+    input.addEventListener('keydown', (e: KeyboardEvent): void => {
+        if (e.key === 'Enter') {
+            commit();
+            input.blur();
+        }
+    });
+    input.addEventListener('blur', commit);
+    input.addEventListener('input', (): void => input.classList.remove('plugin-xptracker-card-target-input-invalid'));
+    row.appendChild(input);
+
+    clearButton.addEventListener('click', (): void => {
+        const levelTargets: Record<string, number> = readLevelTargets(bridge);
+        delete levelTargets[String(card.skillId)];
+        bridge.setPluginConfig('xpTracker', {levelTargets});
+        input.value = '';
+        input.classList.remove('plugin-xptracker-card-target-input-invalid');
+        clearButton.disabled = true;
+    });
+    row.appendChild(clearButton);
+
+    return row;
+}
+
+function renderCard(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement {
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-xptracker-card';
+    el.draggable = true;
+    el.dataset.skillId = String(card.skillId);
 
     const head: HTMLDivElement = document.createElement('div');
     head.className = 'plugin-xptracker-card-head';
 
+    const accentColor: string | undefined = SKILL_ACCENT_COLORS[card.skillId];
+
     const badge: HTMLDivElement = document.createElement('div');
     badge.className = 'plugin-xptracker-card-badge';
-    badge.textContent = card.skillName.slice(0, 2).toUpperCase();
+    if (accentColor) {
+        badge.style.borderColor = accentColor;
+    }
+    if (card.iconDataUrl !== null) {
+        const icon: HTMLImageElement = document.createElement('img');
+        icon.src = card.iconDataUrl;
+        icon.alt = card.skillName;
+        badge.appendChild(icon);
+    } else {
+        badge.textContent = card.skillName.slice(0, 2).toUpperCase();
+    }
     head.appendChild(badge);
 
     const name: HTMLSpanElement = document.createElement('span');
@@ -51,6 +152,9 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
         const barFill: HTMLDivElement = document.createElement('div');
         barFill.className = card.paused ? 'plugin-xptracker-card-bar-fill plugin-xptracker-card-bar-fill--paused' : 'plugin-xptracker-card-bar-fill';
         barFill.style.width = `${card.percentToLevel}%`;
+        if (accentColor) {
+            barFill.style.background = accentColor;
+        }
         barTrack.appendChild(barFill);
 
         const barLevelLeft: HTMLDivElement = document.createElement('div');
@@ -65,10 +169,29 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
 
         const barLevelRight: HTMLDivElement = document.createElement('div');
         barLevelRight.className = 'plugin-xptracker-card-bar-level-right';
-        barLevelRight.textContent = String(card.baseLevel + 1);
+        barLevelRight.textContent = String(card.targetLevel ?? card.baseLevel + 1);
         barTrack.appendChild(barLevelRight);
 
         el.appendChild(barTrack);
+        el.appendChild(renderTargetControl(card, bridge));
+    }
+
+    return el;
+}
+
+function renderTotalCard(cards: XpTrackerCardData[]): HTMLElement {
+    const el: HTMLDivElement = document.createElement('div');
+    el.className = 'plugin-xptracker-total-card';
+
+    const totalGained: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpGained, 0);
+    const totalPerHour: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpPerHour, 0);
+
+    const rows: string[] = [`Total XP Gained: ${xpTrackerFormatXp(totalGained)}`, `Total XP/hr: ${xpTrackerFormatXp(totalPerHour)}`];
+    for (const row of rows) {
+        const rowEl: HTMLDivElement = document.createElement('div');
+        rowEl.className = 'plugin-xptracker-total-card-row';
+        rowEl.textContent = row;
+        el.appendChild(rowEl);
     }
 
     return el;
@@ -87,11 +210,101 @@ function renderPanel(bridge: PluginBridge): HTMLElement {
         return container;
     }
 
+    // custom: total card is always pinned first, computed fresh from `cards`
+    // on every render -- never draggable/reorderable, unaffected by any
+    // manual card order set via drag-to-reorder (#84).
+    container.appendChild(renderTotalCard(cards));
+
     for (const card of cards) {
-        container.appendChild(renderCard(card));
+        container.appendChild(renderCard(card, bridge));
     }
 
+    attachDragReorder(container, bridge);
+
     return container;
+}
+
+// custom: native HTML5 drag-and-drop reorder (issue #84) -- no touch/pointer
+// fallback needed since PluginSidebar.init() already early-returns on
+// isMobile(). Persists the full new skill-id order into config on drop so it
+// survives PluginSidebar's every-1000ms renderContent() rebuild, rather than
+// relying on in-memory DOM position. Drag state (draggedSkillId) is a closure
+// local, not module state -- attachDragReorder runs fresh on every renderPanel
+// call, so nothing needs to be reset between panel rebuilds.
+function attachDragReorder(container: HTMLDivElement, bridge: PluginBridge): void {
+    let draggedSkillId: number | null = null;
+
+    const cardOf = (target: EventTarget | null): HTMLElement | null => {
+        if (!(target instanceof HTMLElement)) {
+            return null;
+        }
+        return target.closest<HTMLElement>('.plugin-xptracker-card');
+    };
+
+    container.addEventListener('dragstart', (e: DragEvent): void => {
+        const card: HTMLElement | null = cardOf(e.target);
+        if (card === null || card.dataset.skillId === undefined) {
+            return;
+        }
+
+        draggedSkillId = Number(card.dataset.skillId);
+        card.classList.add('plugin-xptracker-card-dragging');
+        if (e.dataTransfer !== null) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.dataset.skillId);
+        }
+    });
+
+    container.addEventListener('dragend', (e: DragEvent): void => {
+        cardOf(e.target)?.classList.remove('plugin-xptracker-card-dragging');
+        draggedSkillId = null;
+    });
+
+    container.addEventListener('dragover', (e: DragEvent): void => {
+        if (draggedSkillId === null) {
+            return;
+        }
+
+        // required so the browser treats this container as a valid drop target
+        e.preventDefault();
+        if (e.dataTransfer !== null) {
+            e.dataTransfer.dropEffect = 'move';
+        }
+    });
+
+    container.addEventListener('drop', (e: DragEvent): void => {
+        e.preventDefault();
+
+        const dragged: number | null = draggedSkillId;
+        draggedSkillId = null;
+        if (dragged === null) {
+            return;
+        }
+
+        const dropCard: HTMLElement | null = cardOf(e.target);
+        if (dropCard === null || dropCard.dataset.skillId === undefined) {
+            return;
+        }
+
+        const dropSkillId: number = Number(dropCard.dataset.skillId);
+        if (dropSkillId === dragged) {
+            return;
+        }
+
+        const cardEls: HTMLElement[] = Array.from(container.querySelectorAll<HTMLElement>('.plugin-xptracker-card'));
+        const order: number[] = cardEls.map((el: HTMLElement): number => Number(el.dataset.skillId));
+
+        const fromIndex: number = order.indexOf(dragged);
+        const toIndex: number = order.indexOf(dropSkillId);
+        if (fromIndex === -1 || toIndex === -1) {
+            return;
+        }
+
+        order.splice(fromIndex, 1);
+        order.splice(toIndex, 0, dragged);
+
+        bridge.setPluginConfig('xpTracker', {cardOrder: order});
+    });
 }
 
 const xpTrackerPlugin: PluginDescriptor = {
