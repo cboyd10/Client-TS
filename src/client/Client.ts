@@ -5089,7 +5089,7 @@ export class Client extends GameShell {
             const skillName: string = SKILL_DISPLAY_NAMES[stat] ?? Skill.names[stat];
 
             if (elapsedMs < 5000) {
-                return {skillId: stat, skillName, calculating: true, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0};
+                return {skillId: stat, skillName, calculating: true, xpGained: gained, xpPerHour: 0, xpLeft: 0, baseLevel, percentToLevel: 0, secondsToLevel: 0};
             }
 
             const xpPerHour: number = Math.round(gained / (elapsedMs / 3600000));
@@ -5104,7 +5104,7 @@ export class Client extends GameShell {
                 secondsToLevel = xpPerHour > 0 ? Math.round((xpLeft / xpPerHour) * 3600) : 0;
             }
 
-            return {skillId: stat, skillName, calculating: false, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel};
+            return {skillId: stat, skillName, calculating: false, xpGained: gained, xpPerHour, xpLeft, baseLevel, percentToLevel, secondsToLevel};
         });
     }
 
