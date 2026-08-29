@@ -5,7 +5,94 @@ import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 // custom: Feather-style "bar-chart-2" line icon (MIT-licensed glyph set).
 const ICON_BAR_GRAPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
 
-function renderCard(card: XpTrackerCardData): HTMLElement {
+// custom (issue #86): read the raw stored target straight from the plugin
+// config blob (not from XpTrackerCardData -- which only carries derived,
+// already-validated numbers recomputed once a second) so the control's
+// displayed value always mirrors exactly what's persisted.
+function readStoredTarget(bridge: PluginBridge, skillId: number): number | null {
+    const levelTargets: unknown = bridge.getPluginConfig('xpTracker').levelTargets;
+    if (typeof levelTargets !== 'object' || levelTargets === null) {
+        return null;
+    }
+    const raw: unknown = (levelTargets as Record<string, unknown>)[String(skillId)];
+    return typeof raw === 'number' && Number.isInteger(raw) ? raw : null;
+}
+
+function readLevelTargets(bridge: PluginBridge): Record<string, number> {
+    const levelTargets: unknown = bridge.getPluginConfig('xpTracker').levelTargets;
+    return typeof levelTargets === 'object' && levelTargets !== null ? {...(levelTargets as Record<string, number>)} : {};
+}
+
+// custom (issue #86): inline target-level number input + clear button for a
+// card's bar area. Validates as an integer strictly greater than baseLevel
+// and at most 99 on commit (Enter or blur); an invalid value is flagged and
+// left uncommitted -- the stored config is never touched.
+function renderTargetControl(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement {
+    const row: HTMLDivElement = document.createElement('div');
+    row.className = 'plugin-xptracker-card-target-row';
+
+    const input: HTMLInputElement = document.createElement('input');
+    input.type = 'number';
+    input.className = 'plugin-xptracker-card-target-input';
+    input.placeholder = 'Target lvl';
+    input.min = String(card.baseLevel + 1);
+    input.max = '99';
+    input.step = '1';
+    const stored: number | null = readStoredTarget(bridge, card.skillId);
+    if (stored !== null) {
+        input.value = String(stored);
+    }
+
+    const clearButton: HTMLButtonElement = document.createElement('button');
+    clearButton.type = 'button';
+    clearButton.className = 'plugin-xptracker-card-target-clear';
+    clearButton.textContent = 'Clear';
+    clearButton.title = 'Clear target level';
+    clearButton.disabled = stored === null;
+
+    const commit = (): void => {
+        const raw: string = input.value.trim();
+        if (raw === '') {
+            return;
+        }
+
+        const parsed: number = Number(raw);
+        if (!Number.isInteger(parsed) || parsed <= card.baseLevel || parsed > 99) {
+            input.classList.add('plugin-xptracker-card-target-input-invalid');
+            return;
+        }
+        input.classList.remove('plugin-xptracker-card-target-input-invalid');
+
+        const levelTargets: Record<string, number> = readLevelTargets(bridge);
+        levelTargets[String(card.skillId)] = parsed;
+        bridge.setPluginConfig('xpTracker', {levelTargets});
+        clearButton.disabled = false;
+    };
+
+    input.addEventListener('keydown', (e: KeyboardEvent): void => {
+        if (e.key === 'Enter') {
+            commit();
+            input.blur();
+        }
+    });
+    input.addEventListener('blur', commit);
+    input.addEventListener('input', (): void => input.classList.remove('plugin-xptracker-card-target-input-invalid'));
+    row.appendChild(input);
+
+    clearButton.addEventListener('click', (): void => {
+        const levelTargets: Record<string, number> = readLevelTargets(bridge);
+        delete levelTargets[String(card.skillId)];
+        bridge.setPluginConfig('xpTracker', {levelTargets});
+        input.value = '';
+        input.classList.remove('plugin-xptracker-card-target-input-invalid');
+        clearButton.disabled = true;
+    });
+    row.appendChild(clearButton);
+
+    return row;
+}
+
+function renderCard(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement {
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-xptracker-card';
 
@@ -65,10 +152,11 @@ function renderCard(card: XpTrackerCardData): HTMLElement {
 
         const barLevelRight: HTMLDivElement = document.createElement('div');
         barLevelRight.className = 'plugin-xptracker-card-bar-level-right';
-        barLevelRight.textContent = String(card.baseLevel + 1);
+        barLevelRight.textContent = String(card.targetLevel ?? card.baseLevel + 1);
         barTrack.appendChild(barLevelRight);
 
         el.appendChild(barTrack);
+        el.appendChild(renderTargetControl(card, bridge));
     }
 
     return el;
@@ -88,7 +176,7 @@ function renderPanel(bridge: PluginBridge): HTMLElement {
     }
 
     for (const card of cards) {
-        container.appendChild(renderCard(card));
+        container.appendChild(renderCard(card, bridge));
     }
 
     return container;

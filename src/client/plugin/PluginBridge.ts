@@ -13,6 +13,11 @@ export type XpTrackerCardData = {
     baseLevel: number;
     percentToLevel: number;
     secondsToLevel: number;
+    // custom: per-skill level target (issue #86) read from the xpTracker
+    // plugin config's `levelTargets` map -- null when no target is set (or
+    // the stored value fails validation), in which case progress is toward
+    // baseLevel + 1 exactly as before.
+    targetLevel: number | null;
 };
 
 // custom: the sole surface PluginSidebar (a page-level DOM component with no
