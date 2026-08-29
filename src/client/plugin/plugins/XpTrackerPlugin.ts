@@ -5,6 +5,27 @@ import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 // custom: Feather-style "bar-chart-2" line icon (MIT-licensed glyph set).
 const ICON_BAR_GRAPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
 
+// custom (issue #88): Feather-style "refresh-cw" line icon (MIT-licensed
+// glyph set), reused for both the per-card reset button and the total card's
+// reset-all button -- follows PluginSidebar.ts's settings-cog icon-button
+// convention (inline SVG, no new asset file).
+const ICON_REFRESH =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline>' +
+    '<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>' +
+    '</svg>';
+
+function makeResetButton(label: string, onReset: () => void): HTMLButtonElement {
+    const btn: HTMLButtonElement = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'plugin-xptracker-reset-btn';
+    btn.innerHTML = ICON_REFRESH;
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+    btn.addEventListener('click', (): void => onReset());
+    return btn;
+}
+
 // custom (issue #86): read the raw stored target straight from the plugin
 // config blob (not from XpTrackerCardData -- which only carries derived,
 // already-validated numbers recomputed once a second) so the control's
@@ -123,6 +144,8 @@ function renderCard(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement 
     name.textContent = card.skillName;
     head.appendChild(name);
 
+    head.appendChild(makeResetButton(`Reset ${card.skillName} tracking`, (): void => bridge.resetXpTrackerSkill(card.skillId)));
+
     el.appendChild(head);
 
     const stats: HTMLDivElement = document.createElement('div');
@@ -179,9 +202,27 @@ function renderCard(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement 
     return el;
 }
 
-function renderTotalCard(cards: XpTrackerCardData[]): HTMLElement {
+function renderTotalCard(bridge: PluginBridge, cards: XpTrackerCardData[]): HTMLElement {
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-xptracker-total-card';
+
+    const head: HTMLDivElement = document.createElement('div');
+    head.className = 'plugin-xptracker-total-card-head';
+
+    const label: HTMLSpanElement = document.createElement('span');
+    label.className = 'plugin-xptracker-total-card-label';
+    label.textContent = 'Total';
+    head.appendChild(label);
+
+    // custom (issue #88): resets every skill currently present in `cards`
+    // (i.e. every currently-visible card), not every possible skill id.
+    head.appendChild(makeResetButton('Reset all tracked skills', (): void => {
+        for (const card of cards) {
+            bridge.resetXpTrackerSkill(card.skillId);
+        }
+    }));
+
+    el.appendChild(head);
 
     const totalGained: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpGained, 0);
     const totalPerHour: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpPerHour, 0);
@@ -213,7 +254,7 @@ function renderPanel(bridge: PluginBridge): HTMLElement {
     // custom: total card is always pinned first, computed fresh from `cards`
     // on every render -- never draggable/reorderable, unaffected by any
     // manual card order set via drag-to-reorder (#84).
-    container.appendChild(renderTotalCard(cards));
+    container.appendChild(renderTotalCard(bridge, cards));
 
     for (const card of cards) {
         container.appendChild(renderCard(card, bridge));

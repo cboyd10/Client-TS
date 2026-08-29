@@ -5111,6 +5111,7 @@ export class Client extends GameShell {
             setPluginConfig: (id: string, partial: PluginConfig): void => PluginManager.setConfig(id, partial),
             onPluginChange: (listener: () => void): (() => void) => PluginManager.onChange(listener),
             getXpTrackerCards: (): XpTrackerCardData[] => this.buildXpTrackerCards(),
+            resetXpTrackerSkill: (skillId: number): void => this.resetXpTrackerSkill(skillId),
             getSidebarWidth: (): number => PluginSidebar.getTotalWidth()
         };
 
@@ -5120,6 +5121,30 @@ export class Client extends GameShell {
         PluginManager.onChange((): void => {
             this.showXpTracker = PluginManager.isEnabled('xpTracker');
         });
+    }
+
+    // custom (issue #88): reset a single skill's tracked session, called from
+    // the plugin panel via PluginBridge.resetXpTrackerSkill(). Re-seeds the
+    // baseline to the skill's current xp -- buildXpTrackerCards()'s/
+    // recalcXpTrackerPanels()'s shared exclusion filter (statXP[stat] <=
+    // xpTrackerBaseline[stat]) then immediately drops it from both the plugin
+    // panel and the canvas overlay until it next gains xp, same "calculating..."
+    // reappearance as a skill tracked for the first time. Also clears the
+    // pause window (issue #87's xpTrackerPausedAt/xpTrackerPausedAccumMs) so a
+    // fresh session doesn't inherit a stale pause. Deliberately does NOT touch
+    // any per-skill config (e.g. a level target) -- only the shared
+    // session-tracking arrays, which is why this stays a Client method rather
+    // than reaching into PluginManager's config store.
+    private resetXpTrackerSkill(skillId: number): void {
+        if (skillId < 0 || skillId >= Skill.count) {
+            return;
+        }
+
+        this.xpTrackerBaseline[skillId] = this.statXP[skillId];
+        this.xpTrackerStartTime[skillId] = Date.now();
+        this.xpTrackerLastGain[skillId] = 0;
+        this.xpTrackerPausedAt[skillId] = -1;
+        this.xpTrackerPausedAccumMs[skillId] = 0;
     }
 
     // custom: lazily build (once) and return the iconDataUrl cache used by
