@@ -3,7 +3,19 @@ import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
 // custom: Feather-style "bar-chart-2" line icon (MIT-licensed glyph set).
+// Used only for the plugin's sidebar tab icon -- unrelated to (and unchanged
+// by) the Total card's icon below.
 const ICON_BAR_GRAPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
+
+// custom (issue #99): red/green/blue vertical-bar glyph for the Total card's
+// icon slot -- distinct from ICON_BAR_GRAPH above (the plugin's monochrome
+// sidebar tab icon, a different location, unchanged).
+const ICON_TOTAL_GRAPH =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
+    '<rect x="1" y="9" width="3.4" height="6" rx="0.5" fill="#e0524b"></rect>' +
+    '<rect x="6.3" y="4" width="3.4" height="11" rx="0.5" fill="#2fbf60"></rect>' +
+    '<rect x="11.6" y="1" width="3.4" height="14" rx="0.5" fill="#4b8ee0"></rect>' +
+    '</svg>';
 
 // custom (issue #88): Feather-style "refresh-cw" line icon (MIT-licensed
 // glyph set), reused for both the per-card reset button and the total card's
@@ -113,60 +125,77 @@ function renderTargetControl(card: XpTrackerCardData, bridge: PluginBridge): HTM
     return row;
 }
 
+// custom (issue #99): shared icon slot for both a skill card and the Total
+// card (same 24x24 container) -- accentColor is undefined for the Total
+// card's icon, which never has a per-skill border tint.
+function makeIcon(iconDataUrl: string | null, fallbackText: string, accentColor: string | undefined): HTMLDivElement {
+    const icon: HTMLDivElement = document.createElement('div');
+    icon.className = 'plugin-xptracker-icon';
+    if (accentColor) {
+        icon.style.borderColor = accentColor;
+    }
+    if (iconDataUrl !== null) {
+        const img: HTMLImageElement = document.createElement('img');
+        img.src = iconDataUrl;
+        img.alt = fallbackText;
+        icon.appendChild(img);
+    } else {
+        icon.textContent = fallbackText.slice(0, 2).toUpperCase();
+    }
+    return icon;
+}
+
+// custom (issue #99): one `label: value` row, gray label / bold white value
+// -- shared between a skill card's 2-column metric grid and the Total card's
+// single-column one.
+function makeMetric(label: string, value: string): HTMLDivElement {
+    const metric: HTMLDivElement = document.createElement('div');
+    metric.className = 'plugin-xptracker-metric';
+
+    const labelEl: HTMLSpanElement = document.createElement('span');
+    labelEl.className = 'plugin-xptracker-metric-label';
+    labelEl.textContent = `${label}:`;
+    metric.appendChild(labelEl);
+
+    const valueEl: HTMLSpanElement = document.createElement('span');
+    valueEl.className = 'plugin-xptracker-metric-value';
+    valueEl.textContent = value;
+    metric.appendChild(valueEl);
+
+    return metric;
+}
+
 function renderCard(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement {
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-xptracker-card';
     el.draggable = true;
     el.dataset.skillId = String(card.skillId);
 
-    const head: HTMLDivElement = document.createElement('div');
-    head.className = 'plugin-xptracker-card-head';
-
     const accentColor: string | undefined = SKILL_ACCENT_COLORS[card.skillId];
 
-    const badge: HTMLDivElement = document.createElement('div');
-    badge.className = 'plugin-xptracker-card-badge';
-    if (accentColor) {
-        badge.style.borderColor = accentColor;
-    }
-    if (card.iconDataUrl !== null) {
-        const icon: HTMLImageElement = document.createElement('img');
-        icon.src = card.iconDataUrl;
-        icon.alt = card.skillName;
-        badge.appendChild(icon);
-    } else {
-        badge.textContent = card.skillName.slice(0, 2).toUpperCase();
-    }
-    head.appendChild(badge);
+    const row: HTMLDivElement = document.createElement('div');
+    row.className = 'plugin-xptracker-row';
+    row.appendChild(makeIcon(card.iconDataUrl, card.skillName, accentColor));
 
-    const name: HTMLSpanElement = document.createElement('span');
-    name.className = 'plugin-xptracker-card-name';
-    name.textContent = card.skillName;
-    head.appendChild(name);
-
-    head.appendChild(makeResetButton(`Reset ${card.skillName} tracking`, (): void => bridge.resetXpTrackerSkill(card.skillId)));
-
-    el.appendChild(head);
-
-    const stats: HTMLDivElement = document.createElement('div');
-    stats.className = 'plugin-xptracker-card-stats';
     if (card.calculating) {
-        stats.textContent = '(calculating...)';
-        el.appendChild(stats);
+        const calculating: HTMLDivElement = document.createElement('div');
+        calculating.className = 'plugin-xptracker-card-calculating';
+        calculating.textContent = '(calculating...)';
+        row.appendChild(calculating);
     } else {
-        const rows: string[] = [`XP Gained: ${xpTrackerFormatXp(card.xpGained)}`, `XP/hr: ${xpTrackerFormatXp(card.xpPerHour)}`];
+        const metrics: HTMLDivElement = document.createElement('div');
+        metrics.className = 'plugin-xptracker-metrics plugin-xptracker-metrics--2col';
+        metrics.appendChild(makeMetric('Gained', xpTrackerFormatXp(card.xpGained)));
+        metrics.appendChild(makeMetric('XP/hr', xpTrackerFormatXp(card.xpPerHour)));
         if (card.baseLevel < 99) {
-            rows.push(`XP Left: ${xpTrackerFormatXp(card.xpLeft)}`);
-            rows.push(`TTL: ${card.xpPerHour > 0 ? xpTrackerFormatHms(card.secondsToLevel) : '--'}`);
+            metrics.appendChild(makeMetric('XP Left', xpTrackerFormatXp(card.xpLeft)));
+            metrics.appendChild(makeMetric('TTL', card.xpPerHour > 0 ? xpTrackerFormatHms(card.secondsToLevel) : '--'));
         }
-        for (const row of rows) {
-            const rowEl: HTMLDivElement = document.createElement('div');
-            rowEl.className = 'plugin-xptracker-card-stat-row';
-            rowEl.textContent = row;
-            stats.appendChild(rowEl);
-        }
-        el.appendChild(stats);
+        row.appendChild(metrics);
     }
+
+    row.appendChild(makeResetButton(`Reset ${card.skillName} tracking`, (): void => bridge.resetXpTrackerSkill(card.skillId)));
+    el.appendChild(row);
 
     if (!card.calculating && card.baseLevel < 99) {
         const barTrack: HTMLDivElement = document.createElement('div');
@@ -206,34 +235,35 @@ function renderTotalCard(bridge: PluginBridge, cards: XpTrackerCardData[]): HTML
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-xptracker-total-card';
 
-    const head: HTMLDivElement = document.createElement('div');
-    head.className = 'plugin-xptracker-total-card-head';
+    const row: HTMLDivElement = document.createElement('div');
+    row.className = 'plugin-xptracker-row';
 
-    const label: HTMLSpanElement = document.createElement('span');
-    label.className = 'plugin-xptracker-total-card-label';
-    label.textContent = 'Total';
-    head.appendChild(label);
+    const icon: HTMLDivElement = document.createElement('div');
+    icon.className = 'plugin-xptracker-icon';
+    icon.innerHTML = ICON_TOTAL_GRAPH;
+    // custom (issue #99): the "Total" text label was dropped along with every
+    // skill card's name text -- this title is the icon's only accessible name.
+    icon.title = 'Total tracked XP across all skills';
+    row.appendChild(icon);
+
+    const totalGained: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpGained, 0);
+    const totalPerHour: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpPerHour, 0);
+
+    const metrics: HTMLDivElement = document.createElement('div');
+    metrics.className = 'plugin-xptracker-metrics';
+    metrics.appendChild(makeMetric('Gained', xpTrackerFormatXp(totalGained)));
+    metrics.appendChild(makeMetric('Per Hour', xpTrackerFormatXp(totalPerHour)));
+    row.appendChild(metrics);
 
     // custom (issue #88): resets every skill currently present in `cards`
     // (i.e. every currently-visible card), not every possible skill id.
-    head.appendChild(makeResetButton('Reset all tracked skills', (): void => {
+    row.appendChild(makeResetButton('Reset all tracked skills', (): void => {
         for (const card of cards) {
             bridge.resetXpTrackerSkill(card.skillId);
         }
     }));
 
-    el.appendChild(head);
-
-    const totalGained: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpGained, 0);
-    const totalPerHour: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpPerHour, 0);
-
-    const rows: string[] = [`Total XP Gained: ${xpTrackerFormatXp(totalGained)}`, `Total XP/hr: ${xpTrackerFormatXp(totalPerHour)}`];
-    for (const row of rows) {
-        const rowEl: HTMLDivElement = document.createElement('div');
-        rowEl.className = 'plugin-xptracker-total-card-row';
-        rowEl.textContent = row;
-        el.appendChild(rowEl);
-    }
+    el.appendChild(row);
 
     return el;
 }

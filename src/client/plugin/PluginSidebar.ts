@@ -31,21 +31,22 @@ const STYLES = `
 .plugin-toggle input:disabled + .plugin-toggle-slider { opacity: 0.4; cursor: not-allowed; }
 .plugin-panel-empty { color: #888; padding: 8px 4px; }
 .plugin-xptracker-total-card { border: 1px solid #04A800; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #10210f; }
-.plugin-xptracker-total-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.plugin-xptracker-total-card-label { color: #04A800; font-weight: bold; font-size: 12px; }
-.plugin-xptracker-total-card-row { color: #04A800; font-weight: bold; font-size: 12px; line-height: 16px; }
 .plugin-xptracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; cursor: grab; }
 .plugin-xptracker-card-dragging { opacity: 0.4; }
-.plugin-xptracker-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .plugin-xptracker-reset-btn { margin-left: auto; width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .plugin-xptracker-reset-btn:hover { background: #3a3a3a; color: #fff; }
 .plugin-xptracker-reset-btn svg { width: 11px; height: 11px; }
-.plugin-xptracker-card-badge { width: 20px; height: 20px; border-radius: 50%; background: #2a2a2a; border: 1px solid #444; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 20px; overflow: hidden; }
-.plugin-xptracker-card-badge img { width: 16px; height: 16px; object-fit: contain; }
-.plugin-xptracker-card-name { font-weight: bold; }
-.plugin-xptracker-card-stats { color: #cc0; font-size: 11px; margin-bottom: 4px; }
-.plugin-xptracker-card-stat-row { line-height: 14px; }
-.plugin-xptracker-card-bar-track { position: relative; height: 16px; background: #333; border: 1px solid #000; border-radius: 2px; overflow: hidden; }
+.plugin-xptracker-row { display: flex; align-items: flex-start; gap: 8px; }
+.plugin-xptracker-icon { width: 24px; height: 24px; border-radius: 5px; background: #202020; border: 1px solid #333; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 24px; overflow: hidden; }
+.plugin-xptracker-icon img { width: 16px; height: 16px; object-fit: contain; image-rendering: pixelated; }
+.plugin-xptracker-icon svg { width: 15px; height: 15px; }
+.plugin-xptracker-metrics { display: grid; grid-template-columns: 1fr; row-gap: 2px; flex: 1 1 auto; min-width: 0; }
+.plugin-xptracker-metrics--2col { grid-template-columns: 1fr 1fr; column-gap: 8px; }
+.plugin-xptracker-metric { display: flex; align-items: baseline; gap: 4px; line-height: 1.5; white-space: nowrap; }
+.plugin-xptracker-metric-label { font-size: 11px; color: #9aa39a; }
+.plugin-xptracker-metric-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.plugin-xptracker-card-calculating { color: #cc0; font-size: 11px; line-height: 1.5; }
+.plugin-xptracker-card-bar-track { position: relative; height: 16px; background: #333; border: 1px solid #000; border-radius: 2px; overflow: hidden; margin-top: 8px; }
 .plugin-xptracker-card-bar-fill { position: absolute; inset: 0; width: 0; background: #04A800; }
 .plugin-xptracker-card-bar-fill--paused { background: #777; }
 .plugin-xptracker-card-bar-label { position: absolute; inset: 0; text-align: center; line-height: 16px; font-size: 10px; color: #fff; }
@@ -74,6 +75,13 @@ class PluginSidebar {
     private contentPanel: HTMLDivElement | null = null;
     private openId: string | null = null;
     private refreshTimer: ReturnType<typeof setInterval> | null = null;
+    // custom (cboyd10/runescape#104): true while a native HTML5 drag gesture
+    // is in progress inside contentPanel -- set by listeners on contentPanel
+    // itself in buildDom(), which native drag events bubble up to regardless
+    // of which plugin (e.g. XpTrackerPlugin's attachDragReorder) started
+    // them. Generic on purpose: PluginSidebar doesn't need to know which
+    // plugin, or which of its classes, is dragging.
+    private dragActive = false;
 
     init(bridge: PluginBridge): void {
         if (this.isMobile() || this.root !== null) {
@@ -118,6 +126,20 @@ class PluginSidebar {
         this.contentPanel = document.createElement('div');
         this.contentPanel.className = 'plugin-sidebar-content';
         this.contentPanel.style.display = 'none';
+        // custom (cboyd10/runescape#104): native drag events bubble from
+        // whatever inner element started the drag (e.g. a
+        // .plugin-xptracker-card) up to contentPanel -- listening here once
+        // covers every plugin's drag-and-drop without contentPanel needing to
+        // know about any of them.
+        this.contentPanel.addEventListener('dragstart', (): void => {
+            this.dragActive = true;
+        });
+        this.contentPanel.addEventListener('dragend', (): void => {
+            this.dragActive = false;
+        });
+        this.contentPanel.addEventListener('drop', (): void => {
+            this.dragActive = false;
+        });
         this.root.appendChild(this.contentPanel);
 
         this.iconColumn = document.createElement('div');
@@ -169,6 +191,14 @@ class PluginSidebar {
             // Skip a tick while an input inside it is focused so an in-progress
             // edit (e.g. typing a target level) doesn't get wiped mid-keystroke.
             if (this.contentPanel !== null && document.activeElement instanceof HTMLInputElement && this.contentPanel.contains(document.activeElement)) {
+                return;
+            }
+            // custom (cboyd10/runescape#104): same reasoning, for a native
+            // drag-and-drop gesture in progress -- the dragged DOM node being
+            // torn down and rebuilt mid-gesture is why reordering practically
+            // never worked. The panel is at most one refresh tick (1s) stale
+            // for the duration of a drag, which is an acceptable tradeoff.
+            if (this.dragActive) {
                 return;
             }
             this.renderContent();
