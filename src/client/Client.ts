@@ -414,7 +414,7 @@ export class Client extends GameShell {
     // keyed by skill id. Built once lazily on first buildXpTrackerCards() call
     // (staticons/staticons2 are loaded well before login, see Client.ts:~1107)
     // so each skill's sprite-to-dataURL conversion runs at most once.
-    private xpTrackerIconCache: Map<number, string | null> | null = null;
+    private xpTrackerIconCache: Map<number, string> | null = null;
     private redstone1: Pix8 | null = null;
     private redstone2: Pix8 | null = null;
     private redstone3: Pix8 | null = null;
@@ -5147,21 +5147,29 @@ export class Client extends GameShell {
         this.xpTrackerPausedAccumMs[skillId] = 0;
     }
 
-    // custom: lazily build (once) and return the iconDataUrl cache used by
-    // buildXpTrackerCards(). Same icon resolution as recalcXpTrackerPanels'
-    // Pix8 lookup (Client.ts:~5155), converted to a data URL via
-    // Pix8.toDataURL() and cached per skill id -- not re-converted per call.
-    private getXpTrackerIconCache(): Map<number, string | null> {
+    // custom (cboyd10/runescape#103): lazily build and return the
+    // iconDataUrl cache used by buildXpTrackerCards(). Same icon resolution
+    // as recalcXpTrackerPanels' Pix8 lookup (Client.ts:~5155), converted to a
+    // data URL via Pix8.toDataURL() and cached per skill id -- not
+    // re-converted per call. Only successful conversions are cached; a stat
+    // whose Pix8 sprite wasn't populated yet on an earlier call is retried on
+    // every subsequent call (cheap once resolved, since `.has()` skips it) --
+    // the original "build once on first call" version permanently cached a
+    // premature `null` for every skill if `this.staticons` wasn't ready the
+    // very first time this ran, with no way to recover for the rest of the
+    // session.
+    private getXpTrackerIconCache(): Map<number, string> {
         if (!this.xpTrackerIconCache) {
-            const cache: Map<number, string | null> = new Map();
-            for (let stat: number = 0; stat < Skill.count; stat++) {
-                if (Skill.names[stat] === '-unused-') {
-                    continue;
-                }
-                const icon: Pix8 | null = stat === 20 ? this.staticons2[0] : SKILL_TO_STATICON_INDEX[stat] !== undefined ? this.staticons[SKILL_TO_STATICON_INDEX[stat]] : null;
-                cache.set(stat, icon ? icon.toDataURL() : null);
+            this.xpTrackerIconCache = new Map();
+        }
+        for (let stat: number = 0; stat < Skill.count; stat++) {
+            if (Skill.names[stat] === '-unused-' || this.xpTrackerIconCache.has(stat)) {
+                continue;
             }
-            this.xpTrackerIconCache = cache;
+            const icon: Pix8 | null = stat === 20 ? this.staticons2[0] : SKILL_TO_STATICON_INDEX[stat] !== undefined ? this.staticons[SKILL_TO_STATICON_INDEX[stat]] : null;
+            if (icon) {
+                this.xpTrackerIconCache.set(stat, icon.toDataURL());
+            }
         }
         return this.xpTrackerIconCache;
     }
@@ -5217,7 +5225,7 @@ export class Client extends GameShell {
         const xpTrackerConfig: PluginConfig = PluginManager.getConfig('xpTracker');
         const pauseAfterMinutes: number = typeof xpTrackerConfig.pauseAfterMinutes === 'number' && xpTrackerConfig.pauseAfterMinutes > 0 ? xpTrackerConfig.pauseAfterMinutes : 0;
 
-        const iconCache: Map<number, string | null> = this.getXpTrackerIconCache();
+        const iconCache: Map<number, string> = this.getXpTrackerIconCache();
         return order.map((stat: number): XpTrackerCardData => {
             const gained: number = this.statXP[stat] - this.xpTrackerBaseline[stat];
             const baseLevel: number = this.statBaseLevel[stat];
