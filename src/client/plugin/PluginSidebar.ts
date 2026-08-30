@@ -75,6 +75,13 @@ class PluginSidebar {
     private contentPanel: HTMLDivElement | null = null;
     private openId: string | null = null;
     private refreshTimer: ReturnType<typeof setInterval> | null = null;
+    // custom (cboyd10/runescape#104): true while a native HTML5 drag gesture
+    // is in progress inside contentPanel -- set by listeners on contentPanel
+    // itself in buildDom(), which native drag events bubble up to regardless
+    // of which plugin (e.g. XpTrackerPlugin's attachDragReorder) started
+    // them. Generic on purpose: PluginSidebar doesn't need to know which
+    // plugin, or which of its classes, is dragging.
+    private dragActive = false;
 
     init(bridge: PluginBridge): void {
         if (this.isMobile() || this.root !== null) {
@@ -119,6 +126,20 @@ class PluginSidebar {
         this.contentPanel = document.createElement('div');
         this.contentPanel.className = 'plugin-sidebar-content';
         this.contentPanel.style.display = 'none';
+        // custom (cboyd10/runescape#104): native drag events bubble from
+        // whatever inner element started the drag (e.g. a
+        // .plugin-xptracker-card) up to contentPanel -- listening here once
+        // covers every plugin's drag-and-drop without contentPanel needing to
+        // know about any of them.
+        this.contentPanel.addEventListener('dragstart', (): void => {
+            this.dragActive = true;
+        });
+        this.contentPanel.addEventListener('dragend', (): void => {
+            this.dragActive = false;
+        });
+        this.contentPanel.addEventListener('drop', (): void => {
+            this.dragActive = false;
+        });
         this.root.appendChild(this.contentPanel);
 
         this.iconColumn = document.createElement('div');
@@ -170,6 +191,14 @@ class PluginSidebar {
             // Skip a tick while an input inside it is focused so an in-progress
             // edit (e.g. typing a target level) doesn't get wiped mid-keystroke.
             if (this.contentPanel !== null && document.activeElement instanceof HTMLInputElement && this.contentPanel.contains(document.activeElement)) {
+                return;
+            }
+            // custom (cboyd10/runescape#104): same reasoning, for a native
+            // drag-and-drop gesture in progress -- the dragged DOM node being
+            // torn down and rebuilt mid-gesture is why reordering practically
+            // never worked. The panel is at most one refresh tick (1s) stale
+            // for the duration of a drag, which is an acceptable tradeoff.
+            if (this.dragActive) {
                 return;
             }
             this.renderContent();
