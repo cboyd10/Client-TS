@@ -241,6 +241,9 @@ function renderTotalCard(bridge: PluginBridge, cards: XpTrackerCardData[]): HTML
     const icon: HTMLDivElement = document.createElement('div');
     icon.className = 'plugin-xptracker-icon';
     icon.innerHTML = ICON_TOTAL_GRAPH;
+    // custom (issue #99): the "Total" text label was dropped along with every
+    // skill card's name text -- this title is the icon's only accessible name.
+    icon.title = 'Total tracked XP across all skills';
     row.appendChild(icon);
 
     const totalGained: number = cards.reduce((s: number, c: XpTrackerCardData) => s + c.xpGained, 0);
