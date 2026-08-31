@@ -58,6 +58,14 @@ export type PluginBridge = {
     // isMobile() (a separate regex/touch-detection copy) -- out of scope
     // for this issue.
     isMobile(): boolean;
+    // custom (issue #106): live current camera-zoom distance (Client's
+    // `cameraZoom` field), read fresh on every panel refresh for the Camera
+    // plugin's live marker. The configured min/max range and a debounced
+    // snapshot of this same value are read/written through the generic
+    // getPluginConfig/setPluginConfig surface above (config id 'camera') --
+    // no dedicated setter needed, since Client.ts applies range/zoom writes
+    // back to itself via PluginManager.onChange.
+    getCameraZoom(): number;
 };
 
 declare global {
