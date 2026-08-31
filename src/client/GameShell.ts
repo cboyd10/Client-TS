@@ -27,6 +27,13 @@ export default abstract class GameShell {
     public mouseClickButton: number = 0;
     public mouseClickX: number = -1;
     public mouseClickY: number = -1;
+    // custom (issue #110): tracks whether Shift was held on the most recent
+    // mouse-down, mirroring nextMouseClickButton/mouseClickButton's
+    // double-buffer pattern -- Menu Entry Swapper reads mouseClickShiftHeld
+    // in Client.ts's mouseLoop() to distinguish a shift-click row selection
+    // (cycle that entry's priority/hide state) from a normal one (doAction).
+    protected nextMouseClickShiftHeld: boolean = false;
+    public mouseClickShiftHeld: boolean = false;
     protected nextMouseClickTime: number = 0;
     public mouseClickTime: number = 0;
 
@@ -188,6 +195,7 @@ export default abstract class GameShell {
                 this.mouseClickX = this.nextMouseClickX;
                 this.mouseClickY = this.nextMouseClickY;
                 this.mouseClickTime = this.nextMouseClickTime;
+                this.mouseClickShiftHeld = this.nextMouseClickShiftHeld;
                 this.nextMouseClickButton = 0;
 
                 await this.mainloop();
@@ -320,6 +328,7 @@ export default abstract class GameShell {
         this.nextMouseClickX = x;
         this.nextMouseClickY = y;
         this.nextMouseClickTime = performance.now();
+        this.nextMouseClickShiftHeld = e.shiftKey;
 
         // custom: down event comes before and potentially without move event
         this.mouseX = x;

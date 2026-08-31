@@ -11,6 +11,8 @@ import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
 import cameraPlugin from '#/client/plugin/plugins/CameraPlugin.js';
+import menuEntrySwapperPlugin, {type MenuEntrySwapperRule} from '#/client/plugin/plugins/MenuEntrySwapperPlugin.js';
+import soundPlugin from '#/client/plugin/plugins/SoundPlugin.js';
 import xpTrackerPlugin from '#/client/plugin/plugins/XpTrackerPlugin.js';
 import Skill from '#/client/Skill.js';
 import TitleFlames from '#/client/TitleFlames.js';
@@ -143,6 +145,8 @@ export const SKILL_ACCENT_COLORS: Record<number, string> = {
 // read PluginManager.isEnabled) is constructed.
 PluginManager.register(xpTrackerPlugin);
 PluginManager.register(cameraPlugin);
+PluginManager.register(menuEntrySwapperPlugin);
+PluginManager.register(soundPlugin);
 
 type XpTrackerPanel = {
     icon: Pix8 | null;
@@ -645,6 +649,20 @@ export class Client extends GameShell {
 
     private waveEnabled: boolean = true;
     private waveVolume: number = 0;
+
+    // custom (issue #107): Sound plugin's Music/Effects trim -- a client-local
+    // multiplier layered on top of midiVolume/waveVolume above, never written
+    // back into any varp. Cached fields (refreshed by refreshSoundConfig(),
+    // called once at bridge init and again on every PluginManager.onChange, the
+    // same pattern showXpTracker below uses) rather than re-reading
+    // PluginManager.getConfig('sound') from localStorage on every playMidi/
+    // playWave call. 1 / false is neutral -- a player who never opens the
+    // Sound panel gets an unmodified effectiveMidiVolume()/effectiveWaveVolume().
+    private soundMusicTrim: number = 1;
+    private soundMusicMuted: boolean = false;
+    private soundEffectsTrim: number = 1;
+    private soundEffectsMuted: boolean = false;
+
     private waveCount: number = 0;
     private waveIds: Int32Array = new Int32Array(50);
     private waveLoops: Int32Array = new Int32Array(50);
@@ -728,7 +746,70 @@ export class Client extends GameShell {
     }
 
     saveMidi(data: Uint8Array, fading: boolean) {
-        playMidi(data, this.midiVolume, fading);
+        playMidi(data, this.effectiveMidiVolume(), fading);
+    }
+
+    // custom (issue #107): dB offset for a 0-1 trim fraction, using the same
+    // decibelsToGain(v) = 10^(v/20) convention tinymidipcm.js's
+    // applyOutputVolumeDb() and audio.js's setWaveVolume() already use --
+    // adding this offset to a legacy dB value and feeding the sum through
+    // that same formula is mathematically equivalent to multiplying the
+    // legacy linear gain by the trim fraction. At trim 1 (100%, neutral) this
+    // is exactly 0 -- a true no-op, not just visually. At trim/muted 0 this is
+    // -Infinity, which decibelsToGain resolves to exactly 0 gain (silence)
+    // without any separate special-case branch.
+    private static soundTrimDb(muted: boolean, trim: number): number {
+        if (muted || trim <= 0) {
+            return -Infinity;
+        }
+
+        return 20 * Math.log10(trim);
+    }
+
+    // custom (issue #107): re-reads the Sound plugin's persisted config into
+    // the cached fields above -- called once from initPluginBridge() (so a
+    // returning player's saved trim applies before the first note/wave plays)
+    // and again on every PluginManager.onChange (config writes, and login/
+    // logout scope changes, which swap which per-username blob getConfig
+    // reads). Validates exactly like SoundPlugin.ts's own readTrim/readMuted
+    // so an invalid or missing stored value falls back to neutral (1 / false)
+    // rather than silencing audio.
+    private refreshSoundConfig(): void {
+        const config: PluginConfig = PluginManager.getConfig('sound');
+
+        const musicTrim: unknown = config.musicTrim;
+        this.soundMusicTrim = typeof musicTrim === 'number' && musicTrim >= 0 && musicTrim <= 1 ? musicTrim : 1;
+        this.soundMusicMuted = config.musicMuted === true;
+
+        const effectsTrim: unknown = config.effectsTrim;
+        this.soundEffectsTrim = typeof effectsTrim === 'number' && effectsTrim >= 0 && effectsTrim <= 1 ? effectsTrim : 1;
+        this.soundEffectsMuted = config.effectsMuted === true;
+    }
+
+    // custom (issue #107, extended #108): effective volume passed into
+    // playMidi() at its only call site (saveMidi() above) -- midiVolume is
+    // left completely untouched (still whatever the legacy varp-driven
+    // options screen set), this only adds the Sound plugin's Music trim on
+    // top of it.
+    //
+    // Pre-login (PluginManager.isLoggedIn() false), no config sync has ever
+    // run, so midiVolume is still just its hardcoded field default (0) --
+    // not a real legacy base to layer a multiplier on top of. In that case
+    // the trim becomes the direct/sole volume passed to playMidi(), same
+    // soundTrimDb() conversion, just not added to midiVolume. Once logged
+    // in, this reverts to the #107 layered-multiplier behavior.
+    private effectiveMidiVolume(): number {
+        const trimDb: number = Client.soundTrimDb(this.soundMusicMuted, this.soundMusicTrim);
+        return PluginManager.isLoggedIn() ? this.midiVolume + trimDb : trimDb;
+    }
+
+    // custom (issue #107): effective volume applied at playWave()'s only call
+    // site (soundsDoQueue(), via setWaveVolume() immediately before each
+    // play -- playWave() itself takes no volume argument; its audio graph
+    // reads a persistent GainNode that setWaveVolume() writes). waveVolume is
+    // left completely untouched, same as effectiveMidiVolume() above.
+    private effectiveWaveVolume(): number {
+        return this.waveVolume + Client.soundTrimDb(this.soundEffectsMuted, this.soundEffectsTrim);
     }
 
     private getIntParam(name: string, fallback: number = 0): number {
@@ -2742,6 +2823,172 @@ export class Client extends GameShell {
                 }
             }
         }
+
+        // custom (issue #110): Menu Entry Swapper -- apply stored
+        // priority/hide rules after the native priority sort above, so a
+        // player's own reordering wins over (and stacks on top of) the
+        // engine's default combat-op bubbling.
+        if (PluginManager.isEnabled('menuEntrySwapper')) {
+            this.applyMenuEntrySwapperRules();
+        }
+    }
+
+    // custom (issue #110): parses a raw menuOption string (e.g.
+    // "Attack @yel@Goblin@red@ (level-2)") into a stable {action, target}
+    // pair for Menu Entry Swapper rule matching. Returns null for untargeted
+    // entries ("Cancel", "Walk here", plain component buttons) that carry no
+    // "@tag@" at all -- those are never swappable.
+    private parseMenuEntryKey(menuOption: string): {action: string; target: string} | null {
+        const tagPattern: RegExp = /@[a-z0-9]+@/;
+        const match: RegExpExecArray | null = tagPattern.exec(menuOption);
+        if (match === null) {
+            return null;
+        }
+
+        const action: string = menuOption.slice(0, match.index).trim();
+
+        let target: string = menuOption.slice(match.index + match[0].length);
+        target = target.replace(/@[a-z0-9]+@/g, '');
+        target = target.replace(/\s*\((?:level|skill)-\d+\)\s*$/, '');
+        target = target.trim();
+
+        return {action, target};
+    }
+
+    // custom (issue #110): reads and validates the stored Menu Entry Swapper
+    // rule list from plugin config -- defensive against a missing/malformed
+    // localStorage blob, same pattern as the xpTracker hiddenSkills read
+    // above.
+    private readMenuEntrySwapperRules(): MenuEntrySwapperRule[] {
+        const raw: unknown = PluginManager.getConfig('menuEntrySwapper').rules;
+        if (!Array.isArray(raw)) {
+            return [];
+        }
+
+        const rules: MenuEntrySwapperRule[] = [];
+        for (const entry of raw) {
+            if (
+                typeof entry === 'object' &&
+                entry !== null &&
+                typeof (entry as MenuEntrySwapperRule).action === 'string' &&
+                typeof (entry as MenuEntrySwapperRule).target === 'string' &&
+                ((entry as MenuEntrySwapperRule).state === 'priority' || (entry as MenuEntrySwapperRule).state === 'hidden')
+            ) {
+                rules.push(entry as MenuEntrySwapperRule);
+            }
+        }
+        return rules;
+    }
+
+    // custom (issue #110): shift-click on an open menu row's (action, target)
+    // pair cycles it Normal -> Priority -> Hidden -> Normal. Array order is
+    // the recency/stack order (most-recently-changed rule last), persisted
+    // immediately after every change.
+    private cycleMenuEntry(action: string, target: string): void {
+        const rules: MenuEntrySwapperRule[] = this.readMenuEntrySwapperRules();
+        const index: number = rules.findIndex((rule: MenuEntrySwapperRule): boolean => rule.action === action && rule.target === target);
+
+        if (index === -1) {
+            rules.push({action, target, state: 'priority'});
+        } else {
+            const existing: MenuEntrySwapperRule = rules[index];
+            rules.splice(index, 1);
+            if (existing.state === 'priority') {
+                rules.push({action, target, state: 'hidden'});
+            }
+            // else: existing.state was 'hidden' -- already removed above, back to Normal.
+        }
+
+        PluginManager.setConfig('menuEntrySwapper', {rules});
+    }
+
+    // custom (issue #110): applies stored Menu Entry Swapper rules to the
+    // just-built minimenu -- hide pass first (removes hidden entries,
+    // compacting the parallel arrays), then a priority pass (moves matching
+    // entries to the end/default slot, oldest rule first so the
+    // most-recently-set priority rule ends up last/topmost).
+    private applyMenuEntrySwapperRules(): void {
+        const rules: MenuEntrySwapperRule[] = this.readMenuEntrySwapperRules();
+        if (rules.length === 0) {
+            return;
+        }
+
+        const hiddenRules: MenuEntrySwapperRule[] = rules.filter((rule: MenuEntrySwapperRule): boolean => rule.state === 'hidden');
+        const priorityRules: MenuEntrySwapperRule[] = rules.filter((rule: MenuEntrySwapperRule): boolean => rule.state === 'priority');
+
+        if (hiddenRules.length > 0) {
+            for (let i: number = this.menuNumEntries - 1; i >= 1; i--) {
+                const key: {action: string; target: string} | null = this.parseMenuEntryKey(this.menuOption[i]);
+                if (key === null) {
+                    continue;
+                }
+
+                const isHidden: boolean = hiddenRules.some((rule: MenuEntrySwapperRule): boolean => rule.action === key.action && rule.target === key.target);
+                if (isHidden) {
+                    this.removeMenuEntry(i);
+                }
+            }
+        }
+
+        for (const rule of priorityRules) {
+            for (let i: number = 1; i < this.menuNumEntries; i++) {
+                const key: {action: string; target: string} | null = this.parseMenuEntryKey(this.menuOption[i]);
+                if (key === null) {
+                    continue;
+                }
+
+                if (key.action === rule.action && key.target === rule.target) {
+                    this.moveMenuEntryToEnd(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    // custom (issue #110): removes the minimenu entry at `index` from all
+    // five parallel arrays in lockstep, compacting everything after it down
+    // by one and decrementing menuNumEntries -- reuses the same swap pattern
+    // as buildMinimenu's native priority sort above.
+    private removeMenuEntry(index: number): void {
+        for (let i: number = index; i < this.menuNumEntries - 1; i++) {
+            this.menuOption[i] = this.menuOption[i + 1];
+            this.menuAction[i] = this.menuAction[i + 1];
+            this.menuParamA[i] = this.menuParamA[i + 1];
+            this.menuParamB[i] = this.menuParamB[i + 1];
+            this.menuParamC[i] = this.menuParamC[i + 1];
+        }
+        this.menuNumEntries--;
+    }
+
+    // custom (issue #110): moves the minimenu entry at `index` to
+    // `menuNumEntries - 1` (the default/top slot), shifting every entry
+    // between the old and new position down by one to fill the gap -- same
+    // lockstep-array-update requirement as removeMenuEntry above.
+    private moveMenuEntryToEnd(index: number): void {
+        const lastIndex: number = this.menuNumEntries - 1;
+        if (index >= lastIndex) {
+            return;
+        }
+
+        const option: string = this.menuOption[index];
+        const action: number = this.menuAction[index];
+        const paramA: number = this.menuParamA[index];
+        const paramB: number = this.menuParamB[index];
+        const paramC: number = this.menuParamC[index];
+
+        for (let i: number = index; i < lastIndex; i++) {
+            this.menuOption[i] = this.menuOption[i + 1];
+            this.menuAction[i] = this.menuAction[i + 1];
+            this.menuParamA[i] = this.menuParamA[i + 1];
+            this.menuParamB[i] = this.menuParamB[i + 1];
+            this.menuParamC[i] = this.menuParamC[i + 1];
+        }
+
+        this.menuOption[lastIndex] = option;
+        this.menuAction[lastIndex] = action;
+        this.menuParamA[lastIndex] = paramA;
+        this.menuParamB[lastIndex] = paramB;
+        this.menuParamC[lastIndex] = paramC;
     }
 
     // todo: order
@@ -3614,6 +3861,15 @@ export class Client extends GameShell {
                         this.lastWaveStartTime = performance.now();
                         this.lastWaveId = this.waveIds[wave];
                         this.lastWaveLoops = this.waveLoops[wave];
+                        // custom (issue #107): playWave() itself takes no volume
+                        // argument -- it plays through a persistent GainNode that
+                        // setWaveVolume() writes. Refreshing it immediately before
+                        // every play (rather than only when the legacy varp level
+                        // changes) guarantees the Sound plugin's Effects trim is
+                        // always current without changing what value gets set when
+                        // the trim is neutral (identical to waveVolume, exactly as
+                        // the legacy level-change handler already sets it).
+                        setWaveVolume(this.effectiveWaveVolume());
                         await playWave(buf.data.slice(0, buf.pos));
                     }
                 } catch (_e) {
@@ -5143,6 +5399,10 @@ export class Client extends GameShell {
         window.pluginBridge = bridge;
         PluginSidebar.init(bridge);
 
+        // custom (issue #107): pick up a returning player's saved Sound trim
+        // before the first note/wave of the session can play.
+        this.refreshSoundConfig();
+
         PluginManager.onChange((): void => {
             this.showXpTracker = PluginManager.isEnabled('xpTracker');
             // custom (issue #106): re-derive the configured camera-zoom range
@@ -5153,6 +5413,7 @@ export class Client extends GameShell {
             // returning player's own saved range/zoom without any dedicated
             // login-load method.
             this.syncCameraZoomFromConfig();
+            this.refreshSoundConfig();
         });
     }
 
@@ -8880,7 +9141,20 @@ export class Client extends GameShell {
                 }
 
                 if (option !== -1) {
-                    this.doAction(option);
+                    // custom (issue #110): shift-click cycles this row's Menu
+                    // Entry Swapper rule (Normal -> Priority -> Hidden ->
+                    // Normal) instead of firing the action. An untargeted row
+                    // (parseMenuEntryKey returns null, e.g. "Cancel") is
+                    // never swappable, so a shift-click on one is a no-op --
+                    // the menu still closes below either way.
+                    if (this.mouseClickShiftHeld) {
+                        const key: {action: string; target: string} | null = this.parseMenuEntryKey(this.menuOption[option]);
+                        if (key !== null) {
+                            this.cycleMenuEntry(key.action, key.target);
+                        }
+                    } else {
+                        this.doAction(option);
+                    }
                 }
 
                 this.isMenuOpen = false;

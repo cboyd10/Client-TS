@@ -96,6 +96,27 @@ const STYLES = `
 .plugin-camera-label-zoom { color: #f2f2f2; font-weight: 600; }
 .plugin-camera-reset-btn { align-self: flex-start; background: #2a2a2a; border: 1px solid #444; color: #ccc; font-size: 11px; padding: 4px 10px; border-radius: 2px; cursor: pointer; }
 .plugin-camera-reset-btn:hover { background: #3a3a3a; color: #fff; }
+.plugin-menu-entry-swapper-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+.plugin-menu-entry-swapper-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plugin-menu-entry-swapper-action-target { font-size: 12px; color: #f2f2f2; overflow-wrap: anywhere; }
+.plugin-menu-entry-swapper-state { font-size: 11px; font-weight: 600; width: fit-content; }
+.plugin-menu-entry-swapper-state--priority { color: #04A800; }
+.plugin-menu-entry-swapper-state--hidden { color: #c33; }
+.plugin-menu-entry-swapper-remove-btn { margin-left: auto; width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.plugin-menu-entry-swapper-remove-btn:hover { background: #3a3a3a; color: #fff; }
+.plugin-menu-entry-swapper-remove-btn svg { width: 11px; height: 11px; }
+.plugin-sound-row { padding: 8px 4px; border-bottom: 1px solid #262626; }
+.plugin-sound-row:last-child { border-bottom: none; }
+.plugin-sound-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.plugin-sound-row-label { font-size: 12px; color: #ddd; font-weight: 600; }
+.plugin-sound-row-value { font-size: 11px; color: #9aa39a; font-variant-numeric: tabular-nums; }
+.plugin-sound-slider-row { display: flex; align-items: center; gap: 8px; }
+.plugin-sound-slider { flex: 1 1 auto; accent-color: #04A800; }
+.plugin-sound-slider:disabled { opacity: 0.4; }
+.plugin-sound-mute-btn { flex: 0 0 auto; width: 26px; height: 26px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.plugin-sound-mute-btn:hover { background: #3a3a3a; color: #fff; }
+.plugin-sound-mute-btn--active { background: #5a1f1f; border-color: #c33; color: #ff8080; }
+.plugin-sound-mute-btn svg { width: 14px; height: 14px; }
 /* custom (issue #109): mobile touch-target enlargement. Each rule reaches at
    least a 44x44px effective hit area -- via padding/min-width/min-height,
    not necessarily a 44px visual size (e.g. the toggle keeps its 32x18
@@ -106,6 +127,8 @@ const STYLES = `
 .plugin-sidebar--mobile .plugin-toggle-slider { position: static; width: 32px; height: 18px; flex: 0 0 auto; }
 .plugin-sidebar--mobile .plugin-xptracker-reset-btn { width: 44px; height: 44px; flex: 0 0 44px; }
 .plugin-sidebar--mobile .plugin-xptracker-reset-btn svg { width: 16px; height: 16px; }
+.plugin-sidebar--mobile .plugin-menu-entry-swapper-remove-btn { width: 44px; height: 44px; flex: 0 0 44px; }
+.plugin-sidebar--mobile .plugin-menu-entry-swapper-remove-btn svg { width: 16px; height: 16px; }
 .plugin-sidebar--mobile .plugin-settings-number-input { min-height: 44px; padding: 4px 8px; font-size: 14px; }
 .plugin-sidebar--mobile .plugin-xptracker-card-target-input { min-height: 44px; padding: 4px 8px; font-size: 14px; }
 .plugin-sidebar--mobile .plugin-xptracker-card-target-clear { min-width: 44px; min-height: 44px; padding: 8px 10px; }
