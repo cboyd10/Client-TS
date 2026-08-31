@@ -4,6 +4,7 @@ import { stopMidi, setMidiVolume, playMidi } from '#3rdparty/tinymidipcm.js';
 import ClientBuild from '#/client/ClientBuild.js';
 import { ClientCode } from '#/client/ClientCode.js';
 import GameShell from '#/client/GameShell.js';
+import LongPressIndicator from '#/client/LongPressIndicator.js';
 import { MiniMenuAction } from '#/client/MiniMenuAction.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
 import MouseTracking from '#/client/MouseTracking.js';
@@ -12533,7 +12534,6 @@ export class Client extends GameShell {
     private startedInGame: boolean = false;
     private startedInSide: boolean = false;
     private startedInChat: boolean = false;
-    private ttime: number = -1;
     // start
     private sx: number = 0;
     private sy: number = 0;
@@ -12545,6 +12545,46 @@ export class Client extends GameShell {
     private ny: number = 0;
     private dragging: boolean = false;
     private panning: boolean = false;
+    // custom (issue #75): touch long-press-to-open-menu, resolved live during
+    // the hold rather than at release.
+    private longPressTimer: ReturnType<typeof setTimeout> | null = null;
+    private longPressResolved: boolean = false;
+
+    // custom (issue #75): cancels any pending long-press timer and hides its
+    // indicator. Safe to call even when nothing is pending.
+    private clearLongPressTimer(): void {
+        if (this.longPressTimer !== null) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        LongPressIndicator.hide();
+    }
+
+    // custom (issue #75): fires when a touch/pen long-press resolves during
+    // the hold. If a menu is already open, this is the branch point #112
+    // (mobile Menu Entry Swapper long-press-to-cycle) extends with row-cycle
+    // handling -- left as a no-op here.
+    private resolveLongPress(x: number, y: number): void {
+        this.longPressTimer = null;
+        this.longPressResolved = true;
+        LongPressIndicator.hide();
+
+        if (this.isMenuOpen) {
+            return;
+        }
+
+        this.nextMouseClickX = x;
+        this.nextMouseClickY = y;
+        this.nextMouseClickTime = performance.now();
+        this.nextMouseClickButton = 2;
+        this.mouseButton = 2;
+
+        // release after a client cycle has passed, mirroring the release-time
+        // tap/long-press path in pointerUp
+        setTimeout(() => {
+            this.mouseButton = 0;
+        }, 40);
+    }
 
     override pointerDown(x: number, y: number, e: PointerEvent) {
         if (MobileKeyboard.isWithinCanvasKeyboard(x, y) && !this.exceedsGrabThreshold(20)) {
@@ -12566,11 +12606,15 @@ export class Client extends GameShell {
 
             this.sx = this.nx = this.mx = e.screenX | 0;
             this.sy = this.ny = this.my = e.screenY | 0;
-            this.ttime = e.timeStamp;
 
             this.startedInGame = this.insideGame();
             this.startedInSide = this.insideSide();
             this.startedInChat = this.insideChat();
+
+            this.clearLongPressTimer();
+            this.longPressResolved = false;
+            this.longPressTimer = setTimeout(() => this.resolveLongPress(x, y), 500);
+            LongPressIndicator.show(e.clientX, e.clientY);
         }
     }
 
@@ -12615,6 +12659,8 @@ export class Client extends GameShell {
             this.mouseX = x;
             this.mouseY = y;
 
+            this.clearLongPressTimer();
+
             if (this.dragging) {
                 this.dragging = false;
 
@@ -12642,19 +12688,21 @@ export class Client extends GameShell {
                     this.refresh();
                 }
 
+                if (this.longPressResolved) {
+                    // custom (issue #75): the long-press already resolved via
+                    // the during-hold timer -- this touchend must not also
+                    // register as a normal tap/click.
+                    this.longPressResolved = false;
+                    return;
+                }
+
                 // within click threshold: activate mouse button
                 this.nextMouseClickX = x;
                 this.nextMouseClickY = y;
                 this.nextMouseClickTime = performance.now();
 
-                const longPress: boolean = e.timeStamp >= this.ttime + 500;
-                if (longPress) {
-                    this.nextMouseClickButton = 2;
-                    this.mouseButton = 2;
-                } else {
-                    this.nextMouseClickButton = 1;
-                    this.mouseButton = 1;
-                }
+                this.nextMouseClickButton = 1;
+                this.mouseButton = 1;
 
                 // release after a client cycle has passed
                 setTimeout(() => {
@@ -12681,7 +12729,6 @@ export class Client extends GameShell {
 
             this.sx = this.nx = this.mx = e.screenX | 0;
             this.sy = this.ny = this.my = e.screenY | 0;
-            this.ttime = e.timeStamp;
 
             this.startedInGame = this.insideGame();
             this.startedInSide = this.insideSide();
@@ -12702,6 +12749,7 @@ export class Client extends GameShell {
         } else {
             // custom: touchscreen support
             this.idleTimer = performance.now();
+            this.clearLongPressTimer();
 
             // release all arrow keys
             this.keyHeld[1] = 0;
@@ -12732,6 +12780,7 @@ export class Client extends GameShell {
             } else if (this.startedInGame && !this.isGameObscured() && this.exceedsGrabThreshold(20)) {
                 // moving camera
                 this.panning = true;
+                this.clearLongPressTimer();
 
                 // emulate arrow keys:
                 if (this.mx - this.nx > 0) {
@@ -12756,6 +12805,7 @@ export class Client extends GameShell {
             } else if (this.startedInSide || this.startedInChat || this.isGameObscured()) {
                 if (!this.dragging && this.exceedsGrabThreshold(5)) {
                     this.dragging = true;
+                    this.clearLongPressTimer();
 
                     this.nextMouseClickX = x;
                     this.nextMouseClickY = y;
