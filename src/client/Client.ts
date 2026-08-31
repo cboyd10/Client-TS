@@ -3006,6 +3006,42 @@ export class Client extends GameShell {
         this.menuParamC[lastIndex] = paramC;
     }
 
+    // custom (issue #112): shared row hit-test for an already-open minimenu,
+    // given raw canvas-space coordinates -- the same offset/bounds math
+    // mouseLoop()'s isMenuOpen branch already used inline, extracted so
+    // resolveLongPress() (mobile long-press-to-cycle) can reuse it against
+    // this.mouseX/this.mouseY-space touch coordinates instead of only
+    // mouseClickX/mouseClickY. Returns -1 when no row is hit.
+    private findMenuRowAt(x: number, y: number): number {
+        const menuX: number = this.menuX;
+        const menuY: number = this.menuY;
+        const menuWidth: number = this.menuWidth;
+
+        let clickX: number = x;
+        let clickY: number = y;
+
+        if (this.menuArea === 0) {
+            clickX -= 4;
+            clickY -= 4;
+        } else if (this.menuArea === 1) {
+            clickX -= 553;
+            clickY -= 205;
+        } else if (this.menuArea === 2) {
+            clickX -= 17;
+            clickY -= 357;
+        }
+
+        let option: number = -1;
+        for (let i: number = 0; i < this.menuNumEntries; i++) {
+            const optionY: number = menuY + (this.menuNumEntries - 1 - i) * 15 + 31;
+            if (clickX > menuX && clickX < menuX + menuWidth && clickY > optionY - 13 && clickY < optionY + 3) {
+                option = i;
+            }
+        }
+
+        return option;
+    }
+
     // todo: order
     private addPrivateChatOptions(): void {
         if (this.splitPrivateChat === 0) {
@@ -9129,31 +9165,7 @@ export class Client extends GameShell {
 
         if (this.isMenuOpen) {
             if (button === 1) {
-                const menuX: number = this.menuX;
-                const menuY: number = this.menuY;
-                const menuWidth: number = this.menuWidth;
-
-                let clickX: number = this.mouseClickX;
-                let clickY: number = this.mouseClickY;
-
-                if (this.menuArea === 0) {
-                    clickX -= 4;
-                    clickY -= 4;
-                } else if (this.menuArea === 1) {
-                    clickX -= 553;
-                    clickY -= 205;
-                } else if (this.menuArea === 2) {
-                    clickX -= 17;
-                    clickY -= 357;
-                }
-
-                let option: number = -1;
-                for (let i: number = 0; i < this.menuNumEntries; i++) {
-                    const optionY: number = menuY + (this.menuNumEntries - 1 - i) * 15 + 31;
-                    if (clickX > menuX && clickX < menuX + menuWidth && clickY > optionY - 13 && clickY < optionY + 3) {
-                        option = i;
-                    }
-                }
+                const option: number = this.findMenuRowAt(this.mouseClickX, this.mouseClickY);
 
                 if (option !== -1) {
                     // custom (issue #110): shift-click cycles this row's Menu
@@ -12575,15 +12587,31 @@ export class Client extends GameShell {
     }
 
     // custom (issue #75): fires when a touch/pen long-press resolves during
-    // the hold. If a menu is already open, this is the branch point #112
-    // (mobile Menu Entry Swapper long-press-to-cycle) extends with row-cycle
-    // handling -- left as a no-op here.
+    // the hold. If a menu is already open, this is the mobile-equivalent of
+    // #110's shift-click row cycle (issue #112): a second, distinct
+    // long-press performed on a row of an already-open menu cycles that
+    // row's Menu Entry Swapper state instead of firing the action, mirroring
+    // desktop's shift+click since touch input has no shift key.
     private resolveLongPress(x: number, y: number): void {
         this.longPressTimer = null;
         this.longPressResolved = true;
         LongPressIndicator.hide();
 
         if (this.isMenuOpen) {
+            const option: number = this.findMenuRowAt(x, y);
+            if (option !== -1) {
+                const key: {action: string; target: string} | null = this.parseMenuEntryKey(this.menuOption[option]);
+                if (key !== null) {
+                    this.cycleMenuEntry(key.action, key.target);
+                }
+            }
+
+            this.isMenuOpen = false;
+            if (this.menuArea === 1) {
+                this.redrawSide = true;
+            } else if (this.menuArea === 2) {
+                this.redrawChat = true;
+            }
             return;
         }
 
