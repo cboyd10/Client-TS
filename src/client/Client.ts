@@ -5112,7 +5112,8 @@ export class Client extends GameShell {
             onPluginChange: (listener: () => void): (() => void) => PluginManager.onChange(listener),
             getXpTrackerCards: (): XpTrackerCardData[] => this.buildXpTrackerCards(),
             resetXpTrackerSkill: (skillId: number): void => this.resetXpTrackerSkill(skillId),
-            getSidebarWidth: (): number => PluginSidebar.getTotalWidth()
+            getSidebarWidth: (): number => PluginSidebar.getTotalWidth(),
+            isMobile: (): boolean => this.isMobile
         };
 
         window.pluginBridge = bridge;

@@ -50,6 +50,14 @@ export type PluginBridge = {
     // client.ejs's setSize('auto') so the canvas never renders clipped
     // under the sidebar.
     getSidebarWidth(): number;
+    // custom (issue #109): backed by GameShell's existing `isMobile` getter
+    // (not a new detection function) so page-level DOM plugin code
+    // (XpTrackerPlugin.ts's drag-to-reorder gate) can match Client's own
+    // mobile detection without reaching into Client internals directly.
+    // Deliberately not consolidated with PluginSidebar.ts's own private
+    // isMobile() (a separate regex/touch-detection copy) -- out of scope
+    // for this issue.
+    isMobile(): boolean;
 };
 
 declare global {
