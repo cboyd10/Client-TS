@@ -10,6 +10,7 @@ import MouseTracking from '#/client/MouseTracking.js';
 import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
+import menuEntrySwapperPlugin, {type MenuEntrySwapperRule} from '#/client/plugin/plugins/MenuEntrySwapperPlugin.js';
 import xpTrackerPlugin from '#/client/plugin/plugins/XpTrackerPlugin.js';
 import Skill from '#/client/Skill.js';
 import TitleFlames from '#/client/TitleFlames.js';
@@ -141,6 +142,7 @@ export const SKILL_ACCENT_COLORS: Record<number, string> = {
 // load, well before any Client instance (and its field initializers, which
 // read PluginManager.isEnabled) is constructed.
 PluginManager.register(xpTrackerPlugin);
+PluginManager.register(menuEntrySwapperPlugin);
 
 type XpTrackerPanel = {
     icon: Pix8 | null;
@@ -2724,6 +2726,172 @@ export class Client extends GameShell {
                 }
             }
         }
+
+        // custom (issue #110): Menu Entry Swapper -- apply stored
+        // priority/hide rules after the native priority sort above, so a
+        // player's own reordering wins over (and stacks on top of) the
+        // engine's default combat-op bubbling.
+        if (PluginManager.isEnabled('menuEntrySwapper')) {
+            this.applyMenuEntrySwapperRules();
+        }
+    }
+
+    // custom (issue #110): parses a raw menuOption string (e.g.
+    // "Attack @yel@Goblin@red@ (level-2)") into a stable {action, target}
+    // pair for Menu Entry Swapper rule matching. Returns null for untargeted
+    // entries ("Cancel", "Walk here", plain component buttons) that carry no
+    // "@tag@" at all -- those are never swappable.
+    private parseMenuEntryKey(menuOption: string): {action: string; target: string} | null {
+        const tagPattern: RegExp = /@[a-z0-9]+@/;
+        const match: RegExpExecArray | null = tagPattern.exec(menuOption);
+        if (match === null) {
+            return null;
+        }
+
+        const action: string = menuOption.slice(0, match.index).trim();
+
+        let target: string = menuOption.slice(match.index + match[0].length);
+        target = target.replace(/@[a-z0-9]+@/g, '');
+        target = target.replace(/\s*\((?:level|skill)-\d+\)\s*$/, '');
+        target = target.trim();
+
+        return {action, target};
+    }
+
+    // custom (issue #110): reads and validates the stored Menu Entry Swapper
+    // rule list from plugin config -- defensive against a missing/malformed
+    // localStorage blob, same pattern as the xpTracker hiddenSkills read
+    // above.
+    private readMenuEntrySwapperRules(): MenuEntrySwapperRule[] {
+        const raw: unknown = PluginManager.getConfig('menuEntrySwapper').rules;
+        if (!Array.isArray(raw)) {
+            return [];
+        }
+
+        const rules: MenuEntrySwapperRule[] = [];
+        for (const entry of raw) {
+            if (
+                typeof entry === 'object' &&
+                entry !== null &&
+                typeof (entry as MenuEntrySwapperRule).action === 'string' &&
+                typeof (entry as MenuEntrySwapperRule).target === 'string' &&
+                ((entry as MenuEntrySwapperRule).state === 'priority' || (entry as MenuEntrySwapperRule).state === 'hidden')
+            ) {
+                rules.push(entry as MenuEntrySwapperRule);
+            }
+        }
+        return rules;
+    }
+
+    // custom (issue #110): shift-click on an open menu row's (action, target)
+    // pair cycles it Normal -> Priority -> Hidden -> Normal. Array order is
+    // the recency/stack order (most-recently-changed rule last), persisted
+    // immediately after every change.
+    private cycleMenuEntry(action: string, target: string): void {
+        const rules: MenuEntrySwapperRule[] = this.readMenuEntrySwapperRules();
+        const index: number = rules.findIndex((rule: MenuEntrySwapperRule): boolean => rule.action === action && rule.target === target);
+
+        if (index === -1) {
+            rules.push({action, target, state: 'priority'});
+        } else {
+            const existing: MenuEntrySwapperRule = rules[index];
+            rules.splice(index, 1);
+            if (existing.state === 'priority') {
+                rules.push({action, target, state: 'hidden'});
+            }
+            // else: existing.state was 'hidden' -- already removed above, back to Normal.
+        }
+
+        PluginManager.setConfig('menuEntrySwapper', {rules});
+    }
+
+    // custom (issue #110): applies stored Menu Entry Swapper rules to the
+    // just-built minimenu -- hide pass first (removes hidden entries,
+    // compacting the parallel arrays), then a priority pass (moves matching
+    // entries to the end/default slot, oldest rule first so the
+    // most-recently-set priority rule ends up last/topmost).
+    private applyMenuEntrySwapperRules(): void {
+        const rules: MenuEntrySwapperRule[] = this.readMenuEntrySwapperRules();
+        if (rules.length === 0) {
+            return;
+        }
+
+        const hiddenRules: MenuEntrySwapperRule[] = rules.filter((rule: MenuEntrySwapperRule): boolean => rule.state === 'hidden');
+        const priorityRules: MenuEntrySwapperRule[] = rules.filter((rule: MenuEntrySwapperRule): boolean => rule.state === 'priority');
+
+        if (hiddenRules.length > 0) {
+            for (let i: number = this.menuNumEntries - 1; i >= 1; i--) {
+                const key: {action: string; target: string} | null = this.parseMenuEntryKey(this.menuOption[i]);
+                if (key === null) {
+                    continue;
+                }
+
+                const isHidden: boolean = hiddenRules.some((rule: MenuEntrySwapperRule): boolean => rule.action === key.action && rule.target === key.target);
+                if (isHidden) {
+                    this.removeMenuEntry(i);
+                }
+            }
+        }
+
+        for (const rule of priorityRules) {
+            for (let i: number = 1; i < this.menuNumEntries; i++) {
+                const key: {action: string; target: string} | null = this.parseMenuEntryKey(this.menuOption[i]);
+                if (key === null) {
+                    continue;
+                }
+
+                if (key.action === rule.action && key.target === rule.target) {
+                    this.moveMenuEntryToEnd(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    // custom (issue #110): removes the minimenu entry at `index` from all
+    // five parallel arrays in lockstep, compacting everything after it down
+    // by one and decrementing menuNumEntries -- reuses the same swap pattern
+    // as buildMinimenu's native priority sort above.
+    private removeMenuEntry(index: number): void {
+        for (let i: number = index; i < this.menuNumEntries - 1; i++) {
+            this.menuOption[i] = this.menuOption[i + 1];
+            this.menuAction[i] = this.menuAction[i + 1];
+            this.menuParamA[i] = this.menuParamA[i + 1];
+            this.menuParamB[i] = this.menuParamB[i + 1];
+            this.menuParamC[i] = this.menuParamC[i + 1];
+        }
+        this.menuNumEntries--;
+    }
+
+    // custom (issue #110): moves the minimenu entry at `index` to
+    // `menuNumEntries - 1` (the default/top slot), shifting every entry
+    // between the old and new position down by one to fill the gap -- same
+    // lockstep-array-update requirement as removeMenuEntry above.
+    private moveMenuEntryToEnd(index: number): void {
+        const lastIndex: number = this.menuNumEntries - 1;
+        if (index >= lastIndex) {
+            return;
+        }
+
+        const option: string = this.menuOption[index];
+        const action: number = this.menuAction[index];
+        const paramA: number = this.menuParamA[index];
+        const paramB: number = this.menuParamB[index];
+        const paramC: number = this.menuParamC[index];
+
+        for (let i: number = index; i < lastIndex; i++) {
+            this.menuOption[i] = this.menuOption[i + 1];
+            this.menuAction[i] = this.menuAction[i + 1];
+            this.menuParamA[i] = this.menuParamA[i + 1];
+            this.menuParamB[i] = this.menuParamB[i + 1];
+            this.menuParamC[i] = this.menuParamC[i + 1];
+        }
+
+        this.menuOption[lastIndex] = option;
+        this.menuAction[lastIndex] = action;
+        this.menuParamA[lastIndex] = paramA;
+        this.menuParamB[lastIndex] = paramB;
+        this.menuParamC[lastIndex] = paramC;
     }
 
     // todo: order
@@ -8808,7 +8976,20 @@ export class Client extends GameShell {
                 }
 
                 if (option !== -1) {
-                    this.doAction(option);
+                    // custom (issue #110): shift-click cycles this row's Menu
+                    // Entry Swapper rule (Normal -> Priority -> Hidden ->
+                    // Normal) instead of firing the action. An untargeted row
+                    // (parseMenuEntryKey returns null, e.g. "Cancel") is
+                    // never swappable, so a shift-click on one is a no-op --
+                    // the menu still closes below either way.
+                    if (this.mouseClickShiftHeld) {
+                        const key: {action: string; target: string} | null = this.parseMenuEntryKey(this.menuOption[option]);
+                        if (key !== null) {
+                            this.cycleMenuEntry(key.action, key.target);
+                        }
+                    } else {
+                        this.doAction(option);
+                    }
                 }
 
                 this.isMenuOpen = false;
