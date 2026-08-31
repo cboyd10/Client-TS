@@ -11,6 +11,7 @@ import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
 import menuEntrySwapperPlugin, {type MenuEntrySwapperRule} from '#/client/plugin/plugins/MenuEntrySwapperPlugin.js';
+import soundPlugin from '#/client/plugin/plugins/SoundPlugin.js';
 import xpTrackerPlugin from '#/client/plugin/plugins/XpTrackerPlugin.js';
 import Skill from '#/client/Skill.js';
 import TitleFlames from '#/client/TitleFlames.js';
@@ -143,6 +144,7 @@ export const SKILL_ACCENT_COLORS: Record<number, string> = {
 // read PluginManager.isEnabled) is constructed.
 PluginManager.register(xpTrackerPlugin);
 PluginManager.register(menuEntrySwapperPlugin);
+PluginManager.register(soundPlugin);
 
 type XpTrackerPanel = {
     icon: Pix8 | null;
@@ -629,6 +631,20 @@ export class Client extends GameShell {
 
     private waveEnabled: boolean = true;
     private waveVolume: number = 0;
+
+    // custom (issue #107): Sound plugin's Music/Effects trim -- a client-local
+    // multiplier layered on top of midiVolume/waveVolume above, never written
+    // back into any varp. Cached fields (refreshed by refreshSoundConfig(),
+    // called once at bridge init and again on every PluginManager.onChange, the
+    // same pattern showXpTracker below uses) rather than re-reading
+    // PluginManager.getConfig('sound') from localStorage on every playMidi/
+    // playWave call. 1 / false is neutral -- a player who never opens the
+    // Sound panel gets an unmodified effectiveMidiVolume()/effectiveWaveVolume().
+    private soundMusicTrim: number = 1;
+    private soundMusicMuted: boolean = false;
+    private soundEffectsTrim: number = 1;
+    private soundEffectsMuted: boolean = false;
+
     private waveCount: number = 0;
     private waveIds: Int32Array = new Int32Array(50);
     private waveLoops: Int32Array = new Int32Array(50);
@@ -712,7 +728,70 @@ export class Client extends GameShell {
     }
 
     saveMidi(data: Uint8Array, fading: boolean) {
-        playMidi(data, this.midiVolume, fading);
+        playMidi(data, this.effectiveMidiVolume(), fading);
+    }
+
+    // custom (issue #107): dB offset for a 0-1 trim fraction, using the same
+    // decibelsToGain(v) = 10^(v/20) convention tinymidipcm.js's
+    // applyOutputVolumeDb() and audio.js's setWaveVolume() already use --
+    // adding this offset to a legacy dB value and feeding the sum through
+    // that same formula is mathematically equivalent to multiplying the
+    // legacy linear gain by the trim fraction. At trim 1 (100%, neutral) this
+    // is exactly 0 -- a true no-op, not just visually. At trim/muted 0 this is
+    // -Infinity, which decibelsToGain resolves to exactly 0 gain (silence)
+    // without any separate special-case branch.
+    private static soundTrimDb(muted: boolean, trim: number): number {
+        if (muted || trim <= 0) {
+            return -Infinity;
+        }
+
+        return 20 * Math.log10(trim);
+    }
+
+    // custom (issue #107): re-reads the Sound plugin's persisted config into
+    // the cached fields above -- called once from initPluginBridge() (so a
+    // returning player's saved trim applies before the first note/wave plays)
+    // and again on every PluginManager.onChange (config writes, and login/
+    // logout scope changes, which swap which per-username blob getConfig
+    // reads). Validates exactly like SoundPlugin.ts's own readTrim/readMuted
+    // so an invalid or missing stored value falls back to neutral (1 / false)
+    // rather than silencing audio.
+    private refreshSoundConfig(): void {
+        const config: PluginConfig = PluginManager.getConfig('sound');
+
+        const musicTrim: unknown = config.musicTrim;
+        this.soundMusicTrim = typeof musicTrim === 'number' && musicTrim >= 0 && musicTrim <= 1 ? musicTrim : 1;
+        this.soundMusicMuted = config.musicMuted === true;
+
+        const effectsTrim: unknown = config.effectsTrim;
+        this.soundEffectsTrim = typeof effectsTrim === 'number' && effectsTrim >= 0 && effectsTrim <= 1 ? effectsTrim : 1;
+        this.soundEffectsMuted = config.effectsMuted === true;
+    }
+
+    // custom (issue #107, extended #108): effective volume passed into
+    // playMidi() at its only call site (saveMidi() above) -- midiVolume is
+    // left completely untouched (still whatever the legacy varp-driven
+    // options screen set), this only adds the Sound plugin's Music trim on
+    // top of it.
+    //
+    // Pre-login (PluginManager.isLoggedIn() false), no config sync has ever
+    // run, so midiVolume is still just its hardcoded field default (0) --
+    // not a real legacy base to layer a multiplier on top of. In that case
+    // the trim becomes the direct/sole volume passed to playMidi(), same
+    // soundTrimDb() conversion, just not added to midiVolume. Once logged
+    // in, this reverts to the #107 layered-multiplier behavior.
+    private effectiveMidiVolume(): number {
+        const trimDb: number = Client.soundTrimDb(this.soundMusicMuted, this.soundMusicTrim);
+        return PluginManager.isLoggedIn() ? this.midiVolume + trimDb : trimDb;
+    }
+
+    // custom (issue #107): effective volume applied at playWave()'s only call
+    // site (soundsDoQueue(), via setWaveVolume() immediately before each
+    // play -- playWave() itself takes no volume argument; its audio graph
+    // reads a persistent GainNode that setWaveVolume() writes). waveVolume is
+    // left completely untouched, same as effectiveMidiVolume() above.
+    private effectiveWaveVolume(): number {
+        return this.waveVolume + Client.soundTrimDb(this.soundEffectsMuted, this.soundEffectsTrim);
     }
 
     private getIntParam(name: string, fallback: number = 0): number {
@@ -3759,6 +3838,15 @@ export class Client extends GameShell {
                         this.lastWaveStartTime = performance.now();
                         this.lastWaveId = this.waveIds[wave];
                         this.lastWaveLoops = this.waveLoops[wave];
+                        // custom (issue #107): playWave() itself takes no volume
+                        // argument -- it plays through a persistent GainNode that
+                        // setWaveVolume() writes. Refreshing it immediately before
+                        // every play (rather than only when the legacy varp level
+                        // changes) guarantees the Sound plugin's Effects trim is
+                        // always current without changing what value gets set when
+                        // the trim is neutral (identical to waveVolume, exactly as
+                        // the legacy level-change handler already sets it).
+                        setWaveVolume(this.effectiveWaveVolume());
                         await playWave(buf.data.slice(0, buf.pos));
                     }
                 } catch (_e) {
@@ -5287,8 +5375,13 @@ export class Client extends GameShell {
         window.pluginBridge = bridge;
         PluginSidebar.init(bridge);
 
+        // custom (issue #107): pick up a returning player's saved Sound trim
+        // before the first note/wave of the session can play.
+        this.refreshSoundConfig();
+
         PluginManager.onChange((): void => {
             this.showXpTracker = PluginManager.isEnabled('xpTracker');
+            this.refreshSoundConfig();
         });
     }
 

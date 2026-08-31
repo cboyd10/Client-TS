@@ -78,6 +78,18 @@ const STYLES = `
 .plugin-menu-entry-swapper-remove-btn { margin-left: auto; width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .plugin-menu-entry-swapper-remove-btn:hover { background: #3a3a3a; color: #fff; }
 .plugin-menu-entry-swapper-remove-btn svg { width: 11px; height: 11px; }
+.plugin-sound-row { padding: 8px 4px; border-bottom: 1px solid #262626; }
+.plugin-sound-row:last-child { border-bottom: none; }
+.plugin-sound-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.plugin-sound-row-label { font-size: 12px; color: #ddd; font-weight: 600; }
+.plugin-sound-row-value { font-size: 11px; color: #9aa39a; font-variant-numeric: tabular-nums; }
+.plugin-sound-slider-row { display: flex; align-items: center; gap: 8px; }
+.plugin-sound-slider { flex: 1 1 auto; accent-color: #04A800; }
+.plugin-sound-slider:disabled { opacity: 0.4; }
+.plugin-sound-mute-btn { flex: 0 0 auto; width: 26px; height: 26px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.plugin-sound-mute-btn:hover { background: #3a3a3a; color: #fff; }
+.plugin-sound-mute-btn--active { background: #5a1f1f; border-color: #c33; color: #ff8080; }
+.plugin-sound-mute-btn svg { width: 14px; height: 14px; }
 /* custom (issue #109): mobile touch-target enlargement. Each rule reaches at
    least a 44x44px effective hit area -- via padding/min-width/min-height,
    not necessarily a 44px visual size (e.g. the toggle keeps its 32x18
