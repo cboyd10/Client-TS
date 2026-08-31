@@ -5,6 +5,13 @@ const ICON_COLUMN_WIDTH = 40;
 const CONTENT_PANEL_WIDTH = 225;
 const CONTENT_REFRESH_MS = 1000;
 const SETTINGS_PANEL_ID = 'settings';
+// custom (issue #109): mobile-only sizing. NATIVE_CANVAS_WIDTH mirrors the
+// canvas's native 765px width, which #73's mobile 1.0x scale floor in
+// engine/view/client.ejs guarantees is the effective on-screen canvas width
+// on mobile -- this constant is deliberately independent of that file (see
+// class comment below) rather than read from it.
+const NATIVE_CANVAS_WIDTH = 765;
+const MIN_CONTENT_PANEL_WIDTH = 150;
 
 // custom: Feather-style "settings" line icon (MIT-licensed glyph set).
 const ICON_SETTINGS =
@@ -62,12 +69,30 @@ const STYLES = `
 .plugin-xptracker-card-target-clear { background: #2a2a2a; border: 1px solid #444; color: #ccc; font-size: 10px; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
 .plugin-xptracker-card-target-clear:disabled { opacity: 0.4; cursor: not-allowed; }
 .plugin-xptracker-card-target-clear:hover:not(:disabled) { background: #3a3a3a; color: #fff; }
+/* custom (issue #109): mobile touch-target enlargement. Each rule reaches at
+   least a 44x44px effective hit area -- via padding/min-width/min-height,
+   not necessarily a 44px visual size (e.g. the toggle keeps its 32x18
+   slider, just inside a 44x44 tappable label). Desktop's rules above are
+   untouched; these only apply when PluginSidebar.buildDom() adds the
+   plugin-sidebar--mobile modifier class to the sidebar root. */
+.plugin-sidebar--mobile .plugin-toggle { width: 44px; height: 44px; flex: 0 0 44px; display: inline-flex; align-items: center; justify-content: center; }
+.plugin-sidebar--mobile .plugin-toggle-slider { position: static; width: 32px; height: 18px; flex: 0 0 auto; }
+.plugin-sidebar--mobile .plugin-xptracker-reset-btn { width: 44px; height: 44px; flex: 0 0 44px; }
+.plugin-sidebar--mobile .plugin-xptracker-reset-btn svg { width: 16px; height: 16px; }
+.plugin-sidebar--mobile .plugin-settings-number-input { min-height: 44px; padding: 4px 8px; font-size: 14px; }
+.plugin-sidebar--mobile .plugin-xptracker-card-target-input { min-height: 44px; padding: 4px 8px; font-size: 14px; }
+.plugin-sidebar--mobile .plugin-xptracker-card-target-clear { min-width: 44px; min-height: 44px; padding: 8px 10px; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at
 // runtime (following MobileKeyboard.ts's DOM-injection pattern). Reads/writes
 // exclusively through the PluginBridge -- never touches Client internals or
-// localStorage directly. Desktop-only: never initialized when isMobile().
+// localStorage directly.
+// custom (issue #109): on mobile, reuses this exact same icon-column +
+// content-panel DOM instead of an overlay/bottom-sheet, un-suppressing
+// itself whenever evaluateMobileFit() finds enough letterboxed space beside
+// the canvas. Deliberately has zero coupling to engine/view/client.ejs --
+// see NATIVE_CANVAS_WIDTH above -- it only ever reads window.innerWidth.
 class PluginSidebar {
     private bridge: PluginBridge | null = null;
     private root: HTMLDivElement | null = null;
@@ -75,6 +100,11 @@ class PluginSidebar {
     private contentPanel: HTMLDivElement | null = null;
     private openId: string | null = null;
     private refreshTimer: ReturnType<typeof setInterval> | null = null;
+    // custom (issue #109): the mobile-clamped content panel width computed by
+    // evaluateMobileFit() -- Math.min(CONTENT_PANEL_WIDTH, Math.max(
+    // MIN_CONTENT_PANEL_WIDTH, availableWidth - ICON_COLUMN_WIDTH)). Unused
+    // on desktop, which always renders at the fixed CONTENT_PANEL_WIDTH.
+    private mobileContentWidth: number = CONTENT_PANEL_WIDTH;
     // custom (cboyd10/runescape#104): true while a native HTML5 drag gesture
     // is in progress inside contentPanel -- set by listeners on contentPanel
     // itself in buildDom(), which native drag events bubble up to regardless
@@ -84,15 +114,27 @@ class PluginSidebar {
     private dragActive = false;
 
     init(bridge: PluginBridge): void {
-        if (this.isMobile() || this.root !== null) {
+        if (this.bridge !== null) {
             return;
         }
 
         this.bridge = bridge;
         this.injectStyles();
-        this.buildDom();
         bridge.onPluginChange((): void => this.onPluginChange());
-        this.renderIcons();
+
+        if (this.isMobile()) {
+            // custom (issue #109): re-evaluated on every resize -- covers
+            // orientation change with no separate listener, matching
+            // client.ejs's existing resize-driven canvas auto-sizing -- since
+            // a rotated device can gain or lose the letterboxed space the
+            // sidebar needs. Desktop never attaches this listener and never
+            // tears itself down after construction.
+            window.addEventListener('resize', (): void => this.evaluateMobileFit());
+            this.evaluateMobileFit();
+        } else {
+            this.buildDom();
+            this.renderIcons();
+        }
     }
 
     // custom: total horizontal px the sidebar currently occupies -- read by
@@ -102,7 +144,53 @@ class PluginSidebar {
             return 0;
         }
 
-        return ICON_COLUMN_WIDTH + (this.openId !== null ? CONTENT_PANEL_WIDTH : 0);
+        return ICON_COLUMN_WIDTH + (this.openId !== null ? (this.isMobile() ? this.mobileContentWidth : CONTENT_PANEL_WIDTH) : 0);
+    }
+
+    // custom (issue #109): computes whether the sidebar fits in the
+    // letterboxed space left beside the canvas on mobile, and
+    // initializes/tears down the DOM sidebar accordingly. availableWidth <
+    // ICON_COLUMN_WIDTH + MIN_CONTENT_PANEL_WIDTH naturally covers portrait
+    // orientation too (no side letterboxing there) without a separate
+    // orientation check.
+    private evaluateMobileFit(): void {
+        const availableWidth: number = window.innerWidth - NATIVE_CANVAS_WIDTH;
+        const fits: boolean = availableWidth >= ICON_COLUMN_WIDTH + MIN_CONTENT_PANEL_WIDTH;
+
+        if (!fits) {
+            this.teardownMobileSidebar();
+            return;
+        }
+
+        this.mobileContentWidth = Math.min(CONTENT_PANEL_WIDTH, Math.max(MIN_CONTENT_PANEL_WIDTH, availableWidth - ICON_COLUMN_WIDTH));
+
+        if (this.root === null) {
+            this.buildDom();
+            this.renderIcons();
+            return;
+        }
+
+        if (this.contentPanel !== null) {
+            this.contentPanel.style.flex = `0 0 ${this.mobileContentWidth}px`;
+            this.contentPanel.style.width = `${this.mobileContentWidth}px`;
+        }
+    }
+
+    // custom (issue #109): tears down the DOM sidebar when a resize/
+    // orientation change no longer leaves enough letterboxed space for it --
+    // mirrors buildDom()'s construction so getTotalWidth() correctly reports
+    // 0 again (client.ejs's setSize('auto') reads this to reclaim the
+    // canvas width).
+    private teardownMobileSidebar(): void {
+        if (this.root === null) {
+            return;
+        }
+
+        this.close();
+        this.root.remove();
+        this.root = null;
+        this.iconColumn = null;
+        this.contentPanel = null;
     }
 
     private isMobile(): boolean {
@@ -122,10 +210,22 @@ class PluginSidebar {
     private buildDom(): void {
         this.root = document.createElement('div');
         this.root.id = 'plugin-sidebar';
+        if (this.isMobile()) {
+            this.root.classList.add('plugin-sidebar--mobile');
+        }
 
         this.contentPanel = document.createElement('div');
         this.contentPanel.className = 'plugin-sidebar-content';
         this.contentPanel.style.display = 'none';
+        if (this.isMobile()) {
+            // custom (issue #109): overrides the fixed-width CSS class rule
+            // (flex-basis wins over width when both are set, so both are
+            // set here) with the letterboxed-space-clamped width computed by
+            // evaluateMobileFit() -- kept as an inline style rather than
+            // templated into STYLES since it's a per-instance, runtime value.
+            this.contentPanel.style.flex = `0 0 ${this.mobileContentWidth}px`;
+            this.contentPanel.style.width = `${this.mobileContentWidth}px`;
+        }
         // custom (cboyd10/runescape#104): native drag events bubble from
         // whatever inner element started the drag (e.g. a
         // .plugin-xptracker-card) up to contentPanel -- listening here once

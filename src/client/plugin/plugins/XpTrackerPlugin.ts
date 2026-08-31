@@ -168,7 +168,10 @@ function makeMetric(label: string, value: string): HTMLDivElement {
 function renderCard(card: XpTrackerCardData, bridge: PluginBridge): HTMLElement {
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-xptracker-card';
-    el.draggable = true;
+    // custom (issue #109): drag-to-reorder (#84/#104) is desktop-only --
+    // native HTML5 DnD has no touch fallback, so the attribute itself must
+    // be conditional now that the sidebar reaches mobile devices too.
+    el.draggable = !bridge.isMobile();
     el.dataset.skillId = String(card.skillId);
 
     const accentColor: string | undefined = SKILL_ACCENT_COLORS[card.skillId];
@@ -290,14 +293,20 @@ function renderPanel(bridge: PluginBridge): HTMLElement {
         container.appendChild(renderCard(card, bridge));
     }
 
-    attachDragReorder(container, bridge);
+    // custom (issue #109): no listeners attached at all on mobile -- native
+    // HTML5 DnD has no touch fallback, and PluginSidebar no longer
+    // early-returns on isMobile() (it reaches mobile devices per #109), so
+    // this guard is now load-bearing rather than dead code.
+    if (!bridge.isMobile()) {
+        attachDragReorder(container, bridge);
+    }
 
     return container;
 }
 
 // custom: native HTML5 drag-and-drop reorder (issue #84) -- no touch/pointer
-// fallback needed since PluginSidebar.init() already early-returns on
-// isMobile(). Persists the full new skill-id order into config on drop so it
+// fallback exists, so renderPanel() only calls this when !bridge.isMobile().
+// Persists the full new skill-id order into config on drop so it
 // survives PluginSidebar's every-1000ms renderContent() rebuild, rather than
 // relying on in-memory DOM position. Drag state (draggedSkillId) is a closure
 // local, not module state -- attachDragReorder runs fresh on every renderPanel
