@@ -69,6 +69,33 @@ const STYLES = `
 .plugin-xptracker-card-target-clear { background: #2a2a2a; border: 1px solid #444; color: #ccc; font-size: 10px; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
 .plugin-xptracker-card-target-clear:disabled { opacity: 0.4; cursor: not-allowed; }
 .plugin-xptracker-card-target-clear:hover:not(:disabled) { background: #3a3a3a; color: #fff; }
+/* custom (issue #106): Camera plugin's dual-handle range slider + live-zoom
+   marker. Two overlapping native <input type=range> elements share one
+   visual track (pointer-events: none on the input itself, re-enabled only
+   on its thumb pseudo-element, so a click always grabs whichever handle's
+   thumb is under the cursor and the transparent track never intercepts
+   clicks) -- the standard no-dependency technique for a dual-handle range
+   slider from two native inputs. The marker is a plain non-interactive div,
+   positioned the same way as the handles (by percent-of-track). */
+.plugin-camera-panel { display: flex; flex-direction: column; gap: 8px; }
+.plugin-camera-hint { color: #9aa39a; font-size: 11px; line-height: 1.4; }
+.plugin-camera-track-wrap { position: relative; height: 24px; margin: 14px 4px 4px; }
+.plugin-camera-track { position: absolute; left: 0; right: 0; top: 10px; height: 4px; background: #333; border: 1px solid #000; border-radius: 2px; overflow: hidden; }
+.plugin-camera-track-fill { position: absolute; top: 0; bottom: 0; background: #04A800; }
+.plugin-camera-marker { position: absolute; top: -3px; width: 2px; height: 12px; background: #fff; transform: translateX(-1px); pointer-events: none; }
+.plugin-camera-range { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 24px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; pointer-events: none; }
+.plugin-camera-range::-webkit-slider-runnable-track { background: transparent; height: 24px; }
+.plugin-camera-range::-moz-range-track { background: transparent; height: 24px; border: none; }
+.plugin-camera-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; pointer-events: auto; width: 12px; height: 18px; margin-top: 3px; background: #ccc; border: 1px solid #444; border-radius: 2px; cursor: pointer; }
+.plugin-camera-range::-moz-range-thumb { pointer-events: auto; width: 12px; height: 18px; background: #ccc; border: 1px solid #444; border-radius: 2px; cursor: pointer; }
+.plugin-camera-range:hover::-webkit-slider-thumb, .plugin-camera-range:focus::-webkit-slider-thumb { background: #fff; border-color: #04A800; }
+.plugin-camera-range:hover::-moz-range-thumb, .plugin-camera-range:focus::-moz-range-thumb { background: #fff; border-color: #04A800; }
+.plugin-camera-range-min { z-index: 3; }
+.plugin-camera-range-max { z-index: 4; }
+.plugin-camera-labels { display: flex; justify-content: space-between; font-size: 11px; color: #ccc; }
+.plugin-camera-label-zoom { color: #f2f2f2; font-weight: 600; }
+.plugin-camera-reset-btn { align-self: flex-start; background: #2a2a2a; border: 1px solid #444; color: #ccc; font-size: 11px; padding: 4px 10px; border-radius: 2px; cursor: pointer; }
+.plugin-camera-reset-btn:hover { background: #3a3a3a; color: #fff; }
 .plugin-menu-entry-swapper-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
 .plugin-menu-entry-swapper-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .plugin-menu-entry-swapper-action-target { font-size: 12px; color: #f2f2f2; overflow-wrap: anywhere; }
@@ -105,6 +132,9 @@ const STYLES = `
 .plugin-sidebar--mobile .plugin-settings-number-input { min-height: 44px; padding: 4px 8px; font-size: 14px; }
 .plugin-sidebar--mobile .plugin-xptracker-card-target-input { min-height: 44px; padding: 4px 8px; font-size: 14px; }
 .plugin-sidebar--mobile .plugin-xptracker-card-target-clear { min-width: 44px; min-height: 44px; padding: 8px 10px; }
+.plugin-sidebar--mobile .plugin-camera-range::-webkit-slider-thumb { width: 22px; height: 44px; margin-top: -10px; }
+.plugin-sidebar--mobile .plugin-camera-range::-moz-range-thumb { width: 22px; height: 44px; }
+.plugin-sidebar--mobile .plugin-camera-reset-btn { min-width: 44px; min-height: 44px; padding: 8px 10px; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at

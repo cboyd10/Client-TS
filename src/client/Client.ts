@@ -10,6 +10,7 @@ import MouseTracking from '#/client/MouseTracking.js';
 import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
+import cameraPlugin from '#/client/plugin/plugins/CameraPlugin.js';
 import menuEntrySwapperPlugin, {type MenuEntrySwapperRule} from '#/client/plugin/plugins/MenuEntrySwapperPlugin.js';
 import soundPlugin from '#/client/plugin/plugins/SoundPlugin.js';
 import xpTrackerPlugin from '#/client/plugin/plugins/XpTrackerPlugin.js';
@@ -143,6 +144,7 @@ export const SKILL_ACCENT_COLORS: Record<number, string> = {
 // load, well before any Client instance (and its field initializers, which
 // read PluginManager.isEnabled) is constructed.
 PluginManager.register(xpTrackerPlugin);
+PluginManager.register(cameraPlugin);
 PluginManager.register(menuEntrySwapperPlugin);
 PluginManager.register(soundPlugin);
 
@@ -455,7 +457,23 @@ export class Client extends GameShell {
     private orbitCameraPitchVelocity: number = 0;
     private orbitCameraX: number = 0;
     private orbitCameraZ: number = 0;
-    private cameraZoom: number = 1200;
+    // custom (issue #106): reverted to the pre-ADR-6 vanilla distance (see
+    // .claude/context/adr/issue-6-camera-zoom-distance-field.md) now that the
+    // Camera plugin lets a player configure their own scroll-wheel/::zoom
+    // range -- the global default a never-configured player sees.
+    private cameraZoom: number = 600;
+    // custom (issue #106): the player's configured scroll-wheel/::zoom
+    // clamp range -- defaults match the pre-Camera-plugin hardcoded [400,
+    // 1800] literals, kept in sync with the Camera plugin's persisted
+    // 'camera' config via PluginManager.onChange (see initPluginBridge()).
+    // Never exceed the Camera plugin panel's absolute slider bounds
+    // [100, 2400].
+    private cameraZoomMin: number = 400;
+    private cameraZoomMax: number = 1800;
+    // custom (issue #106): debounce handle for persisting the live
+    // cameraZoom value to the 'camera' plugin config -- see
+    // scheduleCameraZoomPersist().
+    private cameraZoomPersistTimer: ReturnType<typeof setTimeout> | null = null;
     private sendCameraDelay: number = 0;
     private sendCamera: boolean = false;
     private cameraPitchClamp: number = 0;
@@ -3493,11 +3511,16 @@ export class Client extends GameShell {
                                 // custom ::zoom command for setting camera distance explicitly (mobile has no scroll wheel)
                                 const arg = this.chatInput.substring(7);
                                 if (arg === '-h') {
-                                    this.addChat(0, '::zoom <number 400-1800> - sets camera distance directly. Useful on mobile, which has no scroll wheel.', '');
+                                    // custom (issue #106): range in the help text mirrors the player's own
+                                    // configured Camera plugin range, not a hardcoded literal.
+                                    this.addChat(0, `::zoom <number ${this.cameraZoomMin}-${this.cameraZoomMax}> - sets camera distance directly. Useful on mobile, which has no scroll wheel.`, '');
                                 } else {
                                     try {
                                         const desiredZoom = parseInt(arg) || 1200;
-                                        this.cameraZoom = Math.max(400, Math.min(1800, desiredZoom));
+                                        // custom (issue #106): clamps to the player's configured Camera plugin
+                                        // range instead of the old hardcoded [400, 1800] literals.
+                                        this.cameraZoom = Math.max(this.cameraZoomMin, Math.min(this.cameraZoomMax, desiredZoom));
+                                        this.scheduleCameraZoomPersist();
                                     } catch (_e) {
                                         // empty
                                     }
@@ -5369,7 +5392,8 @@ export class Client extends GameShell {
             getXpTrackerCards: (): XpTrackerCardData[] => this.buildXpTrackerCards(),
             resetXpTrackerSkill: (skillId: number): void => this.resetXpTrackerSkill(skillId),
             getSidebarWidth: (): number => PluginSidebar.getTotalWidth(),
-            isMobile: (): boolean => this.isMobile
+            isMobile: (): boolean => this.isMobile,
+            getCameraZoom: (): number => this.cameraZoom
         };
 
         window.pluginBridge = bridge;
@@ -5381,8 +5405,56 @@ export class Client extends GameShell {
 
         PluginManager.onChange((): void => {
             this.showXpTracker = PluginManager.isEnabled('xpTracker');
+            // custom (issue #106): re-derive the configured camera-zoom range
+            // (and live zoom value) from the Camera plugin's persisted config --
+            // fires whenever the panel writes a new range/reset, and also on
+            // login/logout as a side effect of PluginManager.setLoggedInUsername's
+            // scope switch (loadXpTrackerHiddenSkills() below), which restores a
+            // returning player's own saved range/zoom without any dedicated
+            // login-load method.
+            this.syncCameraZoomFromConfig();
             this.refreshSoundConfig();
         });
+    }
+
+    // custom (issue #106): re-derive cameraZoomMin/cameraZoomMax (and,
+    // best-effort, the live cameraZoom value) from the 'camera' plugin
+    // config -- called by the PluginManager.onChange listener above. A
+    // config with no saved camera state yet (new player, guest scope, or
+    // invalid/corrupted JSON) leaves the hardcoded field defaults (400,
+    // 1800, 600) untouched, matching the "no special-cased first load"
+    // acceptance criterion.
+    private syncCameraZoomFromConfig(): void {
+        const config: PluginConfig = PluginManager.getConfig('camera');
+
+        const rawMin: unknown = config.min;
+        const rawMax: unknown = config.max;
+        const min: number = typeof rawMin === 'number' ? rawMin : this.cameraZoomMin;
+        const max: number = typeof rawMax === 'number' ? rawMax : this.cameraZoomMax;
+        if (min >= 100 && max <= 2400 && min <= max) {
+            this.cameraZoomMin = min;
+            this.cameraZoomMax = max;
+        }
+
+        const rawZoom: unknown = config.zoom;
+        if (typeof rawZoom === 'number') {
+            this.cameraZoom = Math.max(this.cameraZoomMin, Math.min(this.cameraZoomMax, rawZoom));
+        }
+    }
+
+    // custom (issue #106): debounce persisting the live cameraZoom value into
+    // the 'camera' plugin config -- fires ~300ms after the last wheel
+    // tick/::zoom command, not on every tick, so continuous scrolling
+    // doesn't spam localStorage writes. Called from mouseScroll() and the
+    // ::zoom chat command handler.
+    private scheduleCameraZoomPersist(): void {
+        if (this.cameraZoomPersistTimer !== null) {
+            clearTimeout(this.cameraZoomPersistTimer);
+        }
+        this.cameraZoomPersistTimer = setTimeout((): void => {
+            this.cameraZoomPersistTimer = null;
+            PluginManager.setConfig('camera', {zoom: this.cameraZoom});
+        }, 300);
     }
 
     // custom (issue #88): reset a single skill's tracked session, called from
@@ -12509,11 +12581,15 @@ export class Client extends GameShell {
             this.cameraZoom -= 100;
         }
 
-        if (this.cameraZoom < 400) {
-            this.cameraZoom = 400;
-        } else if (this.cameraZoom > 1800) {
-            this.cameraZoom = 1800;
+        // custom (issue #106): clamps to the player's configured Camera plugin
+        // range instead of the old hardcoded [400, 1800] literals.
+        if (this.cameraZoom < this.cameraZoomMin) {
+            this.cameraZoom = this.cameraZoomMin;
+        } else if (this.cameraZoom > this.cameraZoomMax) {
+            this.cameraZoom = this.cameraZoomMax;
         }
+
+        this.scheduleCameraZoomPersist();
     }
 
     override mouseUp(x: number, y: number, e: MouseEvent) {
