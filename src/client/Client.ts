@@ -766,12 +766,21 @@ export class Client extends GameShell {
         this.soundEffectsMuted = config.effectsMuted === true;
     }
 
-    // custom (issue #107): effective volume passed into playMidi() at its
-    // only call site (saveMidi() above) -- midiVolume is left completely
-    // untouched (still whatever the legacy varp-driven options screen set),
-    // this only adds the Sound plugin's Music trim on top of it.
+    // custom (issue #107, extended #108): effective volume passed into
+    // playMidi() at its only call site (saveMidi() above) -- midiVolume is
+    // left completely untouched (still whatever the legacy varp-driven
+    // options screen set), this only adds the Sound plugin's Music trim on
+    // top of it.
+    //
+    // Pre-login (PluginManager.isLoggedIn() false), no config sync has ever
+    // run, so midiVolume is still just its hardcoded field default (0) --
+    // not a real legacy base to layer a multiplier on top of. In that case
+    // the trim becomes the direct/sole volume passed to playMidi(), same
+    // soundTrimDb() conversion, just not added to midiVolume. Once logged
+    // in, this reverts to the #107 layered-multiplier behavior.
     private effectiveMidiVolume(): number {
-        return this.midiVolume + Client.soundTrimDb(this.soundMusicMuted, this.soundMusicTrim);
+        const trimDb: number = Client.soundTrimDb(this.soundMusicMuted, this.soundMusicTrim);
+        return PluginManager.isLoggedIn() ? this.midiVolume + trimDb : trimDb;
     }
 
     // custom (issue #107): effective volume applied at playWave()'s only call

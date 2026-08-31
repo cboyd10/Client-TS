@@ -136,9 +136,12 @@ const soundPlugin: PluginDescriptor = {
     id: 'sound',
     displayName: 'Sound',
     icon: ICON_VOLUME,
-    // custom (issue #107): pre-login enablement is a dependent follow-up
-    // issue (#108) -- this issue only builds the post-login trim mechanism.
-    worksPreLogin: false,
+    // custom (issue #108): the panel is reachable on the pre-login/title
+    // screen so its Music trim can control the boot music (Client.ts's
+    // maininit() -> saveMidi() -> playMidi() chain, which runs before login).
+    // Effects has no pre-login use case (no wave sounds play before login)
+    // but stays visible rather than hidden -- it's simply inert pre-login.
+    worksPreLogin: true,
     defaultEnabled: true,
     renderPanel
 };
