@@ -775,6 +775,16 @@ export class Client extends GameShell {
     // reads). Validates exactly like SoundPlugin.ts's own readTrim/readMuted
     // so an invalid or missing stored value falls back to neutral (1 / false)
     // rather than silencing audio.
+    //
+    // custom (issue #122): setMidiVolume() (unlike setWaveVolume(), which
+    // soundsDoQueue() already reapplies before every playWave() call) is
+    // otherwise never called with the Sound plugin's trim -- playMidi() only
+    // sets volume once, at track start. Without this, moving the Music
+    // slider (or muting) has zero audible effect on a song already playing,
+    // which is the only song that's ever playing pre-login (one boot track,
+    // no song-change event to pick up the new trim). Guarded by midiActive,
+    // mirroring the legacy clientcode===3 handler's own guard, so this never
+    // force-starts audio when none is active.
     private refreshSoundConfig(): void {
         const config: PluginConfig = PluginManager.getConfig('sound');
 
@@ -785,6 +795,10 @@ export class Client extends GameShell {
         const effectsTrim: unknown = config.effectsTrim;
         this.soundEffectsTrim = typeof effectsTrim === 'number' && effectsTrim >= 0 && effectsTrim <= 1 ? effectsTrim : 1;
         this.soundEffectsMuted = config.effectsMuted === true;
+
+        if (this.midiActive) {
+            setMidiVolume(this.effectiveMidiVolume());
+        }
     }
 
     // custom (issue #107, extended #108): effective volume passed into
