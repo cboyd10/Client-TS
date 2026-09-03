@@ -117,6 +117,26 @@ const STYLES = `
 .plugin-sound-mute-btn:hover { background: #3a3a3a; color: #fff; }
 .plugin-sound-mute-btn--active { background: #5a1f1f; border-color: #c33; color: #ff8080; }
 .plugin-sound-mute-btn svg { width: 14px; height: 14px; }
+/* custom (issue #126): Loot Tracker -- header row + reset button follow the
+   exact plugin-xptracker-* visual conventions (card border/padding/margin,
+   the Total card's accent border, reset-button sizing); the item grid below
+   each header is new, RuneLite loot-tracker style (icon + quantity badge in
+   the corner). */
+.plugin-loottracker-total-card { border: 1px solid #04A800; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #10210f; }
+.plugin-loottracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+.plugin-loottracker-row { display: flex; align-items: center; gap: 8px; }
+.plugin-loottracker-icon { width: 24px; height: 24px; border-radius: 5px; background: #202020; border: 1px solid #333; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 24px; }
+.plugin-loottracker-header-info { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+.plugin-loottracker-header-name { font-size: 12px; color: #f2f2f2; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plugin-loottracker-header-value { font-size: 11px; color: #ffd700; font-variant-numeric: tabular-nums; }
+.plugin-loottracker-reset-btn { margin-left: auto; width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.plugin-loottracker-reset-btn:hover { background: #3a3a3a; color: #fff; }
+.plugin-loottracker-reset-btn svg { width: 11px; height: 11px; }
+.plugin-loottracker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; margin-top: 8px; }
+.plugin-loottracker-item { position: relative; width: 36px; height: 36px; background: #202020; border: 1px solid #333; border-radius: 3px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.plugin-loottracker-item-icon { max-width: 32px; max-height: 32px; object-fit: contain; image-rendering: pixelated; }
+.plugin-loottracker-item-icon-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: #9aa39a; }
+.plugin-loottracker-item-count { position: absolute; top: 1px; left: 2px; font-size: 10px; font-weight: bold; color: #ffff00; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; line-height: 1; pointer-events: none; }
 /* custom (issue #109): mobile touch-target enlargement. Each rule reaches at
    least a 44x44px effective hit area -- via padding/min-width/min-height,
    not necessarily a 44px visual size (e.g. the toggle keeps its 32x18
@@ -135,6 +155,8 @@ const STYLES = `
 .plugin-sidebar--mobile .plugin-camera-range::-webkit-slider-thumb { width: 22px; height: 44px; margin-top: -10px; }
 .plugin-sidebar--mobile .plugin-camera-range::-moz-range-thumb { width: 22px; height: 44px; }
 .plugin-sidebar--mobile .plugin-camera-reset-btn { min-width: 44px; min-height: 44px; padding: 8px 10px; }
+.plugin-sidebar--mobile .plugin-loottracker-reset-btn { width: 44px; height: 44px; flex: 0 0 44px; }
+.plugin-sidebar--mobile .plugin-loottracker-reset-btn svg { width: 16px; height: 16px; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at

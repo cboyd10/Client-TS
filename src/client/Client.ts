@@ -8,10 +8,11 @@ import LongPressIndicator from '#/client/LongPressIndicator.js';
 import { MiniMenuAction } from '#/client/MiniMenuAction.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
 import MouseTracking from '#/client/MouseTracking.js';
-import type {PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
+import type {LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
 import cameraPlugin from '#/client/plugin/plugins/CameraPlugin.js';
+import lootTrackerPlugin from '#/client/plugin/plugins/LootTrackerPlugin.js';
 import menuEntrySwapperPlugin, {type MenuEntrySwapperRule} from '#/client/plugin/plugins/MenuEntrySwapperPlugin.js';
 import soundPlugin from '#/client/plugin/plugins/SoundPlugin.js';
 import xpTrackerPlugin from '#/client/plugin/plugins/XpTrackerPlugin.js';
@@ -148,6 +149,7 @@ PluginManager.register(xpTrackerPlugin);
 PluginManager.register(cameraPlugin);
 PluginManager.register(menuEntrySwapperPlugin);
 PluginManager.register(soundPlugin);
+PluginManager.register(lootTrackerPlugin);
 
 type XpTrackerPanel = {
     icon: Pix8 | null;
@@ -157,6 +159,40 @@ type XpTrackerPanel = {
     baseLevel: number;
     percentToLevel: number;
     secondsToLevel: number;
+};
+
+// custom (issue #126): how long (in game ticks) an unmatched ground-item
+// record stays eligible for pickup correlation before it's pruned. Generous
+// enough to survive network/render lag between a drop appearing and the
+// player's inventory update arriving, but well short of Obj.REVEAL's 100-tick
+// window so a long-abandoned drop doesn't linger in memory forever.
+const LOOT_TRACKER_MAX_AGE_TICKS = 50;
+
+// custom (issue #126): one ground-item arrival pending correlation with a
+// matching inventory gain -- see lootTrackerOnPickup(). `remaining` is
+// decremented (in whole or in part) as matching pickups consume it; a record
+// with remaining <= 0 is dropped.
+type LootTrackerGroundRecord = {
+    level: number;
+    x: number;
+    z: number;
+    type: number;
+    remaining: number;
+    sourceNpc: number;
+    tick: number;
+};
+
+// custom (issue #126): persisted per-item/per-group shape stored under the
+// lootTracker plugin's config blob (key 'groups', keyed by String(sourceNpc),
+// '-1' being the "Unknown" bucket).
+type LootTrackerItemEntry = {
+    count: number;
+    value: number;
+};
+
+type LootTrackerGroupEntry = {
+    kills: number;
+    items: Record<string, LootTrackerItemEntry>;
 };
 
 export function xpTrackerFormatXp(n: number): string {
@@ -258,6 +294,17 @@ export class Client extends GameShell {
     private xpTrackerPanels: XpTrackerPanel[] = [];
     private xpTrackerHiddenSkills: Set<number> = new Set();
     private loggedInUsername: string = '';
+
+    // custom (issue #126): pending ground-item records awaiting correlation
+    // with a matching inventory gain, oldest first (see LOOT_TRACKER_MAX_AGE_TICKS).
+    private lootTrackerGroundLoot: LootTrackerGroundRecord[] = [];
+    // custom (issue #126): sourceNpc+tile+tick cluster keys already counted as
+    // a kill -- see lootTrackerOnGroundItem(). Never pruned: Client.loopCycle
+    // only increases, so a key can never repeat within a session.
+    private lootTrackerKillClusterSeen: Set<string> = new Set();
+    // custom (issue #126): per-item icon data-URL cache, mirroring
+    // xpTrackerIconCache's role for the XP Tracker's staticons.
+    private lootTrackerIconCache: Map<number, string | null> = new Map();
 
     private hintType: number = 0;
     private hintNpc: number = 0;
@@ -5444,7 +5491,9 @@ export class Client extends GameShell {
             resetXpTrackerSkill: (skillId: number): void => this.resetXpTrackerSkill(skillId),
             getSidebarWidth: (): number => PluginSidebar.getTotalWidth(),
             isMobile: (): boolean => this.isMobile,
-            getCameraZoom: (): number => this.cameraZoom
+            getCameraZoom: (): number => this.cameraZoom,
+            getLootTrackerGroups: (): LootTrackerGroupData[] => this.buildLootTrackerGroups(),
+            resetLootTrackerGroup: (sourceNpc: number): void => this.resetLootTrackerGroup(sourceNpc)
         };
 
         window.pluginBridge = bridge;
@@ -5530,6 +5579,196 @@ export class Client extends GameShell {
         this.xpTrackerLastGain[skillId] = 0;
         this.xpTrackerPausedAt[skillId] = -1;
         this.xpTrackerPausedAccumMs[skillId] = 0;
+    }
+
+    // custom (issue #126): sums an inventory-linked array pair by item type,
+    // ignoring empty slots (count <= 0). Shared by the UPDATE_INV_FULL/
+    // UPDATE_INV_PARTIAL handlers to snapshot totals before and after applying
+    // a packet, so lootTrackerOnInvChange() can diff per-type gains regardless
+    // of which slots moved.
+    private lootTrackerSumInv(types: Int32Array, counts: Int32Array): Map<number, number> {
+        const totals: Map<number, number> = new Map();
+        for (let i: number = 0; i < types.length; i++) {
+            const count: number = counts[i];
+            if (count <= 0) {
+                continue;
+            }
+            totals.set(types[i], (totals.get(types[i]) ?? 0) + count);
+        }
+        return totals;
+    }
+
+    // custom (issue #126): the inventory-gain half of loot tracker's
+    // ground-item correlation. Runs on every UPDATE_INV_FULL/UPDATE_INV_PARTIAL
+    // for every interface (not just the backpack) -- banking, trading, shops
+    // and the (nonexistent) GE never touch ground items, so a gain there never
+    // matches a pending lootTrackerGroundLoot record and is silently ignored;
+    // no suppression logic needed (see issue #126's Context).
+    private lootTrackerOnInvChange(prevTotals: Map<number, number>, nextTotals: Map<number, number>): void {
+        for (const [type, newCount] of nextTotals) {
+            const oldCount: number = prevTotals.get(type) ?? 0;
+            if (newCount > oldCount) {
+                this.lootTrackerOnPickup(type, newCount - oldCount);
+            }
+        }
+    }
+
+    // custom (issue #126): records a freshly-arrived ground item for pickup
+    // correlation, and -- independently of whether it's ever picked up --
+    // counts a kill the first time a given sourceNpc+tile+tick cluster is
+    // seen (multiple item stacks from one NPC death arrive as separate
+    // OBJ_ADDs on the same tick/tile).
+    private lootTrackerOnGroundItem(level: number, x: number, z: number, type: number, count: number, sourceNpc: number): void {
+        this.lootTrackerPruneGroundLoot();
+        this.lootTrackerGroundLoot.push({level, x, z, type, remaining: count, sourceNpc, tick: Client.loopCycle});
+
+        if (sourceNpc === -1) {
+            return;
+        }
+
+        const clusterKey: string = `${sourceNpc}|${level}|${x}|${z}|${Client.loopCycle}`;
+        if (this.lootTrackerKillClusterSeen.has(clusterKey)) {
+            return;
+        }
+        this.lootTrackerKillClusterSeen.add(clusterKey);
+        this.lootTrackerUpdateGroup(sourceNpc, (group: LootTrackerGroupEntry): void => {
+            group.kills++;
+        });
+    }
+
+    // custom (issue #126): drops ground-loot records older than
+    // LOOT_TRACKER_MAX_AGE_TICKS with no matching pickup. lootTrackerGroundLoot
+    // is insertion-ordered (oldest first), so this only ever needs to trim the
+    // front.
+    private lootTrackerPruneGroundLoot(): void {
+        const cutoff: number = Client.loopCycle - LOOT_TRACKER_MAX_AGE_TICKS;
+        while (this.lootTrackerGroundLoot.length > 0 && this.lootTrackerGroundLoot[0].tick < cutoff) {
+            this.lootTrackerGroundLoot.shift();
+        }
+    }
+
+    // custom (issue #126): attributes an inventory gain to the oldest matching
+    // pending ground-item record(s) at the local player's current tile,
+    // consuming each in whole or in part (a partial pickup, e.g. some of a
+    // coin stack, is supported). Unmatched gains (no record at this tile/type,
+    // or none pending at all) are simply not attributed to any monster.
+    private lootTrackerOnPickup(type: number, gained: number): void {
+        if (!this.localPlayer) {
+            return;
+        }
+
+        const level: number = this.minusedlevel;
+        const x: number = this.localPlayer.x >> 7;
+        const z: number = this.localPlayer.z >> 7;
+
+        let remaining: number = gained;
+        for (const record of this.lootTrackerGroundLoot) {
+            if (remaining <= 0) {
+                break;
+            }
+            if (record.remaining <= 0 || record.type !== type || record.level !== level || record.x !== x || record.z !== z) {
+                continue;
+            }
+
+            const taken: number = Math.min(remaining, record.remaining);
+            record.remaining -= taken;
+            remaining -= taken;
+
+            const objType: ObjType = ObjType.list(type);
+            const value: number = Math.max(Math.floor(objType.cost * 0.6), 1) * taken;
+            this.lootTrackerUpdateGroup(record.sourceNpc, (group: LootTrackerGroupEntry): void => {
+                const itemKey: string = String(type);
+                const item: LootTrackerItemEntry = group.items[itemKey] ?? {count: 0, value: 0};
+                item.count += taken;
+                item.value += value;
+                group.items[itemKey] = item;
+            });
+        }
+
+        this.lootTrackerGroundLoot = this.lootTrackerGroundLoot.filter((record: LootTrackerGroundRecord): boolean => record.remaining > 0);
+    }
+
+    // custom (issue #126): reads the lootTracker plugin's persisted groups
+    // blob, defaulting to an empty object -- same defensive-parse shape as
+    // XpTrackerPlugin.ts's readLevelTargets/readStoredTarget.
+    private lootTrackerReadGroups(): Record<string, LootTrackerGroupEntry> {
+        const raw: unknown = PluginManager.getConfig('lootTracker').groups;
+        return typeof raw === 'object' && raw !== null ? (raw as Record<string, LootTrackerGroupEntry>) : {};
+    }
+
+    // custom (issue #126): read-modify-write helper shared by every mutation
+    // of a single monster group's persisted entry (kill increments and item
+    // gains alike), so callers only supply the mutation.
+    private lootTrackerUpdateGroup(sourceNpc: number, mutate: (group: LootTrackerGroupEntry) => void): void {
+        const groups: Record<string, LootTrackerGroupEntry> = this.lootTrackerReadGroups();
+        const key: string = String(sourceNpc);
+        const group: LootTrackerGroupEntry = groups[key] ?? {kills: 0, items: {}};
+        mutate(group);
+        groups[key] = group;
+        PluginManager.setConfig('lootTracker', {groups});
+    }
+
+    // custom (issue #126): clears one monster group's tracked kills/items
+    // entirely -- exposed via PluginBridge.resetLootTrackerGroup().
+    private resetLootTrackerGroup(sourceNpc: number): void {
+        const groups: Record<string, LootTrackerGroupEntry> = this.lootTrackerReadGroups();
+        delete groups[String(sourceNpc)];
+        PluginManager.setConfig('lootTracker', {groups});
+    }
+
+    // custom (issue #126): resolves (and caches) an item's inventory-style
+    // icon as a data URL, exactly as it would appear in the backpack
+    // (ObjType.getSprite renders via the same 3D-icon pipeline used for every
+    // inventory slot; count is fixed at 1 so the cache key doesn't need to
+    // vary by stack size). Mirrors getXpTrackerIconCache's per-id caching.
+    private lootTrackerIcon(type: number): string | null {
+        const cached: string | null | undefined = this.lootTrackerIconCache.get(type);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const sprite: Pix32 | null = ObjType.getSprite(type, 1, 0);
+        const dataUrl: string | null = sprite ? sprite.toDataURL() : null;
+        this.lootTrackerIconCache.set(type, dataUrl);
+        return dataUrl;
+    }
+
+    // custom (issue #126): DOM-friendly mirror of the persisted groups blob
+    // for the plugin sidebar's Loot Tracker content panel -- resolves item/
+    // monster names and icons fresh on every call (cheap: icon lookups are
+    // cached, name lookups are simple config reads). Sorted by total value
+    // descending; each group's items are likewise sorted by value descending.
+    private buildLootTrackerGroups(): LootTrackerGroupData[] {
+        const groups: Record<string, LootTrackerGroupEntry> = this.lootTrackerReadGroups();
+        const result: LootTrackerGroupData[] = [];
+
+        for (const key of Object.keys(groups)) {
+            const sourceNpc: number = Number(key);
+            const entry: LootTrackerGroupEntry = groups[key];
+
+            const items = Object.keys(entry.items)
+                .map((itemKey: string) => {
+                    const type: number = Number(itemKey);
+                    const item: LootTrackerItemEntry = entry.items[itemKey];
+                    const objType: ObjType = ObjType.list(type);
+                    return {
+                        type,
+                        name: objType.name ?? 'Unknown item',
+                        count: item.count,
+                        value: item.value,
+                        iconDataUrl: this.lootTrackerIcon(type)
+                    };
+                })
+                .sort((a, b) => b.value - a.value);
+
+            const monsterName: string = sourceNpc === -1 ? 'Unknown' : (NpcType.list(sourceNpc).name ?? 'Unknown');
+            const totalValue: number = items.reduce((s: number, i): number => s + i.value, 0);
+
+            result.push({sourceNpc, monsterName, kills: entry.kills, totalValue, items});
+        }
+
+        result.sort((a, b) => b.totalValue - a.totalValue);
+        return result;
     }
 
     // custom (cboyd10/runescape#103): lazily build and return the
@@ -7142,6 +7381,8 @@ export class Client extends GameShell {
                     throw new Error();
                 }
 
+                const prevTotals: Map<number, number> = this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber);
+
                 const size: number = this.in.g2();
                 for (let i: number = 0; i < size; i++) {
                     inv.linkObjType[i] = this.in.g2();
@@ -7159,6 +7400,8 @@ export class Client extends GameShell {
                     inv.linkObjNumber[i] = 0;
                 }
 
+                this.lootTrackerOnInvChange(prevTotals, this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber));
+
                 this.ptype = -1;
                 return true;
             }
@@ -7172,6 +7415,8 @@ export class Client extends GameShell {
                 if (!inv.linkObjType || !inv.linkObjNumber) {
                     throw new Error();
                 }
+
+                const prevTotals: Map<number, number> = this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber);
 
                 while (this.in.pos < this.psize) {
                     const slot: number = this.in.gsmart();
@@ -7187,6 +7432,8 @@ export class Client extends GameShell {
                         inv.linkObjNumber[slot] = count;
                     }
                 }
+
+                this.lootTrackerOnInvChange(prevTotals, this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber));
 
                 this.ptype = -1;
                 return true;
@@ -8122,15 +8369,17 @@ export class Client extends GameShell {
         } else if (opcode === ServerProt.OBJ_ADD) {
             const type: number = buf.g2();
             const count: number = buf.g2();
+            const sourceNpc: number = buf.g2b();
 
             if (x >= 0 && z >= 0 && x < BuildArea.SIZE && z < BuildArea.SIZE) {
-                const obj: ClientObj = new ClientObj(type, count);
+                const obj: ClientObj = new ClientObj(type, count, sourceNpc);
                 if (!this.groundObj[this.minusedlevel][x][z]) {
                     this.groundObj[this.minusedlevel][x][z] = new LinkList();
                 }
 
                 this.groundObj[this.minusedlevel][x][z]?.push(obj);
                 this.showObject(x, z);
+                this.lootTrackerOnGroundItem(this.minusedlevel, x, z, type, count, sourceNpc);
             }
         } else if (opcode === ServerProt.OBJ_DEL) {
             const type: number = buf.g2();

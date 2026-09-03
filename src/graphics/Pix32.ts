@@ -100,6 +100,40 @@ export default class Pix32 extends Pix2D {
         Pix2D.setPixels(this.data, this.wi, this.hi);
     }
 
+    // custom (issue #126): DOM export for the loot tracker plugin's item grid,
+    // which needs a real <img> icon (canvas sprite rendering isn't reachable
+    // from page-level DOM code) -- mirrors Pix8.toDataURL()'s canvas-based
+    // implementation. Pixel value 0 is transparent, matching plot()/
+    // plotSprite()'s existing convention elsewhere in this class; every other
+    // value is a packed 24-bit 0xRRGGBB colour at full opacity.
+    toDataURL(): string {
+        const canvas: HTMLCanvasElement = document.createElement('canvas');
+        canvas.width = this.wi;
+        canvas.height = this.hi;
+
+        const ctx: CanvasRenderingContext2D = canvas.getContext('2d')!;
+        const imageData: ImageData = ctx.createImageData(this.wi, this.hi);
+        const pixels: Uint8ClampedArray = imageData.data;
+
+        for (let i: number = 0; i < this.wi * this.hi; i++) {
+            const rgb: number = this.data[i];
+            const off: number = i * 4;
+
+            if (rgb === 0) {
+                pixels[off + 3] = 0;
+                continue;
+            }
+
+            pixels[off] = (rgb >> 16) & 0xff;
+            pixels[off + 1] = (rgb >> 8) & 0xff;
+            pixels[off + 2] = rgb & 0xff;
+            pixels[off + 3] = 255;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        return canvas.toDataURL('image/png');
+    }
+
     rgbAdjust(r: number, g: number, b: number): void {
         for (let i: number = 0; i < this.data.length; i++) {
             const rgb: number = this.data[i];
