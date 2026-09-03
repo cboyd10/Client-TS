@@ -66,6 +66,41 @@ export type PluginBridge = {
     // no dedicated setter needed, since Client.ts applies range/zoom writes
     // back to itself via PluginManager.onChange.
     getCameraZoom(): number;
+    // custom (issue #126): current loot-tracker groups, one per distinct
+    // sourceNpc (plus the sourceNpc === -1 "Unknown" bucket when non-empty),
+    // sorted by total value descending. Rebuilt fresh from persisted config on
+    // every panel refresh -- no separate live-session cache.
+    getLootTrackerGroups(): LootTrackerGroupData[];
+    // custom (issue #126): clears one monster group's tracked kills/items
+    // entirely (unlike XP Tracker's per-skill reset, there's no "session"
+    // concept to re-seed -- a reset group simply drops out of
+    // getLootTrackerGroups() until its sourceNpc next drops something).
+    resetLootTrackerGroup(sourceNpc: number): void;
+};
+
+// custom (issue #126): one tracked item within a loot-tracker monster group --
+// mirrors XpTrackerCardData's DOM-friendly shape (pre-converted icon data URL,
+// no Pix32 sprite reaching page-level code).
+export type LootTrackerItemData = {
+    type: number;
+    name: string;
+    count: number;
+    value: number;
+    // custom: item icon rendered exactly as it appears in the inventory
+    // (ObjType.getSprite + Pix32.toDataURL), null if the sprite couldn't be
+    // rendered -- renderPanel() falls back to a text badge in that case.
+    iconDataUrl: string | null;
+};
+
+// custom (issue #126): one monster group for the loot tracker sidebar panel --
+// sourceNpc === -1 is the "Unknown" bucket (player-dropped items, static/quest
+// spawns, or anything already on the ground before this shipped).
+export type LootTrackerGroupData = {
+    sourceNpc: number;
+    monsterName: string;
+    kills: number;
+    totalValue: number;
+    items: LootTrackerItemData[];
 };
 
 declare global {
