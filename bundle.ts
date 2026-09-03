@@ -134,7 +134,21 @@ async function applyTerser(script: BunOutput): Promise<boolean> {
                     // mapview: called/read from outside the bundle by view/items.ejs and view/worldmap.ejs
                     'centerOn',
                     'setMarkers',
-                    'loaded'
+                    'loaded',
+
+                    // Sound plugin config (issue #107/#122): SoundPlugin.ts writes/reads
+                    // these through a computed key (CHANNELS[].mutedKey/trimKey), which
+                    // property mangling can't see or rename, while Client.ts's
+                    // refreshSoundConfig() reads them via static config.musicTrim/etc.
+                    // access, which mangling WOULD rename -- silently desyncing the two
+                    // (Client.ts's mangled read never matches the unmangled stored key,
+                    // so mute/volume have no effect in the minified build even though
+                    // dev builds and the panel's own display work fine). Reserved so
+                    // both sides keep the same literal property names.
+                    'musicTrim',
+                    'musicMuted',
+                    'effectsTrim',
+                    'effectsMuted'
                 ]
             }
         }
