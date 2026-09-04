@@ -117,19 +117,23 @@ const STYLES = `
 .plugin-sound-mute-btn:hover { background: #3a3a3a; color: #fff; }
 .plugin-sound-mute-btn--active { background: #5a1f1f; border-color: #c33; color: #ff8080; }
 .plugin-sound-mute-btn svg { width: 14px; height: 14px; }
-/* custom (issue #126): Loot Tracker -- header row + reset button follow the
-   exact plugin-xptracker-* visual conventions (card border/padding/margin,
-   the Total card's accent border, reset-button sizing); the item grid below
-   each header is new, RuneLite loot-tracker style (icon + quantity badge in
-   the corner). */
+/* custom (issue #126, restyled issue #134): Loot Tracker -- matches the
+   RuneLite loot-tracker layout: no icon badge, white monster name + gray
+   kill count on one line (left), total value on the far right, item grid
+   below each header with a yellow quantity badge in the corner. Card
+   border/padding/margin and the Total card's accent border still follow
+   the plugin-xptracker-* conventions. */
 .plugin-loottracker-total-card { border: 1px solid #04A800; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #10210f; }
 .plugin-loottracker-card { border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
 .plugin-loottracker-row { display: flex; align-items: center; gap: 8px; }
-.plugin-loottracker-icon { width: 24px; height: 24px; border-radius: 5px; background: #202020; border: 1px solid #333; color: #04A800; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex: 0 0 24px; }
-.plugin-loottracker-header-info { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
-.plugin-loottracker-header-name { font-size: 12px; color: #f2f2f2; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.plugin-loottracker-header-value { font-size: 11px; color: #ffd700; font-variant-numeric: tabular-nums; }
-.plugin-loottracker-reset-btn { margin-left: auto; width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.plugin-loottracker-header-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plugin-loottracker-header-name { font-size: 12px; color: #f2f2f2; font-weight: 600; }
+.plugin-loottracker-header-count { font-size: 12px; color: #9aa39a; }
+.plugin-loottracker-header-value { font-size: 12px; color: #c9aa71; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.plugin-loottracker-total-icon { width: 32px; height: 32px; border-radius: 5px; background: #16301a; border: 1px solid #04A800; color: #04A800; display: flex; align-items: center; justify-content: center; flex: 0 0 32px; }
+.plugin-loottracker-total-icon svg { width: 18px; height: 18px; }
+.plugin-loottracker-total-info { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; font-size: 12px; color: #f2f2f2; font-variant-numeric: tabular-nums; }
+.plugin-loottracker-reset-btn { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .plugin-loottracker-reset-btn:hover { background: #3a3a3a; color: #fff; }
 .plugin-loottracker-reset-btn svg { width: 11px; height: 11px; }
 .plugin-loottracker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; margin-top: 8px; }
