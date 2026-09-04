@@ -311,7 +311,7 @@ export class Client extends GameShell {
     private lootTrackerKillClusterSeen: Map<string, number> = new Map();
     // custom (issue #126): per-item icon data-URL cache, mirroring
     // xpTrackerIconCache's role for the XP Tracker's staticons.
-    private lootTrackerIconCache: Map<number, string | null> = new Map();
+    private lootTrackerIconCache: Map<string, string | null> = new Map();
 
     private hintType: number = 0;
     private hintNpc: number = 0;
@@ -5600,7 +5600,14 @@ export class Client extends GameShell {
             if (count <= 0) {
                 continue;
             }
-            totals.set(types[i], (totals.get(types[i]) ?? 0) + count);
+            // custom (issue #126 fix): linkObjType stores realId + 1 on the
+            // wire (0 means empty slot) -- matches the -1 adjustment every
+            // other linkObjType read in this file applies (e.g. Client.ts's
+            // inventory-slot ObjType.list(child.linkObjType[slot] - 1) call
+            // sites), so ground-item type ids (raw, no offset) can compare
+            // equal to pickup type ids here.
+            const type: number = types[i] - 1;
+            totals.set(type, (totals.get(type) ?? 0) + count);
         }
         return totals;
     }
@@ -5749,17 +5756,24 @@ export class Client extends GameShell {
     // custom (issue #126): resolves (and caches) an item's inventory-style
     // icon as a data URL, exactly as it would appear in the backpack
     // (ObjType.getSprite renders via the same 3D-icon pipeline used for every
-    // inventory slot; count is fixed at 1 so the cache key doesn't need to
-    // vary by stack size). Mirrors getXpTrackerIconCache's per-id caching.
-    private lootTrackerIcon(type: number): string | null {
-        const cached: string | null | undefined = this.lootTrackerIconCache.get(type);
+    // inventory slot; the real tracked count is passed through so a
+    // stackable item with quantity-dependent pile models -- e.g. Coins,
+    // whose countobj/countco table swaps in a different model per stack-size
+    // threshold -- renders the correct pile art instead of the fixed
+    // "quantity 1" model, which for Coins is a model the client may never
+    // have on-demand-loaded if the player has never held exactly 1). Cache
+    // key includes count since the resolved model can differ by count;
+    // mirrors getXpTrackerIconCache's per-id caching otherwise.
+    private lootTrackerIcon(type: number, count: number): string | null {
+        const cacheKey: string = `${type}:${count}`;
+        const cached: string | null | undefined = this.lootTrackerIconCache.get(cacheKey);
         if (cached !== undefined) {
             return cached;
         }
 
-        const sprite: Pix32 | null = ObjType.getSprite(type, 1, 0);
+        const sprite: Pix32 | null = ObjType.getSprite(type, count, 0);
         const dataUrl: string | null = sprite ? sprite.toDataURL() : null;
-        this.lootTrackerIconCache.set(type, dataUrl);
+        this.lootTrackerIconCache.set(cacheKey, dataUrl);
         return dataUrl;
     }
 
@@ -5776,22 +5790,29 @@ export class Client extends GameShell {
             const sourceNpc: number = Number(key);
             const entry: LootTrackerGroupEntry = groups[key];
 
+            // custom (issue #134 fix): ObjType.list()/NpcType.list() never
+            // bounds-check id against numDefinitions -- an out-of-range id
+            // (e.g. persisted by an older, buggy build) sends decode() into
+            // an infinite loop reading past the end of the config archive.
+            // Persisted ids are untrusted, so validate before ever calling
+            // either lookup.
             const items = Object.keys(entry.items)
-                .map((itemKey: string) => {
-                    const type: number = Number(itemKey);
-                    const item: LootTrackerItemEntry = entry.items[itemKey];
+                .map((itemKey: string): number => Number(itemKey))
+                .filter((type: number): boolean => type >= 0 && type < ObjType.numDefinitions)
+                .map((type: number) => {
+                    const item: LootTrackerItemEntry = entry.items[String(type)];
                     const objType: ObjType = ObjType.list(type);
                     return {
                         type,
                         name: objType.name ?? 'Unknown item',
                         count: item.count,
                         value: item.value,
-                        iconDataUrl: this.lootTrackerIcon(type)
+                        iconDataUrl: this.lootTrackerIcon(type, item.count)
                     };
                 })
                 .sort((a, b) => b.value - a.value);
 
-            const monsterName: string = sourceNpc === -1 ? 'Unknown' : (NpcType.list(sourceNpc).name ?? 'Unknown');
+            const monsterName: string = sourceNpc >= 0 && sourceNpc < NpcType.numDefinitions ? (NpcType.list(sourceNpc).name ?? 'Unknown') : 'Unknown';
             const totalValue: number = items.reduce((s: number, i): number => s + i.value, 0);
 
             result.push({sourceNpc, monsterName, kills: entry.kills, totalValue, items});
