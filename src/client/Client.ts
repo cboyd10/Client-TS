@@ -312,6 +312,12 @@ export class Client extends GameShell {
     // custom (issue #126): per-item icon data-URL cache, mirroring
     // xpTrackerIconCache's role for the XP Tracker's staticons.
     private lootTrackerIconCache: Map<string, string | null> = new Map();
+    // custom (issue #142): cached data-URL conversion of sideicons[3] (the
+    // Inventory tab icon) for the Loot Tracker Total card. Only a successful
+    // conversion is cached -- see getLootTrackerTotalIcon() -- so a call
+    // before sideicons media has loaded is retried on every subsequent call
+    // rather than permanently caching a premature null.
+    private lootTrackerTotalIconCache: string | null = null;
 
     private hintType: number = 0;
     private hintNpc: number = 0;
@@ -5500,7 +5506,8 @@ export class Client extends GameShell {
             isMobile: (): boolean => this.isMobile,
             getCameraZoom: (): number => this.cameraZoom,
             getLootTrackerGroups: (): LootTrackerGroupData[] => this.buildLootTrackerGroups(),
-            resetLootTrackerGroup: (sourceNpc: number): void => this.resetLootTrackerGroup(sourceNpc)
+            resetLootTrackerGroup: (sourceNpc: number): void => this.resetLootTrackerGroup(sourceNpc),
+            getLootTrackerTotalIcon: (): string | null => this.getLootTrackerTotalIcon()
         };
 
         window.pluginBridge = bridge;
@@ -5820,6 +5827,23 @@ export class Client extends GameShell {
 
         result.sort((a, b) => b.totalValue - a.totalValue);
         return result;
+    }
+
+    // custom (issue #142): resolves (and caches) the Loot Tracker Total
+    // card's icon -- the real in-game Inventory tab icon (sideicons[3],
+    // classic top-row tab order Combat=0/Skills=1/Quest=2/Inventory=3/...),
+    // converted via Pix8.toDataURL() exactly like XP Tracker's staticon
+    // icons (see getXpTrackerIconCache()). Exposed via
+    // PluginBridge.getLootTrackerTotalIcon(); renderTotalCard() falls back
+    // to the inline SVG icon when this returns null.
+    private getLootTrackerTotalIcon(): string | null {
+        if (this.lootTrackerTotalIconCache === null) {
+            const icon: Pix8 | null = this.sideicons[3];
+            if (icon) {
+                this.lootTrackerTotalIconCache = icon.toDataURL();
+            }
+        }
+        return this.lootTrackerTotalIconCache;
     }
 
     // custom (cboyd10/runescape#103): lazily build and return the
