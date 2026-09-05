@@ -166,6 +166,11 @@ const TILE_HIGHLIGHT_FILL_TRANS = 174;
 // identification signal, matching content's existing convention elsewhere
 // (see "NPC display identity is the in-game name" in CONTEXT.md).
 const FISHING_SPOT_NAME = 'Fishing spot';
+// custom (issue #152): Fishing's skill id (Skill.names[10] === 'fishing',
+// SKILL_DISPLAY_NAMES[10] === 'Fishing' above) -- the same literal `10`
+// getFishingIcon() (initPluginBridge()) already keys off, named here for the
+// level-up toast trigger in the UPDATE_STAT handler below.
+const FISHING_SKILL_ID = 10;
 
 // custom (issue #149): one entry in the generic tile-highlight registry --
 // x/z are scene coordinates (same units as ClientEntity.x/z, 128 per tile),
@@ -7957,8 +7962,21 @@ export class Client extends GameShell {
                 const xp: number = this.in.g4();
                 const level: number = this.in.g1();
 
+                // custom (issue #152): captured before this handler overwrites
+                // statBaseLevel below, so the Fishing level-up toast trigger at
+                // the end of this block can compare old vs. new.
+                const oldBaseLevel: number = this.statBaseLevel[stat];
+
                 const xpTrackerNow: number = Date.now();
-                if (this.xpTrackerBaseline[stat] === -1) {
+                // custom (issue #152): true on the very first UPDATE_STAT packet
+                // for this skill since login/reconnect/reset -- captured here
+                // (before this branch mutates xpTrackerBaseline) so the toast
+                // trigger below can tell a genuine level-up apart from
+                // oldBaseLevel's uninitialized `0` default racing ahead of a
+                // first-login resend (which would otherwise misread as a fake
+                // "level up" on every login).
+                const isBaselineResend: boolean = this.xpTrackerBaseline[stat] === -1;
+                if (isBaselineResend) {
                     // First packet for this skill since the last reset — the login/reconnect resend, not a gain.
                     this.xpTrackerBaseline[stat] = xp;
                 } else if (xp > this.statXP[stat]) {
@@ -7984,6 +8002,18 @@ export class Client extends GameShell {
                     if (xp >= Client.levelExperience[i]) {
                         this.statBaseLevel[stat] = i + 2;
                     }
+                }
+
+                // custom (issue #152): Fishing level-up toast -- only on a
+                // genuine gain (never the login/reconnect baseline resend,
+                // see isBaselineResend above), only when it actually crossed a
+                // level boundary, and only while the Fishing plugin is enabled
+                // (Acceptance Criteria). Text format follows the issue's
+                // Acceptance Criteria literally (ASCII "->"); the confirmed
+                // mockup's own toast illustration uses a Unicode "→" purely
+                // for visual flavor in that doc, not as a spec requirement.
+                if (!isBaselineResend && stat === FISHING_SKILL_ID && this.statBaseLevel[stat] > oldBaseLevel && PluginManager.isEnabled('fishing')) {
+                    PluginSidebar.showPluginToast(fishingPlugin.icon, `Fishing level up! ${oldBaseLevel} -> ${this.statBaseLevel[stat]}`);
                 }
 
                 this.ptype = -1;

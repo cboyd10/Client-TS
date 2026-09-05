@@ -12,6 +12,12 @@ const SETTINGS_PANEL_ID = 'settings';
 // class comment below) rather than read from it.
 const NATIVE_CANVAS_WIDTH = 765;
 const MIN_CONTENT_PANEL_WIDTH = 150;
+// custom (issue #152): generic toast primitive timing -- how long a toast
+// stays fully visible before its fade-out starts, and the fade's own
+// duration (also used as the CSS transition length below, and as the delay
+// before the DOM node is actually removed once the fade completes).
+const TOAST_VISIBLE_MS = 4000;
+const TOAST_FADE_MS = 300;
 
 // custom: Feather-style "settings" line icon (MIT-licensed glyph set).
 const ICON_SETTINGS =
@@ -177,6 +183,25 @@ const STYLES = `
 .plugin-fishing-metric-label { font-size: 11px; color: #9aa39a; }
 .plugin-fishing-metric-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plugin-fishing-hint { color: #9aa39a; font-size: 11px; line-height: 1.4; padding: 4px 2px; }
+/* custom (issue #152): generic toast primitive -- first consumer is Client's
+   Fishing level-up detection. Styled per the confirmed mockup
+   (.claude/context/mockups equivalent artifact linked from issue #152): the
+   toast card itself matches the existing green Total-card convention
+   exactly (border/background), but its icon chip is smaller (22px) with a
+   slightly different chip background (#16301a, matching the mockup's own
+   toast-icon rule) than the 24px/#202020 chip other plugin Total cards use
+   -- a deliberately distinct, smaller treatment for an ephemeral toast vs. a
+   persistent panel card. Fixed-position and independent of the sidebar's own
+   open/closed content-panel state (and of whether the sidebar renders at
+   all -- e.g. too-narrow mobile widths per evaluateMobileFit()), so a toast
+   is always visible regardless of what the player currently has open. */
+#plugin-toast-container { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.plugin-toast { display: flex; align-items: center; gap: 8px; border: 1px solid #04A800; background: #10210f; border-radius: 4px; padding: 7px 10px; max-width: 240px; opacity: 1; transition: opacity ${TOAST_FADE_MS}ms ease; }
+.plugin-toast--hide { opacity: 0; }
+.plugin-toast-icon { width: 22px; height: 22px; border-radius: 4px; background: #16301a; border: 1px solid #04A800; color: #04A800; display: flex; align-items: center; justify-content: center; flex: 0 0 22px; overflow: hidden; }
+.plugin-toast-icon svg { width: 13px; height: 13px; }
+.plugin-toast-icon img { width: 16px; height: 16px; object-fit: contain; image-rendering: pixelated; }
+.plugin-toast-text { font-size: 11.5px; color: #f2f2f2; line-height: 1.35; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at
@@ -207,6 +232,12 @@ class PluginSidebar {
     // them. Generic on purpose: PluginSidebar doesn't need to know which
     // plugin, or which of its classes, is dragging.
     private dragActive = false;
+    // custom (issue #152): lazily created on first showPluginToast() call,
+    // appended directly to document.body -- deliberately independent of
+    // `root`/`contentPanel` (which don't exist at all on a mobile width too
+    // narrow to fit the sidebar, per evaluateMobileFit()) so a toast is never
+    // silently dropped just because the sidebar itself isn't rendered.
+    private toastContainer: HTMLDivElement | null = null;
 
     init(bridge: PluginBridge): void {
         if (this.bridge !== null) {
@@ -240,6 +271,48 @@ class PluginSidebar {
         }
 
         return ICON_COLUMN_WIDTH + (this.openId !== null ? (this.isMobile() ? this.mobileContentWidth : CONTENT_PANEL_WIDTH) : 0);
+    }
+
+    // custom (issue #152): generic toast primitive -- shows a transient,
+    // auto-dismissing notification, independent of the icon-column/
+    // content-panel open state. `icon` is inline SVG markup (or an <img>
+    // tag's HTML), matching PluginDescriptor.icon's existing convention --
+    // kept fully generic (icon + text only, no plugin-specific branching) per
+    // the issue's request, so a later plugin can reuse this without any
+    // changes here. First consumer: Client's Fishing level-up detection
+    // (Client.ts's UPDATE_STAT handler), which calls this directly rather
+    // than through PluginBridge -- Client already imports PluginSidebar
+    // directly (see init()/getTotalWidth() call sites in
+    // Client.initPluginBridge()), and the trigger here is Client-internal
+    // state, not page-level DOM code needing a door into Client, so no new
+    // PluginBridge surface is needed (mirrors updateFishingSpots()'s own
+    // direct-Client-internal-consumer precedent from issue #149).
+    showPluginToast(icon: string, text: string): void {
+        if (this.toastContainer === null) {
+            this.toastContainer = document.createElement('div');
+            this.toastContainer.id = 'plugin-toast-container';
+            document.body.appendChild(this.toastContainer);
+        }
+
+        const toast: HTMLDivElement = document.createElement('div');
+        toast.className = 'plugin-toast';
+
+        const iconEl: HTMLDivElement = document.createElement('div');
+        iconEl.className = 'plugin-toast-icon';
+        iconEl.innerHTML = icon;
+        toast.appendChild(iconEl);
+
+        const textEl: HTMLDivElement = document.createElement('div');
+        textEl.className = 'plugin-toast-text';
+        textEl.textContent = text;
+        toast.appendChild(textEl);
+
+        this.toastContainer.appendChild(toast);
+
+        setTimeout((): void => {
+            toast.classList.add('plugin-toast--hide');
+            setTimeout((): void => toast.remove(), TOAST_FADE_MS);
+        }, TOAST_VISIBLE_MS);
     }
 
     // custom (issue #109): computes whether the sidebar fits in the
