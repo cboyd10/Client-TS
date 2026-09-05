@@ -303,12 +303,6 @@ export class Client extends GameShell {
     // custom (issue #126): pending ground-item records awaiting correlation
     // with a matching inventory gain, oldest first (see LOOT_TRACKER_MAX_AGE_TICKS).
     private lootTrackerGroundLoot: LootTrackerGroundRecord[] = [];
-    // custom (issue #126): sourceNpc+tile+tick cluster keys already counted as
-    // a kill this session, mapped to the tick they were seen -- see
-    // lootTrackerOnGroundItem(). A key can never repeat (Client.loopCycle only
-    // increases), so this is pruned purely to bound memory over a long
-    // session, not for correctness.
-    private lootTrackerKillClusterSeen: Map<string, number> = new Map();
     // custom (issue #126): per-item icon data-URL cache, mirroring
     // xpTrackerIconCache's role for the XP Tracker's staticons.
     private lootTrackerIconCache: Map<string, string | null> = new Map();
@@ -5635,43 +5629,23 @@ export class Client extends GameShell {
     }
 
     // custom (issue #126): records a freshly-arrived ground item for pickup
-    // correlation, and -- independently of whether it's ever picked up --
-    // counts a kill the first time a given sourceNpc+tile+tick cluster is
-    // seen (multiple item stacks from one NPC death arrive as separate
-    // OBJ_ADDs on the same tick/tile).
+    // correlation. custom (issue #138): no longer counts a kill here -- kill
+    // counting now comes solely from the engine's KILL_CREDIT signal (see the
+    // ServerProt.KILL_CREDIT decode above), independent of whether this NPC
+    // drops anything.
     private lootTrackerOnGroundItem(level: number, x: number, z: number, type: number, count: number, sourceNpc: number): void {
         this.lootTrackerPruneGroundLoot();
         this.lootTrackerGroundLoot.push({level, x, z, type, remaining: count, sourceNpc, tick: Client.loopCycle});
-
-        if (sourceNpc === -1) {
-            return;
-        }
-
-        const clusterKey: string = `${sourceNpc}|${level}|${x}|${z}|${Client.loopCycle}`;
-        if (this.lootTrackerKillClusterSeen.has(clusterKey)) {
-            return;
-        }
-        this.lootTrackerKillClusterSeen.set(clusterKey, Client.loopCycle);
-        this.lootTrackerUpdateGroup(sourceNpc, (group: LootTrackerGroupEntry): void => {
-            group.kills++;
-        });
     }
 
     // custom (issue #126): drops ground-loot records older than
     // LOOT_TRACKER_MAX_AGE_TICKS with no matching pickup (lootTrackerGroundLoot
     // is insertion-ordered oldest-first, so this only ever needs to trim the
-    // front), and prunes kill-cluster-seen keys of the same age -- purely a
-    // memory bound, since a cluster key can never repeat (Client.loopCycle
-    // only increases).
+    // front).
     private lootTrackerPruneGroundLoot(): void {
         const cutoff: number = Client.loopCycle - LOOT_TRACKER_MAX_AGE_TICKS;
         while (this.lootTrackerGroundLoot.length > 0 && this.lootTrackerGroundLoot[0].tick < cutoff) {
             this.lootTrackerGroundLoot.shift();
-        }
-        for (const [key, tick] of this.lootTrackerKillClusterSeen) {
-            if (tick < cutoff) {
-                this.lootTrackerKillClusterSeen.delete(key);
-            }
         }
     }
 
@@ -7934,6 +7908,21 @@ export class Client extends GameShell {
                         this.statBaseLevel[stat] = i + 2;
                     }
                 }
+
+                this.ptype = -1;
+                return true;
+            }
+
+            // custom (issue #138): drop-independent kill-credit signal -- fired by the
+            // engine on every player-attributable NPC death (npc_death.rs2), whether or
+            // not anything drops. This is now the loot tracker's sole source of kill
+            // counts; see lootTrackerUpdateGroup().
+            if (this.ptype === ServerProt.KILL_CREDIT) {
+                const sourceNpc: number = this.in.g2();
+
+                this.lootTrackerUpdateGroup(sourceNpc, (group: LootTrackerGroupEntry): void => {
+                    group.kills++;
+                });
 
                 this.ptype = -1;
                 return true;
