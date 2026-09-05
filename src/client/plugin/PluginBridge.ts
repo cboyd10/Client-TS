@@ -67,15 +67,20 @@ export type PluginBridge = {
     // back to itself via PluginManager.onChange.
     getCameraZoom(): number;
     // custom (issue #126): current loot-tracker groups, one per distinct
-    // sourceNpc (plus the sourceNpc === -1 "Unknown" bucket when non-empty),
-    // sorted by total value descending. Rebuilt fresh from persisted config on
-    // every panel refresh -- no separate live-session cache.
+    // (monster display name, combat level) -- every persisted sourceNpc
+    // sharing that display identity (e.g. man/man2/man3, all "Man") is
+    // pooled into a single card (issue #140), plus the shared "Unknown"
+    // bucket (any sourceNpc that can't be resolved, including -1) when
+    // non-empty. Sorted by total value descending. Rebuilt fresh from
+    // persisted config on every panel refresh -- no separate live-session
+    // cache.
     getLootTrackerGroups(): LootTrackerGroupData[];
-    // custom (issue #126): clears one monster group's tracked kills/items
-    // entirely (unlike XP Tracker's per-skill reset, there's no "session"
-    // concept to re-seed -- a reset group simply drops out of
-    // getLootTrackerGroups() until its sourceNpc next drops something).
-    resetLootTrackerGroup(sourceNpc: number): void;
+    // custom (issue #126, signature widened by #140): clears every one of a
+    // pooled group's tracked kills/items entirely, in one write (unlike XP
+    // Tracker's per-skill reset, there's no "session" concept to re-seed --
+    // a reset group simply drops out of getLootTrackerGroups() until one of
+    // its sourceNpcs next drops something).
+    resetLootTrackerGroups(sourceNpcs: number[]): void;
     // custom (issue #142): the real in-game Inventory tab icon (Client's
     // private sideicons[3], classic top-row tab order Combat=0/Skills=1/
     // Quest=2/Inventory=3/...) for the Loot Tracker Total card, converted to
@@ -99,11 +104,16 @@ export type LootTrackerItemData = {
     iconDataUrl: string | null;
 };
 
-// custom (issue #126): one monster group for the loot tracker sidebar panel --
-// sourceNpc === -1 is the "Unknown" bucket (player-dropped items, static/quest
-// spawns, or anything already on the ground before this shipped).
+// custom (issue #126): one monster group for the loot tracker sidebar panel.
+// custom (issue #140): `sourceNpcs` replaces the single `sourceNpc` field --
+// it holds every raw sourceNpc id pooled into this card by shared
+// (monsterName, combat level) display identity (e.g. man/man2/man3 all pool
+// under "Man"). Any sourceNpc that can't be resolved against
+// NpcType.numDefinitions (including the -1 "no attributable NPC" sentinel)
+// pools into one shared "Unknown" bucket instead, and never merges with a
+// resolved-name group.
 export type LootTrackerGroupData = {
-    sourceNpc: number;
+    sourceNpcs: number[];
     monsterName: string;
     kills: number;
     totalValue: number;

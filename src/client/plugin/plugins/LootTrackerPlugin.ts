@@ -104,7 +104,7 @@ function renderCard(group: LootTrackerGroupData, bridge: PluginBridge): HTMLElem
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-loottracker-card';
 
-    el.appendChild(renderGroupHeader(group.monsterName, group.kills, group.totalValue, (): void => bridge.resetLootTrackerGroup(group.sourceNpc), `Reset ${group.monsterName} loot`));
+    el.appendChild(renderGroupHeader(group.monsterName, group.kills, group.totalValue, (): void => bridge.resetLootTrackerGroups(group.sourceNpcs), `Reset ${group.monsterName} loot`));
 
     const grid: HTMLDivElement = document.createElement('div');
     grid.className = 'plugin-loottracker-grid';
@@ -163,7 +163,7 @@ function renderTotalCard(bridge: PluginBridge, groups: LootTrackerGroupData[]): 
     row.appendChild(
         makeResetButton('Reset all tracked loot', (): void => {
             for (const group of groups) {
-                bridge.resetLootTrackerGroup(group.sourceNpc);
+                bridge.resetLootTrackerGroups(group.sourceNpcs);
             }
         })
     );
