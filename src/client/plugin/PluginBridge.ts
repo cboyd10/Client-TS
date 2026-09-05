@@ -88,6 +88,24 @@ export type PluginBridge = {
     // build with no sideicons media), in which case renderTotalCard() falls
     // back to the inline SVG icon.
     getLootTrackerTotalIcon(): string | null;
+    // custom (issue #149): generic tile-highlight primitive -- draws a
+    // colored highlight on a world-space ground tile in the main game
+    // viewport (see Client.renderTileHighlights()). `x`/`z` are scene
+    // coordinates (same units as an entity's x/z, 128 per tile), `level` is
+    // the map plane (Client's `minusedlevel`), and `color` is a packed
+    // 0xRRGGBB int -- not Fishing-specific in signature or implementation;
+    // the Fishing plugin (this issue's first consumer) is the only current
+    // caller, driven internally by Client rather than through this bridge,
+    // but any future plugin (e.g. a planned Ground Markers plugin) can call
+    // it directly. `id` is caller-chosen and must be unique per highlight;
+    // calling again with the same `id` replaces it.
+    setTileHighlight(id: string, x: number, z: number, level: number, color: number): void;
+    clearTileHighlight(id: string): void;
+    // custom (issue #149): the Fishing skill's staticon icon as a data URL,
+    // for the Fishing plugin panel's Total card -- reuses the same
+    // per-skill icon cache getXpTrackerCards() already builds (skill id 10),
+    // not a new lookup/conversion.
+    getFishingIcon(): string | null;
 };
 
 // custom (issue #126): one tracked item within a loot-tracker monster group --
