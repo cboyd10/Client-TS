@@ -181,11 +181,18 @@ const STYLES = `
    tile-highlight primitive's color, FISHING_SPOT_TILE_COLOR = 0x00e1ff), per
    the comment above plugin-fishing-total-card reserving cyan for
    "Fishing-specific cards in later issues", distinct from the Total card's
-   green. */
-.plugin-fishing-active-spot-card { border: 1px solid #00e1ff; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #0f1f21; }
-.plugin-fishing-active-spot-row { display: flex; justify-content: space-between; align-items: baseline; }
-.plugin-fishing-active-spot-label { font-size: 11px; color: #9aa39a; }
-.plugin-fishing-active-spot-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
+   green. plugin-fishing-spot-card/plugin-fishing-spot-head are the same
+   class names cboyd10/Client-TS#42 (issue #151) uses for its half of this
+   same card (catch-chance rows) -- reused deliberately so the two PRs'
+   cards render as one visual box rather than two stacked cyan cards; see
+   FishingPlugin.ts's renderActiveSpotCard() comment for the full
+   reconciliation note. The plugin-fishing-timer-* row classes below are
+   this issue's own (a plain label:value row, unlike #151's bar-chart rows). */
+.plugin-fishing-spot-card { border: 1px solid #00e1ff; border-radius: 4px; padding: 8px; margin-bottom: 8px; background: #0a2a30; }
+.plugin-fishing-spot-head { font-size: 12px; font-weight: 700; color: #f2f2f2; margin-bottom: 6px; }
+.plugin-fishing-timer-row { display: flex; justify-content: space-between; align-items: baseline; }
+.plugin-fishing-timer-label { font-size: 11px; color: #9aa39a; }
+.plugin-fishing-timer-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at
