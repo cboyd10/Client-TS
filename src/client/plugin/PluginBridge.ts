@@ -106,6 +106,21 @@ export type PluginBridge = {
     // per-skill icon cache getXpTrackerCards() already builds (skill id 10),
     // not a new lookup/conversion.
     getFishingIcon(): string | null;
+    // custom (issue #151): resolved, DOM-friendly catch-chance entries for
+    // the Active Spot card -- one per fish species reachable with the
+    // player's currently held tool at a nearby fishing spot. `percent` is
+    // computed entirely server-side (the exact STAT_RANDOM formula, see
+    // engine's FishingSpotCatalog.ts) and never re-derived here. Empty when
+    // the player isn't near a covered spot -- the panel hides the card in
+    // that case.
+    getFishingCatchChances(): FishingCatchChanceData[];
+};
+
+// custom (issue #151): one row in the Fishing plugin's Active Spot card.
+export type FishingCatchChanceData = {
+    fish: number;
+    name: string;
+    percent: number;
 };
 
 // custom (issue #126): one tracked item within a loot-tracker monster group --
