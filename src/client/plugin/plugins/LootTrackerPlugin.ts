@@ -19,7 +19,10 @@ const ICON_REFRESH =
     '</svg>';
 
 // custom (issue #134 restyle): Feather-style "briefcase" glyph, stood in for
-// a backpack/inventory icon on the Total card.
+// a backpack/inventory icon on the Total card. As of issue #142 this is only
+// the fallback -- the Total card icon is normally the real in-game
+// Inventory tab icon (bridge.getLootTrackerTotalIcon()), and this SVG only
+// renders when that bridge call returns null (sprite not loaded yet).
 const ICON_BACKPACK =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
     '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>' +
@@ -113,10 +116,10 @@ function renderCard(group: LootTrackerGroupData, bridge: PluginBridge): HTMLElem
     return el;
 }
 
-// custom (issue #134 restyle): backpack icon + "Total count" / "Total value"
-// lines, replacing the name/kills header layout the Total card previously
-// shared with per-monster cards -- kills isn't a meaningful "total" across
-// every monster's card the way item count and value are.
+// custom (issue #134 restyle, icon+copy updated by issue #142): real
+// in-game Inventory tab icon (falling back to the backpack SVG) + "Total
+// kills" / "Total items" / "Total value" lines, replacing the name/kills
+// header layout the Total card previously shared with per-monster cards.
 function renderTotalCard(bridge: PluginBridge, groups: LootTrackerGroupData[]): HTMLElement {
     const el: HTMLDivElement = document.createElement('div');
     el.className = 'plugin-loottracker-total-card';
@@ -126,17 +129,30 @@ function renderTotalCard(bridge: PluginBridge, groups: LootTrackerGroupData[]): 
 
     const icon: HTMLDivElement = document.createElement('div');
     icon.className = 'plugin-loottracker-total-icon';
-    icon.innerHTML = ICON_BACKPACK;
+    const totalIconDataUrl: string | null = bridge.getLootTrackerTotalIcon();
+    if (totalIconDataUrl !== null) {
+        const img: HTMLImageElement = document.createElement('img');
+        img.src = totalIconDataUrl;
+        img.alt = 'Inventory';
+        icon.appendChild(img);
+    } else {
+        icon.innerHTML = ICON_BACKPACK;
+    }
     row.appendChild(icon);
 
+    const totalKills: number = groups.reduce((s: number, g: LootTrackerGroupData): number => s + g.kills, 0);
     const totalCount: number = groups.reduce((s: number, g: LootTrackerGroupData): number => s + g.items.reduce((si: number, i: LootTrackerItemData): number => si + i.count, 0), 0);
     const totalValue: number = groups.reduce((s: number, g: LootTrackerGroupData): number => s + g.totalValue, 0);
 
     const info: HTMLDivElement = document.createElement('div');
     info.className = 'plugin-loottracker-total-info';
 
+    const killsLine: HTMLDivElement = document.createElement('div');
+    killsLine.textContent = `Total kills: ${totalKills.toLocaleString()}`;
+    info.appendChild(killsLine);
+
     const countLine: HTMLDivElement = document.createElement('div');
-    countLine.textContent = `Total count: ${totalCount.toLocaleString()}`;
+    countLine.textContent = `Total items: ${totalCount.toLocaleString()}`;
     info.appendChild(countLine);
 
     const valueLine: HTMLDivElement = document.createElement('div');

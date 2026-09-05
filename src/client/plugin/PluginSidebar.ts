@@ -130,8 +130,9 @@ const STYLES = `
 .plugin-loottracker-header-name { font-size: 12px; color: #f2f2f2; font-weight: 600; }
 .plugin-loottracker-header-count { font-size: 12px; color: #9aa39a; }
 .plugin-loottracker-header-value { font-size: 12px; color: #c9aa71; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-.plugin-loottracker-total-icon { width: 32px; height: 32px; border-radius: 5px; background: #16301a; border: 1px solid #04A800; color: #04A800; display: flex; align-items: center; justify-content: center; flex: 0 0 32px; }
+.plugin-loottracker-total-icon { width: 32px; height: 32px; border-radius: 5px; background: #16301a; border: 1px solid #04A800; color: #04A800; display: flex; align-items: center; justify-content: center; flex: 0 0 32px; overflow: hidden; }
 .plugin-loottracker-total-icon svg { width: 18px; height: 18px; }
+.plugin-loottracker-total-icon img { width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; }
 .plugin-loottracker-total-info { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; font-size: 12px; color: #f2f2f2; font-variant-numeric: tabular-nums; }
 .plugin-loottracker-reset-btn { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .plugin-loottracker-reset-btn:hover { background: #3a3a3a; color: #fff; }

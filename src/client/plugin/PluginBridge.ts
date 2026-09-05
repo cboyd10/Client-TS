@@ -81,6 +81,13 @@ export type PluginBridge = {
     // a reset group simply drops out of getLootTrackerGroups() until one of
     // its sourceNpcs next drops something).
     resetLootTrackerGroups(sourceNpcs: number[]): void;
+    // custom (issue #142): the real in-game Inventory tab icon (Client's
+    // private sideicons[3], classic top-row tab order Combat=0/Skills=1/
+    // Quest=2/Inventory=3/...) for the Loot Tracker Total card, converted to
+    // a data URL and cached -- null if the sprite isn't loaded yet (or on a
+    // build with no sideicons media), in which case renderTotalCard() falls
+    // back to the inline SVG icon.
+    getLootTrackerTotalIcon(): string | null;
 };
 
 // custom (issue #126): one tracked item within a loot-tracker monster group --
