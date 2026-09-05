@@ -177,6 +177,15 @@ const STYLES = `
 .plugin-fishing-metric-label { font-size: 11px; color: #9aa39a; }
 .plugin-fishing-metric-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plugin-fishing-hint { color: #9aa39a; font-size: 11px; line-height: 1.4; padding: 4px 2px; }
+/* custom (issue #150): Active Spot card -- cyan accent (matches the
+   tile-highlight primitive's color, FISHING_SPOT_TILE_COLOR = 0x00e1ff), per
+   the comment above plugin-fishing-total-card reserving cyan for
+   "Fishing-specific cards in later issues", distinct from the Total card's
+   green. */
+.plugin-fishing-active-spot-card { border: 1px solid #00e1ff; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #0f1f21; }
+.plugin-fishing-active-spot-row { display: flex; justify-content: space-between; align-items: baseline; }
+.plugin-fishing-active-spot-label { font-size: 11px; color: #9aa39a; }
+.plugin-fishing-active-spot-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at

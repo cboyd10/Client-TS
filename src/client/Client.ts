@@ -8,7 +8,7 @@ import LongPressIndicator from '#/client/LongPressIndicator.js';
 import { MiniMenuAction } from '#/client/MiniMenuAction.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
 import MouseTracking from '#/client/MouseTracking.js';
-import type {LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
+import type {FishingActiveSpotData, LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
 import cameraPlugin from '#/client/plugin/plugins/CameraPlugin.js';
@@ -2381,6 +2381,20 @@ export class Client extends GameShell {
 
         if (this.rebootTimer > 1) {
             this.rebootTimer--;
+        }
+
+        // custom (issue #150): decrement every visible npc's generic "ticks
+        // remaining" countdown (NpcUpdate.TIMER) once per client cycle,
+        // mirroring rebootTimer's decrement immediately above -- the server
+        // sends this mask once when armed (non-persisting) and never
+        // re-sends it mid-countdown, so the client owns ticking it down
+        // locally between updates (see ClientNpc.timerMaskTicks and
+        // getNpcPosExtended()'s TIMER decode).
+        for (let i: number = 0; i < this.npcCount; i++) {
+            const timedNpc: ClientNpc | null = this.npc[this.npcIds[i]];
+            if (timedNpc && timedNpc.timerMaskTicks > 0) {
+                timedNpc.timerMaskTicks--;
+            }
         }
 
         if (this.logoutTimer > 0) {
@@ -5560,7 +5574,8 @@ export class Client extends GameShell {
             getLootTrackerTotalIcon: (): string | null => this.getLootTrackerTotalIcon(),
             setTileHighlight: (id: string, x: number, z: number, level: number, color: number): void => this.setTileHighlight(id, x, z, level, color),
             clearTileHighlight: (id: string): void => this.clearTileHighlight(id),
-            getFishingIcon: (): string | null => this.getXpTrackerIconCache().get(10) ?? null
+            getFishingIcon: (): string | null => this.getXpTrackerIconCache().get(10) ?? null,
+            getFishingActiveSpot: (): FishingActiveSpotData | null => this.buildFishingActiveSpot()
         };
 
         window.pluginBridge = bridge;
@@ -6368,6 +6383,50 @@ export class Client extends GameShell {
             }
         }
         this.fishingSpotHighlightIds = seen;
+    }
+
+    // custom (issue #150): "the" active fishing spot for the plugin panel's
+    // countdown card is defined as the nearest visible fishing-spot NPC
+    // (Euclidean, scene-coordinate units) with an armed timer -- this
+    // codebase has no existing "current interaction target" concept to key
+    // off instead (there's no client-side target tracking at all; combat/
+    // skilling targets are server-authoritative only), and "nearest spot
+    // you're near" is the closest available proxy for "the spot you're
+    // fishing at". Called on-demand from PluginBridge (once per panel
+    // refresh, like buildXpTrackerCards()/buildLootTrackerGroups()), not
+    // cached per frame.
+    private buildFishingActiveSpot(): FishingActiveSpotData | null {
+        if (!PluginManager.isEnabled('fishing') || !this.localPlayer) {
+            return null;
+        }
+
+        let nearest: ClientNpc | null = null;
+        let nearestDistSq: number = Number.MAX_SAFE_INTEGER;
+
+        for (let i: number = 0; i < this.npcCount; i++) {
+            const npc: ClientNpc | null = this.npc[this.npcIds[i]];
+            if (!npc || !npc.isReady() || npc.type?.name !== FISHING_SPOT_NAME || npc.timerMaskTicks <= 0) {
+                continue;
+            }
+
+            const dx: number = npc.x - this.localPlayer.x;
+            const dz: number = npc.z - this.localPlayer.z;
+            const distSq: number = dx * dx + dz * dz;
+            if (distSq < nearestDistSq) {
+                nearestDistSq = distSq;
+                nearest = npc;
+            }
+        }
+
+        if (!nearest) {
+            return null;
+        }
+
+        // custom (issue #150): timerMaskTicks is stored in client loop-cycle
+        // units (50/sec, see getNpcPosExtended()'s TIMER decode and
+        // gameLoop()'s decrement) -- divide by 50 for seconds, matching
+        // rebootTimer's own render-time conversion.
+        return {secondsRemaining: Math.ceil(nearest.timerMaskTicks / 50)};
     }
 
     private checkMinimap(): void {
@@ -9490,7 +9549,16 @@ export class Client extends GameShell {
                 continue;
             }
 
-            const mask: number = buf.g1();
+            // custom (issue #150): the mask header is now unconditionally 2
+            // bytes, little-endian (matches the server's NpcInfoEncoder.
+            // writeBlocks() -- ip2() there is a little-endian write, so the
+            // low byte arrives first) -- previously this was a single byte,
+            // but NpcInfoProt.TIMER (0x100) needed a 9th bit and the
+            // original 8-bit mask space had no spare "BIG"-style
+            // continuation flag reserved (unlike PlayerInfoProt/PlayerUpdate,
+            // see getPlayerPosExtended() below for that conditional pattern).
+            let mask: number = buf.g1();
+            mask += buf.g1() << 8;
 
             if ((mask & NpcUpdate.HITMARK2) !== 0) {
                 const damage = buf.g1();
@@ -9588,6 +9656,16 @@ export class Client extends GameShell {
             if ((mask & NpcUpdate.FACESQUARE) !== 0) {
                 npc.faceSquareX = buf.g2();
                 npc.faceSquareZ = buf.g2();
+            }
+
+            if ((mask & NpcUpdate.TIMER) !== 0) {
+                // custom (issue #150): raw payload is in game ticks (600ms
+                // each, see NpcInfoTimer in Engine-TS); convert to client
+                // loop-cycle units immediately on decode, mirroring
+                // rebootTimer's own *30 conversion on receipt (see the
+                // UPDATE_REBOOT_TIMER handler) -- 30 client cycles per game
+                // tick. gameLoop() decrements this by 1 every cycle.
+                npc.timerMaskTicks = buf.g2() * 30;
             }
         }
     }

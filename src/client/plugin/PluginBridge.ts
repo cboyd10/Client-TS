@@ -106,6 +106,23 @@ export type PluginBridge = {
     // per-skill icon cache getXpTrackerCards() already builds (skill id 10),
     // not a new lookup/conversion.
     getFishingIcon(): string | null;
+    // custom (issue #150): the fishing spot NPC nearest the local player,
+    // among those currently visible with an armed relocation countdown --
+    // null when the plugin is disabled, no fishing-spot NPC is visible, or
+    // the nearest one's timer isn't armed yet (e.g. this tick's NpcInfo
+    // update hasn't arrived). `secondsRemaining` is pre-converted from the
+    // underlying client-cycle countdown (see ClientNpc.timerMaskTicks) so
+    // the panel only has to format it, not know about ticks/cycles at all.
+    // Built fresh on every call (matches getXpTrackerCards()/
+    // getLootTrackerGroups()'s pattern) -- no separate live-session cache.
+    getFishingActiveSpot(): FishingActiveSpotData | null;
+};
+
+// custom (issue #150): the Fishing plugin panel's Active Spot card data --
+// deliberately minimal (just the countdown) since the card's other fields
+// (species/location) are out of scope for this issue.
+export type FishingActiveSpotData = {
+    secondsRemaining: number;
 };
 
 // custom (issue #126): one tracked item within a loot-tracker monster group --

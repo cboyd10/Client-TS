@@ -67,10 +67,60 @@ function renderTotalCard(bridge: PluginBridge): HTMLElement {
     return el;
 }
 
+// custom (issue #150): zero-padded MM:SS, matching Client.ts's
+// xpTrackerFormatHms formatting style (colon-separated, 2-digit segments)
+// but only the two segments this countdown ever needs -- the fishing spot
+// relocation range is ~280-530 ticks (~2:48-5:18), well under an hour, so an
+// HH:MM:SS format would only add a constant, pointless "00:" prefix.
+function formatMoveCountdown(totalSeconds: number): string {
+    const minutes: number = Math.floor(totalSeconds / 60);
+    const seconds: number = totalSeconds % 60;
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+}
+
+// custom (issue #150): Active Spot card -- a live "Moves in" countdown for
+// the nearest fishing spot with an armed relocation timer (see
+// PluginBridge.getFishingActiveSpot(); "nearest" is that method's definition
+// of "the" active spot, there being no client-side interaction-target
+// tracking to key off instead). Returns null (renders nothing) when there's
+// no active spot, rather than an empty placeholder card. Refreshed every
+// second by PluginSidebar's existing CONTENT_REFRESH_MS redraw, same as
+// every other plugin card -- no separate timer of its own.
+function renderActiveSpotCard(bridge: PluginBridge): HTMLElement | null {
+    const spot = bridge.getFishingActiveSpot();
+    if (spot === null) {
+        return null;
+    }
+
+    const el: HTMLDivElement = document.createElement('div');
+    el.className = 'plugin-fishing-active-spot-card';
+
+    const row: HTMLDivElement = document.createElement('div');
+    row.className = 'plugin-fishing-active-spot-row';
+
+    const label: HTMLSpanElement = document.createElement('span');
+    label.className = 'plugin-fishing-active-spot-label';
+    label.textContent = 'Moves in:';
+    row.appendChild(label);
+
+    const value: HTMLSpanElement = document.createElement('span');
+    value.className = 'plugin-fishing-active-spot-value';
+    value.textContent = formatMoveCountdown(spot.secondsRemaining);
+    row.appendChild(value);
+
+    el.appendChild(row);
+    return el;
+}
+
 function renderPanel(bridge: PluginBridge): HTMLElement {
     const container: HTMLDivElement = document.createElement('div');
     container.className = 'plugin-fishing-panel';
     container.appendChild(renderTotalCard(bridge));
+
+    const activeSpotCard: HTMLElement | null = renderActiveSpotCard(bridge);
+    if (activeSpotCard !== null) {
+        container.appendChild(activeSpotCard);
+    }
 
     const hint: HTMLDivElement = document.createElement('div');
     hint.className = 'plugin-fishing-hint';
