@@ -161,32 +161,6 @@ type XpTrackerPanel = {
     secondsToLevel: number;
 };
 
-// custom (issue #126): how long (in game ticks) an unmatched ground-item
-// record stays eligible for pickup correlation before it's pruned. Generous
-// enough to survive network/render lag between a drop appearing and the
-// player's inventory update arriving, but deliberately short: correlation
-// isn't scoped to the player's own backpack specifically (the client has no
-// component id that identifies "the real inventory" vs. a bank/shop/trade
-// panel -- every interface's linked array uses the same UPDATE_INV_FULL/
-// UPDATE_INV_PARTIAL wire messages), so a short window bounds how long an
-// unrelated container gain at the exact same tile/type could misattribute to
-// a pending drop. See the loot tracker PR description for the residual risk.
-const LOOT_TRACKER_MAX_AGE_TICKS = 20;
-
-// custom (issue #126): one ground-item arrival pending correlation with a
-// matching inventory gain -- see lootTrackerOnPickup(). `remaining` is
-// decremented (in whole or in part) as matching pickups consume it; a record
-// with remaining <= 0 is dropped.
-type LootTrackerGroundRecord = {
-    level: number;
-    x: number;
-    z: number;
-    type: number;
-    remaining: number;
-    sourceNpc: number;
-    tick: number;
-};
-
 // custom (issue #126): persisted per-item/per-group shape stored under the
 // lootTracker plugin's config blob (key 'groups', keyed by String(sourceNpc),
 // '-1' being the "Unknown" bucket).
@@ -300,9 +274,6 @@ export class Client extends GameShell {
     private xpTrackerHiddenSkills: Set<number> = new Set();
     private loggedInUsername: string = '';
 
-    // custom (issue #126): pending ground-item records awaiting correlation
-    // with a matching inventory gain, oldest first (see LOOT_TRACKER_MAX_AGE_TICKS).
-    private lootTrackerGroundLoot: LootTrackerGroundRecord[] = [];
     // custom (issue #126): per-item icon data-URL cache, mirroring
     // xpTrackerIconCache's role for the XP Tracker's staticons.
     private lootTrackerIconCache: Map<string, string | null> = new Map();
@@ -312,6 +283,26 @@ export class Client extends GameShell {
     // before sideicons media has loaded is retried on every subsequent call
     // rather than permanently caching a premature null.
     private lootTrackerTotalIconCache: string | null = null;
+    // custom (issue #139): tile+type keys of ground items already credited
+    // to a monster's loot but not yet confirmed gone (OBJ_DEL). Without
+    // this, the engine's zone resync (Zone.writeFullFollows(), fired
+    // whenever a zone re-enters a player's build area from ordinary
+    // walking, not just login/teleport) re-sends OBJ_ADD for every
+    // still-present drop and would re-credit it every time. Keyed by
+    // tile+type only, not sourceNpc -- OBJ_DEL carries no sourceNpc to
+    // disambiguate by -- so two different monsters' drops of the identical
+    // item type piling on the exact same tile at the same time collapse
+    // into one credited entry; an accepted, rare edge case. Entries are
+    // never time-expired (deliberately -- that's the correlation machinery
+    // this issue removes): a key only clears on OBJ_DEL, which the engine
+    // only delivers to a client actively watching that zone. If the
+    // original item is removed while this zone is outside the player's
+    // view, and a coincidentally new drop of the same item type then lands
+    // on the exact same tile before the zone re-enters view, that new drop
+    // is silently skipped as "already credited" -- a rare, accepted
+    // trade-off against the guaranteed, frequent double-credit this Set
+    // exists to prevent.
+    private lootTrackerCreditedGround: Set<string> = new Set();
 
     private hintType: number = 0;
     private hintNpc: number = 0;
@@ -5589,121 +5580,45 @@ export class Client extends GameShell {
         this.xpTrackerPausedAccumMs[skillId] = 0;
     }
 
-    // custom (issue #126): sums an inventory-linked array pair by item type,
-    // ignoring empty slots (count <= 0). Shared by the UPDATE_INV_FULL/
-    // UPDATE_INV_PARTIAL handlers to snapshot totals before and after applying
-    // a packet, so lootTrackerOnInvChange() can diff per-type gains regardless
-    // of which slots moved.
-    private lootTrackerSumInv(types: Int32Array, counts: Int32Array): Map<number, number> {
-        const totals: Map<number, number> = new Map();
-        for (let i: number = 0; i < types.length; i++) {
-            const count: number = counts[i];
-            if (count <= 0) {
-                continue;
-            }
-            // custom (issue #126 fix): linkObjType stores realId + 1 on the
-            // wire (0 means empty slot) -- matches the -1 adjustment every
-            // other linkObjType read in this file applies (e.g. Client.ts's
-            // inventory-slot ObjType.list(child.linkObjType[slot] - 1) call
-            // sites), so ground-item type ids (raw, no offset) can compare
-            // equal to pickup type ids here.
-            const type: number = types[i] - 1;
-            totals.set(type, (totals.get(type) ?? 0) + count);
-        }
-        return totals;
+    // custom (issue #139): key for lootTrackerCreditedGround -- tile+type
+    // only, matching what OBJ_DEL can tell us (see that field's comment).
+    private lootTrackerGroundKey(level: number, x: number, z: number, type: number): string {
+        return `${level}_${x}_${z}_${type}`;
     }
 
-    // custom (issue #126): the inventory-gain half of loot tracker's
-    // ground-item correlation. Runs on every UPDATE_INV_FULL/UPDATE_INV_PARTIAL
-    // for every interface (not just the backpack) -- banking, trading, shops
-    // and the (nonexistent) GE never touch ground items, so a gain there never
-    // matches a pending lootTrackerGroundLoot record and is silently ignored;
-    // no suppression logic needed (see issue #126's Context).
-    private lootTrackerOnInvChange(prevTotals: Map<number, number>, nextTotals: Map<number, number>): void {
-        for (const [type, newCount] of nextTotals) {
-            const oldCount: number = prevTotals.get(type) ?? 0;
-            if (newCount > oldCount) {
-                this.lootTrackerOnPickup(type, newCount - oldCount);
-            }
-        }
-    }
-
-    // custom (issue #126): records a freshly-arrived ground item for pickup
-    // correlation. custom (issue #138): no longer counts a kill here -- kill
-    // counting now comes solely from the engine's KILL_CREDIT signal (see the
-    // ServerProt.KILL_CREDIT decode above), independent of whether this NPC
-    // drops anything.
+    // custom (issue #139): credits a freshly-arrived ground item's value to
+    // its source NPC's persisted group the instant it's dispatched, rather
+    // than waiting for a later matching pickup. A bystander can never
+    // double-receive OBJ_ADD for someone else's kill (the engine only ever
+    // sends it to the client credited with the kill, and the later
+    // OBJ_REVEAL message that makes an unclaimed drop visible to everyone
+    // else carries no sourceNpc at all) -- but the *same* client can, via
+    // the engine's zone resync (see lootTrackerCreditedGround's comment), so
+    // that guard is what actually prevents double-crediting here. Drops
+    // with sourceNpc === -1 (player-dropped items, static/quest spawns)
+    // aren't attributed to any monster. custom (issue #138): kill counting is
+    // separate, sourced from the engine's KILL_CREDIT signal.
     private lootTrackerOnGroundItem(level: number, x: number, z: number, type: number, count: number, sourceNpc: number): void {
-        this.lootTrackerPruneGroundLoot();
-        this.lootTrackerGroundLoot.push({level, x, z, type, remaining: count, sourceNpc, tick: Client.loopCycle});
-    }
-
-    // custom (issue #126): drops ground-loot records older than
-    // LOOT_TRACKER_MAX_AGE_TICKS with no matching pickup (lootTrackerGroundLoot
-    // is insertion-ordered oldest-first, so this only ever needs to trim the
-    // front).
-    private lootTrackerPruneGroundLoot(): void {
-        const cutoff: number = Client.loopCycle - LOOT_TRACKER_MAX_AGE_TICKS;
-        while (this.lootTrackerGroundLoot.length > 0 && this.lootTrackerGroundLoot[0].tick < cutoff) {
-            this.lootTrackerGroundLoot.shift();
-        }
-    }
-
-    // custom (issue #126): attributes an inventory gain to the oldest matching
-    // pending ground-item record(s) at the local player's current tile,
-    // consuming each in whole or in part (a partial pickup, e.g. some of a
-    // coin stack, is supported -- as is one gain spanning multiple monsters'
-    // drops of the same item type at the same tile). Unmatched gains (no
-    // record at this tile/type, or none pending at all) are simply not
-    // attributed to any monster. Batches every matched group into a single
-    // config read-modify-write, however many ground records this one gain
-    // ends up spanning.
-    private lootTrackerOnPickup(type: number, gained: number): void {
-        if (!this.localPlayer) {
+        if (sourceNpc < 0) {
             return;
         }
 
-        const level: number = this.minusedlevel;
-        const x: number = this.localPlayer.x >> 7;
-        const z: number = this.localPlayer.z >> 7;
-
-        const takenBySource: Map<number, number> = new Map();
-        let remaining: number = gained;
-        for (const record of this.lootTrackerGroundLoot) {
-            if (remaining <= 0) {
-                break;
-            }
-            if (record.remaining <= 0 || record.type !== type || record.level !== level || record.x !== x || record.z !== z) {
-                continue;
-            }
-
-            const taken: number = Math.min(remaining, record.remaining);
-            record.remaining -= taken;
-            remaining -= taken;
-            takenBySource.set(record.sourceNpc, (takenBySource.get(record.sourceNpc) ?? 0) + taken);
-        }
-
-        this.lootTrackerGroundLoot = this.lootTrackerGroundLoot.filter((record: LootTrackerGroundRecord): boolean => record.remaining > 0);
-
-        if (takenBySource.size === 0) {
+        const key: string = this.lootTrackerGroundKey(level, x, z, type);
+        if (this.lootTrackerCreditedGround.has(key)) {
             return;
         }
+        this.lootTrackerCreditedGround.add(key);
 
         const objType: ObjType = ObjType.list(type);
         const unitValue: number = Math.max(Math.floor(objType.cost * 0.6), 1);
         const itemKey: string = String(type);
 
-        const groups: Record<string, LootTrackerGroupEntry> = this.lootTrackerReadGroups();
-        for (const [sourceNpc, taken] of takenBySource) {
-            const key: string = String(sourceNpc);
-            const group: LootTrackerGroupEntry = groups[key] ?? {kills: 0, items: {}};
+        this.lootTrackerUpdateGroup(sourceNpc, (group: LootTrackerGroupEntry): void => {
             const item: LootTrackerItemEntry = group.items[itemKey] ?? {count: 0, value: 0};
-            item.count += taken;
-            item.value += unitValue * taken;
+            item.count += count;
+            item.value += unitValue * count;
             group.items[itemKey] = item;
-            groups[key] = group;
-        }
-        PluginManager.setConfig('lootTracker', {groups});
+        });
     }
 
     // custom (issue #126): reads the lootTracker plugin's persisted groups
@@ -7481,8 +7396,6 @@ export class Client extends GameShell {
                     throw new Error();
                 }
 
-                const prevTotals: Map<number, number> = this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber);
-
                 const size: number = this.in.g2();
                 for (let i: number = 0; i < size; i++) {
                     inv.linkObjType[i] = this.in.g2();
@@ -7500,8 +7413,6 @@ export class Client extends GameShell {
                     inv.linkObjNumber[i] = 0;
                 }
 
-                this.lootTrackerOnInvChange(prevTotals, this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber));
-
                 this.ptype = -1;
                 return true;
             }
@@ -7515,8 +7426,6 @@ export class Client extends GameShell {
                 if (!inv.linkObjType || !inv.linkObjNumber) {
                     throw new Error();
                 }
-
-                const prevTotals: Map<number, number> = this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber);
 
                 while (this.in.pos < this.psize) {
                     const slot: number = this.in.gsmart();
@@ -7532,8 +7441,6 @@ export class Client extends GameShell {
                         inv.linkObjNumber[slot] = count;
                     }
                 }
-
-                this.lootTrackerOnInvChange(prevTotals, this.lootTrackerSumInv(inv.linkObjType, inv.linkObjNumber));
 
                 this.ptype = -1;
                 return true;
@@ -8515,6 +8422,8 @@ export class Client extends GameShell {
 
                     this.showObject(x, z);
                 }
+
+                this.lootTrackerCreditedGround.delete(this.lootTrackerGroundKey(this.minusedlevel, x, z, type & 0x7fff));
             }
         } else if (opcode === ServerProt.MAP_PROJANIM) {
             let x2: number = x + buf.g1b();
