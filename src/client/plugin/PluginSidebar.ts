@@ -162,6 +162,21 @@ const STYLES = `
 .plugin-sidebar--mobile .plugin-camera-reset-btn { min-width: 44px; min-height: 44px; padding: 8px 10px; }
 .plugin-sidebar--mobile .plugin-loottracker-reset-btn { width: 44px; height: 44px; flex: 0 0 44px; }
 .plugin-sidebar--mobile .plugin-loottracker-reset-btn svg { width: 16px; height: 16px; }
+/* custom (issue #149): Fishing plugin shell -- per the Acceptance Criteria,
+   this Total card matches the existing GREEN #04A800 convention exactly
+   (same as plugin-xptracker-total-card/plugin-loottracker-total-card); the
+   cyan accent is only for the tile-highlight primitive itself (and, per the
+   confirmed mockup, Fishing-specific cards in later issues) -- not this
+   card. */
+.plugin-fishing-total-card { border: 1px solid #04A800; border-radius: 4px; padding: 6px; margin-bottom: 8px; background: #10210f; }
+.plugin-fishing-row { display: flex; align-items: flex-start; gap: 8px; }
+.plugin-fishing-icon { width: 24px; height: 24px; border-radius: 5px; background: #202020; border: 1px solid #04A800; color: #04A800; display: flex; align-items: center; justify-content: center; flex: 0 0 24px; overflow: hidden; }
+.plugin-fishing-icon img { width: 16px; height: 16px; object-fit: contain; image-rendering: pixelated; }
+.plugin-fishing-icon svg { width: 15px; height: 15px; }
+.plugin-fishing-metrics { display: grid; grid-template-columns: auto 1fr; column-gap: 6px; row-gap: 2px; flex: 1 1 auto; min-width: 0; align-items: baseline; }
+.plugin-fishing-metric-label { font-size: 11px; color: #9aa39a; }
+.plugin-fishing-metric-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.plugin-fishing-hint { color: #9aa39a; font-size: 11px; line-height: 1.4; padding: 4px 2px; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at
