@@ -5500,7 +5500,7 @@ export class Client extends GameShell {
             isMobile: (): boolean => this.isMobile,
             getCameraZoom: (): number => this.cameraZoom,
             getLootTrackerGroups: (): LootTrackerGroupData[] => this.buildLootTrackerGroups(),
-            resetLootTrackerGroup: (sourceNpc: number): void => this.resetLootTrackerGroup(sourceNpc)
+            resetLootTrackerGroups: (sourceNpcs: number[]): void => this.resetLootTrackerGroups(sourceNpcs)
         };
 
         window.pluginBridge = bridge;
@@ -5745,11 +5745,14 @@ export class Client extends GameShell {
         PluginManager.setConfig('lootTracker', {groups});
     }
 
-    // custom (issue #126): clears one monster group's tracked kills/items
-    // entirely -- exposed via PluginBridge.resetLootTrackerGroup().
-    private resetLootTrackerGroup(sourceNpc: number): void {
+    // custom (issue #126, widened by #140): clears every one of a pooled
+    // display-identity group's raw sourceNpc entries in one write -- exposed
+    // via PluginBridge.resetLootTrackerGroups().
+    private resetLootTrackerGroups(sourceNpcs: number[]): void {
         const groups: Record<string, LootTrackerGroupEntry> = this.lootTrackerReadGroups();
-        delete groups[String(sourceNpc)];
+        for (const sourceNpc of sourceNpcs) {
+            delete groups[String(sourceNpc)];
+        }
         PluginManager.setConfig('lootTracker', {groups});
     }
 
@@ -5784,30 +5787,73 @@ export class Client extends GameShell {
         return dataUrl;
     }
 
-    // custom (issue #126): DOM-friendly mirror of the persisted groups blob
-    // for the plugin sidebar's Loot Tracker content panel -- resolves item/
-    // monster names and icons fresh on every call (cheap: icon lookups are
-    // cached, name lookups are simple config reads). Sorted by total value
-    // descending; each group's items are likewise sorted by value descending.
+    // custom (issue #126, pooling added by #140): DOM-friendly mirror of the
+    // persisted groups blob for the plugin sidebar's Loot Tracker content
+    // panel -- resolves item/monster names and icons fresh on every call
+    // (cheap: icon lookups are cached, name lookups are simple config
+    // reads). Sorted by total value descending; each group's items are
+    // likewise sorted by value descending.
+    //
+    // Two-pass aggregation (issue #140): NPCs that share an in-game display
+    // identity but have different underlying debugnames/type ids (e.g.
+    // man/man2/man3, all "Man (level-2)") are persisted as separate raw
+    // sourceNpc entries but must display as one combined card. Pass 1 pools
+    // every persisted entry by (monster display name, combat level); pass 2
+    // reduces each pool into one summed LootTrackerGroupData. Persisted
+    // storage itself stays keyed by raw sourceNpc, unchanged -- only this
+    // display-time aggregation groups them.
     private buildLootTrackerGroups(): LootTrackerGroupData[] {
         const groups: Record<string, LootTrackerGroupEntry> = this.lootTrackerReadGroups();
-        const result: LootTrackerGroupData[] = [];
+
+        type LootTrackerPool = {
+            monsterName: string;
+            sourceNpcs: number[];
+            kills: number;
+            items: Record<string, LootTrackerItemEntry>;
+        };
+        const pools: Map<string, LootTrackerPool> = new Map();
 
         for (const key of Object.keys(groups)) {
             const sourceNpc: number = Number(key);
             const entry: LootTrackerGroupEntry = groups[key];
 
-            // custom (issue #134 fix): ObjType.list()/NpcType.list() never
-            // bounds-check id against numDefinitions -- an out-of-range id
-            // (e.g. persisted by an older, buggy build) sends decode() into
-            // an infinite loop reading past the end of the config archive.
-            // Persisted ids are untrusted, so validate before ever calling
-            // either lookup.
-            const items = Object.keys(entry.items)
+            // custom (issue #134 fix, preserved by #140): ObjType.list()/
+            // NpcType.list() never bounds-check id against numDefinitions --
+            // an out-of-range id (e.g. persisted by an older, buggy build)
+            // sends decode() into an infinite loop reading past the end of
+            // the config archive. Persisted ids are untrusted, so validate
+            // before ever calling either lookup. An id that fails this check
+            // (including the -1 "no attributable NPC" sentinel) pools into
+            // one shared "Unknown" bucket, never merged with a resolved
+            // (name, level) group -- see poolKey below.
+            const valid: boolean = sourceNpc >= 0 && sourceNpc < NpcType.numDefinitions;
+            const monsterName: string = valid ? (NpcType.list(sourceNpc).name ?? 'Unknown') : 'Unknown';
+            const poolKey: string = valid ? `${monsterName}|${NpcType.list(sourceNpc).vislevel}` : 'unknown';
+
+            let pool: LootTrackerPool | undefined = pools.get(poolKey);
+            if (!pool) {
+                pool = {monsterName, sourceNpcs: [], kills: 0, items: {}};
+                pools.set(poolKey, pool);
+            }
+
+            pool.sourceNpcs.push(sourceNpc);
+            pool.kills += entry.kills;
+            for (const itemKey of Object.keys(entry.items)) {
+                const source: LootTrackerItemEntry = entry.items[itemKey];
+                const target: LootTrackerItemEntry = pool.items[itemKey] ?? {count: 0, value: 0};
+                target.count += source.count;
+                target.value += source.value;
+                pool.items[itemKey] = target;
+            }
+        }
+
+        const result: LootTrackerGroupData[] = [];
+        for (const pool of pools.values()) {
+            const items = Object.keys(pool.items)
                 .map((itemKey: string): number => Number(itemKey))
                 .filter((type: number): boolean => type >= 0 && type < ObjType.numDefinitions)
                 .map((type: number) => {
-                    const item: LootTrackerItemEntry = entry.items[String(type)];
+                    const item: LootTrackerItemEntry = pool.items[String(type)];
                     const objType: ObjType = ObjType.list(type);
                     return {
                         type,
@@ -5819,10 +5865,8 @@ export class Client extends GameShell {
                 })
                 .sort((a, b) => b.value - a.value);
 
-            const monsterName: string = sourceNpc >= 0 && sourceNpc < NpcType.numDefinitions ? (NpcType.list(sourceNpc).name ?? 'Unknown') : 'Unknown';
             const totalValue: number = items.reduce((s: number, i): number => s + i.value, 0);
-
-            result.push({sourceNpc, monsterName, kills: entry.kills, totalValue, items});
+            result.push({sourceNpcs: pool.sourceNpcs, monsterName: pool.monsterName, kills: pool.kills, totalValue, items});
         }
 
         result.sort((a, b) => b.totalValue - a.totalValue);
