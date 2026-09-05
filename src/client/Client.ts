@@ -48,6 +48,7 @@ import { MapFlag } from '#/dash3d/MapFlag.js';
 import MapSpotAnim from '#/dash3d/MapSpotAnim.js';
 import World from '#/dash3d/World.js';
 
+import IconDataUrlCache from '#/datastruct/IconDataUrlCache.js';
 import JString from '#/datastruct/JString.js';
 import LinkList from '#/datastruct/LinkList.js';
 
@@ -275,8 +276,9 @@ export class Client extends GameShell {
     private loggedInUsername: string = '';
 
     // custom (issue #126): per-item icon data-URL cache, mirroring
-    // xpTrackerIconCache's role for the XP Tracker's staticons.
-    private lootTrackerIconCache: Map<string, string | null> = new Map();
+    // xpTrackerIconCache's role for the XP Tracker's staticons. Backed by the
+    // shared IconDataUrlCache (issue #148) -- see lootTrackerIcon().
+    private lootTrackerIconCache: IconDataUrlCache<string> = new IconDataUrlCache();
     // custom (issue #142): cached data-URL conversion of sideicons[3] (the
     // Inventory tab icon) for the Loot Tracker Total card. Only a successful
     // conversion is cached -- see getLootTrackerTotalIcon() -- so a call
@@ -463,10 +465,11 @@ export class Client extends GameShell {
     private staticons: (Pix8 | null)[] = new TypedArray1d(18, null);
     private staticons2: (Pix8 | null)[] = new TypedArray1d(1, null);
     // custom: iconDataUrl cache for the XP tracker plugin panel (issue #82),
-    // keyed by skill id. Built once lazily on first buildXpTrackerCards() call
-    // (staticons/staticons2 are loaded well before login, see Client.ts:~1107)
-    // so each skill's sprite-to-dataURL conversion runs at most once.
-    private xpTrackerIconCache: Map<number, string> | null = null;
+    // keyed by skill id. Backed by the shared IconDataUrlCache (issue #148) --
+    // see getXpTrackerIconCache() -- so each skill's sprite-to-dataURL
+    // conversion runs at most once, and a skill whose staticon sprite wasn't
+    // ready yet is retried for free on the next call.
+    private xpTrackerIconCache: IconDataUrlCache<number> = new IconDataUrlCache();
     private redstone1: Pix8 | null = null;
     private redstone2: Pix8 | null = null;
     private redstone3: Pix8 | null = null;
@@ -5663,24 +5666,18 @@ export class Client extends GameShell {
     // have on-demand-loaded if the player has never held exactly 1). Cache
     // key includes count since the resolved model can differ by count;
     // mirrors getXpTrackerIconCache's per-id caching otherwise.
+    //
+    // custom (issue #141, extracted to IconDataUrlCache by issue #148): don't
+    // permanently cache a failed lookup -- the item's 3D model may not have
+    // been on-demand-loaded yet, and the panel already redraws every second
+    // (PluginSidebar.ts's CONTENT_REFRESH_MS), so leaving this uncached lets
+    // the very next refresh retry for free once the model finishes loading.
     private lootTrackerIcon(type: number, count: number): string | null {
         const cacheKey: string = `${type}:${count}`;
-        const cached: string | null | undefined = this.lootTrackerIconCache.get(cacheKey);
-        if (cached !== undefined) {
-            return cached;
-        }
-
-        const sprite: Pix32 | null = ObjType.getSprite(type, count, 0);
-        const dataUrl: string | null = sprite ? sprite.toDataURL() : null;
-        // custom (issue #141): don't permanently cache a failed lookup -- the
-        // item's 3D model may not have been on-demand-loaded yet, and the
-        // panel already redraws every second (PluginSidebar.ts's
-        // CONTENT_REFRESH_MS), so leaving this uncached lets the very next
-        // refresh retry for free once the model finishes loading.
-        if (dataUrl !== null) {
-            this.lootTrackerIconCache.set(cacheKey, dataUrl);
-        }
-        return dataUrl;
+        return this.lootTrackerIconCache.get(cacheKey, (): string | null => {
+            const sprite: Pix32 | null = ObjType.getSprite(type, count, 0);
+            return sprite ? sprite.toDataURL() : null;
+        });
     }
 
     // custom (issue #126, pooling added by #140): DOM-friendly mirror of the
@@ -5786,31 +5783,32 @@ export class Client extends GameShell {
         return this.lootTrackerTotalIconCache;
     }
 
-    // custom (cboyd10/runescape#103): lazily build and return the
-    // iconDataUrl cache used by buildXpTrackerCards(). Same icon resolution
-    // as recalcXpTrackerPanels' Pix8 lookup (Client.ts:~5155), converted to a
-    // data URL via Pix8.toDataURL() and cached per skill id -- not
+    // custom (cboyd10/runescape#103, extracted to IconDataUrlCache by issue
+    // #148): build and return the iconDataUrl map used by
+    // buildXpTrackerCards(). Same icon resolution as recalcXpTrackerPanels'
+    // Pix8 lookup (Client.ts:~5155), converted to a data URL via
+    // Pix8.toDataURL() and cached per skill id via xpTrackerIconCache -- not
     // re-converted per call. Only successful conversions are cached; a stat
     // whose Pix8 sprite wasn't populated yet on an earlier call is retried on
-    // every subsequent call (cheap once resolved, since `.has()` skips it) --
-    // the original "build once on first call" version permanently cached a
-    // premature `null` for every skill if `this.staticons` wasn't ready the
-    // very first time this ran, with no way to recover for the rest of the
-    // session.
+    // every subsequent call (cheap once resolved) -- avoids permanently
+    // caching a premature `null` for a skill if `this.staticons` wasn't
+    // ready the first time this ran, with no way to recover for the rest of
+    // the session.
     private getXpTrackerIconCache(): Map<number, string> {
-        if (!this.xpTrackerIconCache) {
-            this.xpTrackerIconCache = new Map();
-        }
+        const result: Map<number, string> = new Map();
         for (let stat: number = 0; stat < Skill.count; stat++) {
-            if (Skill.names[stat] === '-unused-' || this.xpTrackerIconCache.has(stat)) {
+            if (Skill.names[stat] === '-unused-') {
                 continue;
             }
-            const icon: Pix8 | null = stat === 20 ? this.staticons2[0] : SKILL_TO_STATICON_INDEX[stat] !== undefined ? this.staticons[SKILL_TO_STATICON_INDEX[stat]] : null;
-            if (icon) {
-                this.xpTrackerIconCache.set(stat, icon.toDataURL());
+            const iconDataUrl: string | null = this.xpTrackerIconCache.get(stat, (): string | null => {
+                const icon: Pix8 | null = stat === 20 ? this.staticons2[0] : SKILL_TO_STATICON_INDEX[stat] !== undefined ? this.staticons[SKILL_TO_STATICON_INDEX[stat]] : null;
+                return icon ? icon.toDataURL() : null;
+            });
+            if (iconDataUrl !== null) {
+                result.set(stat, iconDataUrl);
             }
         }
-        return this.xpTrackerIconCache;
+        return result;
     }
 
     // custom: DOM-friendly (no Pix8 sprite) mirror of recalcXpTrackerPanels for
