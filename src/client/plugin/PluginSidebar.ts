@@ -177,6 +177,17 @@ const STYLES = `
 .plugin-fishing-metric-label { font-size: 11px; color: #9aa39a; }
 .plugin-fishing-metric-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plugin-fishing-hint { color: #9aa39a; font-size: 11px; line-height: 1.4; padding: 4px 2px; }
+/* custom (issue #151): Active Spot card -- cyan accent per the confirmed
+   mockup, distinct from the Total card's green convention above. Only the
+   catch-chance rows are implemented here; the mockup's relocation-timer row
+   belongs to a separate, spot-intrinsic/broadcastable issue. */
+.plugin-fishing-spot-card { border: 1px solid #00e1ff; border-radius: 4px; padding: 8px; margin-bottom: 8px; background: #0a2a30; }
+.plugin-fishing-spot-head { font-size: 12px; font-weight: 700; color: #f2f2f2; margin-bottom: 6px; }
+.plugin-fishing-chance-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.plugin-fishing-chance-name { flex: 1 1 auto; min-width: 0; font-size: 11.5px; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-fishing-chance-bar-track { flex: 0 0 46px; height: 5px; background: #06181b; border: 1px solid #000; border-radius: 2px; overflow: hidden; }
+.plugin-fishing-chance-bar-fill { height: 100%; background: #00e1ff; opacity: 0.85; }
+.plugin-fishing-chance-pct { font-size: 12px; font-weight: 700; color: #f2f2f2; font-variant-numeric: tabular-nums; flex: 0 0 auto; width: 32px; text-align: right; }
 `;
 
 // custom: RuneLite-style DOM plugin panel, injected into document.body at

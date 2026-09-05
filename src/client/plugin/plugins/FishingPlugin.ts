@@ -1,4 +1,4 @@
-import type {PluginBridge} from '#/client/plugin/PluginBridge.js';
+import type {FishingCatchChanceData, PluginBridge} from '#/client/plugin/PluginBridge.js';
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
 // custom (issue #149): simple line-art fish glyph (matches the Feather-style
@@ -67,10 +67,64 @@ function renderTotalCard(bridge: PluginBridge): HTMLElement {
     return el;
 }
 
+// custom (issue #151): Active Spot card -- cyan-accented per the confirmed
+// mockup, ties visually back to the tile-highlight color (#149). Lists one
+// row per fish species reachable with the player's currently held tool at a
+// nearby fishing spot; `percent` is computed entirely server-side (the exact
+// STAT_RANDOM formula) and rendered as-is. Only the catch-chance rows are in
+// scope here -- the mockup's relocation-timer row belongs to a separate,
+// spot-intrinsic/broadcastable issue and isn't implemented by this plugin.
+function renderSpotCard(bridge: PluginBridge): HTMLElement | null {
+    const entries: FishingCatchChanceData[] = bridge.getFishingCatchChances();
+    if (entries.length === 0) {
+        return null;
+    }
+
+    const card: HTMLDivElement = document.createElement('div');
+    card.className = 'plugin-fishing-spot-card';
+
+    const head: HTMLDivElement = document.createElement('div');
+    head.className = 'plugin-fishing-spot-head';
+    head.textContent = 'Active Spot';
+    card.appendChild(head);
+
+    for (const entry of entries) {
+        const row: HTMLDivElement = document.createElement('div');
+        row.className = 'plugin-fishing-chance-row';
+
+        const name: HTMLSpanElement = document.createElement('span');
+        name.className = 'plugin-fishing-chance-name';
+        name.textContent = entry.name;
+        row.appendChild(name);
+
+        const barTrack: HTMLDivElement = document.createElement('div');
+        barTrack.className = 'plugin-fishing-chance-bar-track';
+        const barFill: HTMLDivElement = document.createElement('div');
+        barFill.className = 'plugin-fishing-chance-bar-fill';
+        barFill.style.width = `${Math.max(0, Math.min(100, entry.percent))}%`;
+        barTrack.appendChild(barFill);
+        row.appendChild(barTrack);
+
+        const pct: HTMLSpanElement = document.createElement('span');
+        pct.className = 'plugin-fishing-chance-pct';
+        pct.textContent = `${entry.percent}%`;
+        row.appendChild(pct);
+
+        card.appendChild(row);
+    }
+
+    return card;
+}
+
 function renderPanel(bridge: PluginBridge): HTMLElement {
     const container: HTMLDivElement = document.createElement('div');
     container.className = 'plugin-fishing-panel';
     container.appendChild(renderTotalCard(bridge));
+
+    const spotCard: HTMLElement | null = renderSpotCard(bridge);
+    if (spotCard !== null) {
+        container.appendChild(spotCard);
+    }
 
     const hint: HTMLDivElement = document.createElement('div');
     hint.className = 'plugin-fishing-hint';
