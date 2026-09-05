@@ -5773,7 +5773,14 @@ export class Client extends GameShell {
 
         const sprite: Pix32 | null = ObjType.getSprite(type, count, 0);
         const dataUrl: string | null = sprite ? sprite.toDataURL() : null;
-        this.lootTrackerIconCache.set(cacheKey, dataUrl);
+        // custom (issue #141): don't permanently cache a failed lookup -- the
+        // item's 3D model may not have been on-demand-loaded yet, and the
+        // panel already redraws every second (PluginSidebar.ts's
+        // CONTENT_REFRESH_MS), so leaving this uncached lets the very next
+        // refresh retry for free once the model finishes loading.
+        if (dataUrl !== null) {
+            this.lootTrackerIconCache.set(cacheKey, dataUrl);
+        }
         return dataUrl;
     }
 
