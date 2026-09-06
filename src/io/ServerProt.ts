@@ -55,6 +55,11 @@ export const enum ServerProt {
     UPDATE_REBOOT_TIMER = 204,
     UPDATE_STAT = 154,
     KILL_CREDIT = 250,
+    // custom (issue #151): personal (not broadcast), variable-length --
+    // {fish, percent} entries for every species reachable with the player's
+    // currently held tool at a nearby fishing spot. Mirrors UPDATE_STAT's
+    // per-player delivery pattern, not a zone broadcast.
+    FISHING_CATCH_CHANCE = 254,
     UPDATE_RUNENERGY = 195,
     RESET_ANIMS = 201,
     UPDATE_PID = 120,
@@ -123,5 +128,5 @@ export const ServerProtSizes = [
     0, 0, 4, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 6, 0, 1, 0, 0, 0, 0,
     0, 0, 0, -1, 4, 0, 0, 1, 0, 0,
-    2, 0, 2, 10, 0, 0, 0
+    2, 0, 2, 10, -1, 0, 0
 ];
