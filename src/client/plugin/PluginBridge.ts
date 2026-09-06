@@ -116,6 +116,14 @@ export type PluginBridge = {
     // Built fresh on every call (matches getXpTrackerCards()/
     // getLootTrackerGroups()'s pattern) -- no separate live-session cache.
     getFishingActiveSpot(): FishingActiveSpotData | null;
+    // custom (issue #151): resolved, DOM-friendly catch-chance entries for
+    // the Active Spot card -- one per fish species reachable with the
+    // player's currently held tool at a nearby fishing spot. `percent` is
+    // computed entirely server-side (the exact STAT_RANDOM formula, see
+    // engine's FishingSpotCatalog.ts) and never re-derived here. Empty when
+    // the player isn't near a covered spot -- the panel hides the card in
+    // that case.
+    getFishingCatchChances(): FishingCatchChanceData[];
 };
 
 // custom (issue #150): the Fishing plugin panel's Active Spot card data --
@@ -123,6 +131,13 @@ export type PluginBridge = {
 // (species/location) are out of scope for this issue.
 export type FishingActiveSpotData = {
     secondsRemaining: number;
+};
+
+// custom (issue #151): one row in the Fishing plugin's Active Spot card.
+export type FishingCatchChanceData = {
+    fish: number;
+    name: string;
+    percent: number;
 };
 
 // custom (issue #126): one tracked item within a loot-tracker monster group --

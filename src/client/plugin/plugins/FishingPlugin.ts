@@ -1,4 +1,4 @@
-import type {PluginBridge} from '#/client/plugin/PluginBridge.js';
+import type {FishingActiveSpotData, FishingCatchChanceData, PluginBridge} from '#/client/plugin/PluginBridge.js';
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
 // custom (issue #149): simple line-art fish glyph (matches the Feather-style
@@ -78,63 +78,79 @@ function formatMoveCountdown(totalSeconds: number): string {
     return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
 }
 
-// custom (issue #150): Active Spot card -- a live "Moves in" countdown for
-// the nearest fishing spot with an armed relocation timer (see
-// PluginBridge.getFishingActiveSpot(); "nearest" is that method's definition
-// of "the" active spot, there being no client-side interaction-target
-// tracking to key off instead). Returns null (renders nothing) when there's
-// no active spot, rather than an empty placeholder card. Refreshed every
-// second by PluginSidebar's existing CONTENT_REFRESH_MS redraw, same as
-// every other plugin card -- no separate timer of its own.
-//
-// NOTE for whoever reconciles this against cboyd10/Client-TS#42 (issue #151,
-// "Fishing catch-chance %"): that PR builds the *other* half of this same
-// card -- its own renderSpotCard()'s comment explicitly defers "the mockup's
-// relocation-timer row" to this issue. It uses card class
-// `plugin-fishing-spot-card` + header class `plugin-fishing-spot-head`
-// ("Active Spot") for its catch-chance rows. This function deliberately
-// reuses those same two class names (not a new `plugin-fishing-active-spot-*`
-// family) so the two PRs' cards are visually the same box rather than two
-// separate cyan cards stacked on top of each other -- but the row-level
-// markup below (`plugin-fishing-timer-row` etc.) is its own thing, since a
-// "Moves in: MM:SS" row doesn't fit #151's bar-chart row shape
-// (`plugin-fishing-chance-row`/`-name`/`-bar-track`/`-bar-fill`/`-pct`).
-// Whichever of these two PRs merges second will still need a manual merge to
-// combine both bodies under one <div class="plugin-fishing-spot-card"> (one
-// header, catch-chance rows, then this timer row) -- this repo has no
-// existing convention for a shared card built by two independent PRs; this
-// is the closest fit available given #150 explicitly stays based on
-// issue-149 (not stacked on #42 too, per the dispatch's own base-branch
-// instruction).
-function renderActiveSpotCard(bridge: PluginBridge): HTMLElement | null {
-    const spot = bridge.getFishingActiveSpot();
-    if (spot === null) {
+// custom (issue #150 + #151, reconciled on merge): the Active Spot card --
+// one shared box built from two independent data sources. #151's rows list
+// each fish species reachable with the player's currently held tool at a
+// nearby spot, with a server-computed catch-chance % (bar-chart row shape:
+// plugin-fishing-chance-*). #150's row is a live "Moves in" countdown for
+// the nearest fishing spot with an armed relocation timer (plain
+// label:value row shape: plugin-fishing-timer-*; "nearest" is
+// PluginBridge.getFishingActiveSpot()'s own definition of "the" active
+// spot, there being no client-side interaction-target tracking to key off
+// instead). The two data sources are independent (a nearby spot can have
+// catch-chance rows, a countdown, both, or -- if the player isn't near any
+// covered spot and no spot's timer is armed -- neither, in which case this
+// returns null and the card doesn't render at all). Refreshed every second
+// by PluginSidebar's existing CONTENT_REFRESH_MS redraw, same as every
+// other plugin card -- neither half keeps a separate timer of its own.
+function renderSpotCard(bridge: PluginBridge): HTMLElement | null {
+    const entries: FishingCatchChanceData[] = bridge.getFishingCatchChances();
+    const spot: FishingActiveSpotData | null = bridge.getFishingActiveSpot();
+    if (entries.length === 0 && spot === null) {
         return null;
     }
 
-    const el: HTMLDivElement = document.createElement('div');
-    el.className = 'plugin-fishing-spot-card';
+    const card: HTMLDivElement = document.createElement('div');
+    card.className = 'plugin-fishing-spot-card';
 
     const head: HTMLDivElement = document.createElement('div');
     head.className = 'plugin-fishing-spot-head';
     head.textContent = 'Active Spot';
-    el.appendChild(head);
+    card.appendChild(head);
 
-    const row: HTMLDivElement = document.createElement('div');
-    row.className = 'plugin-fishing-timer-row';
+    for (const entry of entries) {
+        const row: HTMLDivElement = document.createElement('div');
+        row.className = 'plugin-fishing-chance-row';
 
-    const label: HTMLSpanElement = document.createElement('span');
-    label.className = 'plugin-fishing-timer-label';
-    label.textContent = 'Moves in:';
-    row.appendChild(label);
+        const name: HTMLSpanElement = document.createElement('span');
+        name.className = 'plugin-fishing-chance-name';
+        name.textContent = entry.name;
+        row.appendChild(name);
 
-    const value: HTMLSpanElement = document.createElement('span');
-    value.className = 'plugin-fishing-timer-value';
-    value.textContent = formatMoveCountdown(spot.secondsRemaining);
-    row.appendChild(value);
+        const barTrack: HTMLDivElement = document.createElement('div');
+        barTrack.className = 'plugin-fishing-chance-bar-track';
+        const barFill: HTMLDivElement = document.createElement('div');
+        barFill.className = 'plugin-fishing-chance-bar-fill';
+        barFill.style.width = `${Math.max(0, Math.min(100, entry.percent))}%`;
+        barTrack.appendChild(barFill);
+        row.appendChild(barTrack);
 
-    el.appendChild(row);
-    return el;
+        const pct: HTMLSpanElement = document.createElement('span');
+        pct.className = 'plugin-fishing-chance-pct';
+        pct.textContent = `${entry.percent}%`;
+        row.appendChild(pct);
+
+        card.appendChild(row);
+    }
+
+    if (spot !== null) {
+        const row: HTMLDivElement = document.createElement('div');
+        row.className = 'plugin-fishing-timer-row';
+
+        const label: HTMLSpanElement = document.createElement('span');
+        label.className = 'plugin-fishing-timer-label';
+        label.textContent = 'Moves in:';
+        row.appendChild(label);
+
+        const value: HTMLSpanElement = document.createElement('span');
+        value.className = 'plugin-fishing-timer-value';
+        value.textContent = formatMoveCountdown(spot.secondsRemaining);
+        row.appendChild(value);
+
+        card.appendChild(row);
+    }
+
+    return card;
 }
 
 function renderPanel(bridge: PluginBridge): HTMLElement {
@@ -142,9 +158,9 @@ function renderPanel(bridge: PluginBridge): HTMLElement {
     container.className = 'plugin-fishing-panel';
     container.appendChild(renderTotalCard(bridge));
 
-    const activeSpotCard: HTMLElement | null = renderActiveSpotCard(bridge);
-    if (activeSpotCard !== null) {
-        container.appendChild(activeSpotCard);
+    const spotCard: HTMLElement | null = renderSpotCard(bridge);
+    if (spotCard !== null) {
+        container.appendChild(spotCard);
     }
 
     const hint: HTMLDivElement = document.createElement('div');

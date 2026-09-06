@@ -8,7 +8,7 @@ import LongPressIndicator from '#/client/LongPressIndicator.js';
 import { MiniMenuAction } from '#/client/MiniMenuAction.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
 import MouseTracking from '#/client/MouseTracking.js';
-import type {FishingActiveSpotData, LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
+import type {FishingActiveSpotData, FishingCatchChanceData, LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
 import cameraPlugin from '#/client/plugin/plugins/CameraPlugin.js';
@@ -166,6 +166,11 @@ const TILE_HIGHLIGHT_FILL_TRANS = 174;
 // identification signal, matching content's existing convention elsewhere
 // (see "NPC display identity is the in-game name" in CONTEXT.md).
 const FISHING_SPOT_NAME = 'Fishing spot';
+// custom (issue #152): Fishing's skill id (Skill.names[10] === 'fishing',
+// SKILL_DISPLAY_NAMES[10] === 'Fishing' above) -- the same literal `10`
+// getFishingIcon() (initPluginBridge()) already keys off, named here for the
+// level-up toast trigger in the UPDATE_STAT handler below.
+const FISHING_SKILL_ID = 10;
 
 // custom (issue #149): one entry in the generic tile-highlight registry --
 // x/z are scene coordinates (same units as ClientEntity.x/z, 128 per tile),
@@ -348,6 +353,13 @@ export class Client extends GameShell {
     // so disabling the plugin (which stops updateFishingSpots() from seeing
     // any spot at all) clears every highlight it owns within one frame.
     private fishingSpotHighlightIds: Set<string> = new Set();
+
+    // custom (issue #151): latest FISHING_CATCH_CHANCE payload -- raw
+    // {fish, percent} entries exactly as sent by the engine (percent is
+    // already computed server-side off the real STAT_RANDOM formula; never
+    // re-derived here). Empty when the player isn't near a spot this
+    // feature covers -- see buildFishingCatchChances()/the Active Spot card.
+    private fishingCatchChances: ReadonlyArray<{fish: number; percent: number}> = [];
 
     private hintType: number = 0;
     private hintNpc: number = 0;
@@ -2137,6 +2149,9 @@ export class Client extends GameShell {
                 this.xpTrackerStartTime.fill(0);
                 this.xpTrackerLastGain.fill(0);
                 this.loadXpTrackerHiddenSkills(username);
+                // custom (issue #151): see the matching comment in the
+                // response === 15 (reconnect) branch below.
+                this.fishingCatchChances = [];
                 this.out.pos = 0;
                 this.in.pos = 0;
                 this.ptype = -1;
@@ -2280,6 +2295,13 @@ export class Client extends GameShell {
                 this.xpTrackerStartTime.fill(0);
                 this.xpTrackerLastGain.fill(0);
                 this.loadXpTrackerHiddenSkills(username);
+                // custom (issue #151): drop any stale Active Spot data from a
+                // prior session -- the engine resends fresh within one tick
+                // of the player next standing near a covered spot (a new
+                // Player instance's lastFishingSpotKey gate always starts
+                // unset), but clearing here avoids a one-tick flash of the
+                // previous session's percentages before that happens.
+                this.fishingCatchChances = [];
                 this.out.pos = 0;
                 this.in.pos = 0;
                 this.ptype = -1;
@@ -5575,7 +5597,8 @@ export class Client extends GameShell {
             setTileHighlight: (id: string, x: number, z: number, level: number, color: number): void => this.setTileHighlight(id, x, z, level, color),
             clearTileHighlight: (id: string): void => this.clearTileHighlight(id),
             getFishingIcon: (): string | null => this.getXpTrackerIconCache().get(10) ?? null,
-            getFishingActiveSpot: (): FishingActiveSpotData | null => this.buildFishingActiveSpot()
+            getFishingActiveSpot: (): FishingActiveSpotData | null => this.buildFishingActiveSpot(),
+            getFishingCatchChances: (): FishingCatchChanceData[] => this.buildFishingCatchChances()
         };
 
         window.pluginBridge = bridge;
@@ -5844,6 +5867,22 @@ export class Client extends GameShell {
 
         result.sort((a, b) => b.totalValue - a.totalValue);
         return result;
+    }
+
+    // custom (issue #151): DOM-friendly mirror of the raw fishingCatchChances
+    // payload for the Fishing plugin's Active Spot card -- resolves each raw
+    // fish item id to its display name fresh on every call (cheap: a plain
+    // config lookup, same bounds-check convention buildLootTrackerGroups()
+    // uses against an untrusted/out-of-range id). percent is passed through
+    // unmodified; the client never re-derives it.
+    private buildFishingCatchChances(): FishingCatchChanceData[] {
+        return this.fishingCatchChances
+            .filter((entry): boolean => entry.fish >= 0 && entry.fish < ObjType.numDefinitions)
+            .map((entry): FishingCatchChanceData => ({
+                fish: entry.fish,
+                name: ObjType.list(entry.fish).name ?? 'Unknown',
+                percent: entry.percent
+            }));
     }
 
     // custom (issue #142): resolves (and caches) the Loot Tracker Total
@@ -8016,8 +8055,21 @@ export class Client extends GameShell {
                 const xp: number = this.in.g4();
                 const level: number = this.in.g1();
 
+                // custom (issue #152): captured before this handler overwrites
+                // statBaseLevel below, so the Fishing level-up toast trigger at
+                // the end of this block can compare old vs. new.
+                const oldBaseLevel: number = this.statBaseLevel[stat];
+
                 const xpTrackerNow: number = Date.now();
-                if (this.xpTrackerBaseline[stat] === -1) {
+                // custom (issue #152): true on the very first UPDATE_STAT packet
+                // for this skill since login/reconnect/reset -- captured here
+                // (before this branch mutates xpTrackerBaseline) so the toast
+                // trigger below can tell a genuine level-up apart from
+                // oldBaseLevel's uninitialized `0` default racing ahead of a
+                // first-login resend (which would otherwise misread as a fake
+                // "level up" on every login).
+                const isBaselineResend: boolean = this.xpTrackerBaseline[stat] === -1;
+                if (isBaselineResend) {
                     // First packet for this skill since the last reset — the login/reconnect resend, not a gain.
                     this.xpTrackerBaseline[stat] = xp;
                 } else if (xp > this.statXP[stat]) {
@@ -8045,6 +8097,18 @@ export class Client extends GameShell {
                     }
                 }
 
+                // custom (issue #152): Fishing level-up toast -- only on a
+                // genuine gain (never the login/reconnect baseline resend,
+                // see isBaselineResend above), only when it actually crossed a
+                // level boundary, and only while the Fishing plugin is enabled
+                // (Acceptance Criteria). Text format follows the issue's
+                // Acceptance Criteria literally (ASCII "->"); the confirmed
+                // mockup's own toast illustration uses a Unicode "→" purely
+                // for visual flavor in that doc, not as a spec requirement.
+                if (!isBaselineResend && stat === FISHING_SKILL_ID && this.statBaseLevel[stat] > oldBaseLevel && PluginManager.isEnabled('fishing')) {
+                    PluginSidebar.showPluginToast(fishingPlugin.icon, `Fishing level up! ${oldBaseLevel} -> ${this.statBaseLevel[stat]}`);
+                }
+
                 this.ptype = -1;
                 return true;
             }
@@ -8059,6 +8123,26 @@ export class Client extends GameShell {
                 this.lootTrackerUpdateGroup(sourceNpc, (group: LootTrackerGroupEntry): void => {
                     group.kills++;
                 });
+
+                this.ptype = -1;
+                return true;
+            }
+
+            // custom (issue #151): catch-chance % per catchable species at the
+            // player's current fishing spot -- personal delivery (this packet
+            // is never broadcast), re-sent by the engine only when the
+            // {fish,percent} set actually changes (level-up, tool swap,
+            // entering/leaving spot range). An empty payload is the engine's
+            // explicit "clear the Active Spot card" signal, not a no-op.
+            if (this.ptype === ServerProt.FISHING_CATCH_CHANCE) {
+                const count: number = this.in.g1();
+                const entries: {fish: number; percent: number}[] = [];
+                for (let i: number = 0; i < count; i++) {
+                    const fish: number = this.in.g2();
+                    const percent: number = this.in.g1();
+                    entries.push({fish, percent});
+                }
+                this.fishingCatchChances = entries;
 
                 this.ptype = -1;
                 return true;
