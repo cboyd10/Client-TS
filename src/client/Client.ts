@@ -12,6 +12,7 @@ import type {LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/clie
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
 import cameraPlugin from '#/client/plugin/plugins/CameraPlugin.js';
+import fishingPlugin from '#/client/plugin/plugins/FishingPlugin.js';
 import lootTrackerPlugin from '#/client/plugin/plugins/LootTrackerPlugin.js';
 import menuEntrySwapperPlugin, {type MenuEntrySwapperRule} from '#/client/plugin/plugins/MenuEntrySwapperPlugin.js';
 import soundPlugin from '#/client/plugin/plugins/SoundPlugin.js';
@@ -151,6 +152,35 @@ PluginManager.register(cameraPlugin);
 PluginManager.register(menuEntrySwapperPlugin);
 PluginManager.register(soundPlugin);
 PluginManager.register(lootTrackerPlugin);
+PluginManager.register(fishingPlugin);
+
+// custom (issue #149): Fishing plugin's tile-highlight cyan (rgb(0, 225, 255)
+// per the confirmed mockup) and its fixed fill opacity (~32%), expressed as
+// Pix3D.trans (the *destination*-side blend weight flatRaster applies -- see
+// renderTileHighlights()): trans = 256 - round(0.32 * 256).
+const FISHING_SPOT_TILE_COLOR = 0x00e1ff;
+const TILE_HIGHLIGHT_FILL_TRANS = 174;
+// custom (issue #149): every fishing-spot NPC variant (content/scripts/
+// skill_fishing/configs/fishing.npc) shares this literal name -- no cache
+// opcode identifies the category generically, so this is the client's sole
+// identification signal, matching content's existing convention elsewhere
+// (see "NPC display identity is the in-game name" in CONTEXT.md).
+const FISHING_SPOT_NAME = 'Fishing spot';
+
+// custom (issue #149): one entry in the generic tile-highlight registry --
+// x/z are scene coordinates (same units as ClientEntity.x/z, 128 per tile),
+// not tile indices; renderTileHighlights() derives each corner from them.
+// The Fishing plugin (this issue's first consumer) is the only current
+// writer, via updateFishingSpots() below, called directly rather than
+// through PluginBridge since it needs internal NPC iteration the bridge
+// doesn't expose -- but any future plugin can reach the same registry
+// through PluginBridge.setTileHighlight/clearTileHighlight.
+type TileHighlight = {
+    x: number;
+    z: number;
+    level: number;
+    color: number;
+};
 
 type XpTrackerPanel = {
     icon: Pix8 | null;
@@ -306,6 +336,19 @@ export class Client extends GameShell {
     // exists to prevent.
     private lootTrackerCreditedGround: Set<string> = new Set();
 
+    // custom (issue #149): generic tile-highlight registry, rendered by
+    // renderTileHighlights() as a post-pass right after entityOverlays()/
+    // otherOverlays() in gameDrawMain(). Written via the private
+    // setTileHighlight()/clearTileHighlight() methods below, also exposed
+    // generically on PluginBridge for any future plugin.
+    private readonly tileHighlights: Map<string, TileHighlight> = new Map();
+    // custom (issue #149): highlight ids updateFishingSpots() itself created
+    // last frame -- diffed each frame so a spot NPC that despawns or moves
+    // out of view has its highlight cleared instead of leaking forever, and
+    // so disabling the plugin (which stops updateFishingSpots() from seeing
+    // any spot at all) clears every highlight it owns within one frame.
+    private fishingSpotHighlightIds: Set<string> = new Set();
+
     private hintType: number = 0;
     private hintNpc: number = 0;
     private hintPlayer: number = 0;
@@ -410,6 +453,14 @@ export class Client extends GameShell {
     private mapdots2: Pix32 | null = null;
     private mapdots3: Pix32 | null = null;
     private mapdots4: Pix32 | null = null;
+    // custom (issue #149): distinct cyan minimap dot for a fishing spot NPC,
+    // overriding its `minimap=no` content flag while the Fishing plugin is
+    // enabled -- see the npc dot loop in minimapDraw(). No dedicated sprite
+    // exists in the 'mapdots' media archive for this, so it's a solid-cyan
+    // recolor of mapdots2 (the default NPC dot), built once in maininit()
+    // alongside mapdots1-4 so it reuses minimapDrawDot()'s existing
+    // rotation/zoom pipeline rather than a bespoke draw path.
+    private mapdotsFishing: Pix32 | null = null;
     private scrollbar1: Pix8 | null = null;
     private scrollbar2: Pix8 | null = null;
     private modIcons: Pix8[] = [];
@@ -1335,6 +1386,12 @@ export class Client extends GameShell {
             this.mapdots2 = Pix32.depack(media, 'mapdots', 1);
             this.mapdots3 = Pix32.depack(media, 'mapdots', 2);
             this.mapdots4 = Pix32.depack(media, 'mapdots', 3);
+
+            // custom (issue #149): a second, independent depack of the same
+            // 'mapdots' sprite 1 (mapdots2's own source) -- recolored below --
+            // rather than mutating/sharing mapdots2's instance.
+            this.mapdotsFishing = Pix32.depack(media, 'mapdots', 1);
+            this.mapdotsFishing.data = this.mapdotsFishing.data.map((rgb: number): number => (rgb === 0 ? 0 : FISHING_SPOT_TILE_COLOR));
 
             this.scrollbar1 = Pix8.depack(media, 'scrollbar', 0);
             this.scrollbar2 = Pix8.depack(media, 'scrollbar', 1);
@@ -4793,6 +4850,11 @@ export class Client extends GameShell {
         this.coordArrow();
         this.textureRunAnims(cycle);
         this.otherOverlays();
+        // custom (issue #149): Fishing spot bookkeeping must run before the
+        // highlight post-pass so a spot that just relocated/appeared/
+        // disappeared this frame is reflected in the very same frame's draw.
+        this.updateFishingSpots();
+        this.renderTileHighlights();
         this.areaGame?.draw(4, 4);
 
         this.camX = camX;
@@ -5495,7 +5557,10 @@ export class Client extends GameShell {
             getCameraZoom: (): number => this.cameraZoom,
             getLootTrackerGroups: (): LootTrackerGroupData[] => this.buildLootTrackerGroups(),
             resetLootTrackerGroups: (sourceNpcs: number[]): void => this.resetLootTrackerGroups(sourceNpcs),
-            getLootTrackerTotalIcon: (): string | null => this.getLootTrackerTotalIcon()
+            getLootTrackerTotalIcon: (): string | null => this.getLootTrackerTotalIcon(),
+            setTileHighlight: (id: string, x: number, z: number, level: number, color: number): void => this.setTileHighlight(id, x, z, level, color),
+            clearTileHighlight: (id: string): void => this.clearTileHighlight(id),
+            getFishingIcon: (): string | null => this.getXpTrackerIconCache().get(10) ?? null
         };
 
         window.pluginBridge = bridge;
@@ -6196,6 +6261,113 @@ export class Client extends GameShell {
         const y00: number = (this.groundh[realLevel][tileX][tileZ] * (128 - tileLocalX) + this.groundh[realLevel][tileX + 1][tileZ] * tileLocalX) >> 7;
         const y11: number = (this.groundh[realLevel][tileX][tileZ + 1] * (128 - tileLocalX) + this.groundh[realLevel][tileX + 1][tileZ + 1] * tileLocalX) >> 7;
         return (y00 * (128 - tileLocalZ) + y11 * tileLocalZ) >> 7;
+    }
+
+    // custom (issue #149): generic tile-highlight primitive, exposed on
+    // PluginBridge for any plugin. Replaces any existing entry for `id`.
+    private setTileHighlight(id: string, x: number, z: number, level: number, color: number): void {
+        this.tileHighlights.set(id, {x, z, level, color});
+    }
+
+    private clearTileHighlight(id: string): void {
+        this.tileHighlights.delete(id);
+    }
+
+    // custom (issue #149): post-render pass drawing every registered
+    // TileHighlight, called from gameDrawMain() right after entityOverlays()/
+    // otherOverlays() -- reuses the same ambient Pix2D clip bounds those two
+    // already draw within (proven safe: they successfully plotSprite() HP
+    // bars/hitsplats there with no clip setup of their own). Skips a
+    // highlight on a different map plane than the one currently rendered.
+    private renderTileHighlights(): void {
+        if (this.tileHighlights.size === 0) {
+            return;
+        }
+
+        // custom: Pix3D.hclip is left in whatever boolean state the last 3D
+        // model face drawn by world.renderAll() happened to set it to
+        // (Model.ts sets it per-face) -- force it on so this fixed-viewport
+        // overlay pass always clips horizontally against the canvas bounds,
+        // regardless of what the last rendered face left behind.
+        Pix3D.hclip = true;
+
+        for (const highlight of this.tileHighlights.values()) {
+            if (highlight.level !== this.minusedlevel) {
+                continue;
+            }
+            this.renderTileHighlight(highlight.x, highlight.z, highlight.color);
+        }
+
+        // custom: don't leak this pass's alpha state into whatever draws
+        // next -- every 3D model face sets Pix3D.trans explicitly before its
+        // own flatTriangle/gouraudTriangle call, but nothing guarantees an
+        // untouched default for the next thing that doesn't.
+        Pix3D.trans = 0;
+    }
+
+    // custom (issue #149): projects one highlighted tile's 4 corners (scene
+    // coordinates tileX*128/tileX*128+128 per axis, height-sampled via the
+    // same getAvH() renderGround()/getOverlayPos() already read) through the
+    // same yaw/pitch/perspective-divide transform getOverlayPos() uses, then
+    // fills the resulting screen-space quad as 2 triangles via
+    // Pix3D.flatTriangle at a fixed ~32% opacity -- not a modification of
+    // Ground's baked face colours. Silently draws nothing if any corner
+    // falls outside the world bounds or behind the camera (getOverlayPos()'s
+    // own -1 sentinel), rather than drawing a partial/distorted quad.
+    private renderTileHighlight(x: number, z: number, color: number): void {
+        const tileX: number = x >> 7;
+        const tileZ: number = z >> 7;
+
+        const cornerX: number[] = [tileX * 128, tileX * 128 + 128, tileX * 128 + 128, tileX * 128];
+        const cornerZ: number[] = [tileZ * 128, tileZ * 128, tileZ * 128 + 128, tileZ * 128 + 128];
+        const screenX: number[] = [0, 0, 0, 0];
+        const screenY: number[] = [0, 0, 0, 0];
+
+        for (let i: number = 0; i < 4; i++) {
+            this.getOverlayPos(cornerX[i], cornerZ[i], 0);
+            if (this.projectX === -1) {
+                return;
+            }
+            screenX[i] = this.projectX;
+            screenY[i] = this.projectY;
+        }
+
+        Pix3D.trans = TILE_HIGHLIGHT_FILL_TRANS;
+        Pix3D.flatTriangle(screenX[0], screenX[1], screenX[2], screenY[0], screenY[1], screenY[2], color);
+        Pix3D.flatTriangle(screenX[0], screenX[2], screenX[3], screenY[0], screenY[2], screenY[3], color);
+    }
+
+    // custom (issue #149): Fishing plugin's only tile-highlight writer --
+    // scans every visible NPC once per rendered frame (mirrors addNpcs()'s
+    // iteration pattern) and maintains a TileHighlight for each fishing-spot
+    // NPC while the plugin is enabled, keyed by npc slot id so a relocating
+    // spot's highlight simply gets overwritten with its new x/z next frame.
+    // Clears any highlight not seen this frame via fishingSpotHighlightIds
+    // (see that field's comment) -- covers despawn, scrolling out of the
+    // visible npc list, and disabling the plugin (which makes `seen` empty
+    // every frame) with one code path.
+    private updateFishingSpots(): void {
+        const seen: Set<string> = new Set();
+
+        if (PluginManager.isEnabled('fishing')) {
+            for (let i: number = 0; i < this.npcCount; i++) {
+                const npc: ClientNpc | null = this.npc[this.npcIds[i]];
+                if (!npc || !npc.isReady() || npc.type?.name !== FISHING_SPOT_NAME) {
+                    continue;
+                }
+
+                const highlightId: string = `fishing:${this.npcIds[i]}`;
+                this.setTileHighlight(highlightId, npc.x, npc.z, this.minusedlevel, FISHING_SPOT_TILE_COLOR);
+                seen.add(highlightId);
+            }
+        }
+
+        for (const id of this.fishingSpotHighlightIds) {
+            if (!seen.has(id)) {
+                this.clearTileHighlight(id);
+            }
+        }
+        this.fishingSpotHighlightIds = seen;
     }
 
     private checkMinimap(): void {
@@ -12532,9 +12704,25 @@ export class Client extends GameShell {
             }
         }
 
+        // custom (issue #149): Fishing plugin's minimap-dot override -- a
+        // fishing-spot NPC ships with minimap=no in content (see
+        // FISHING_SPOT_NAME's comment), so it's excluded by the plain
+        // npc.type.minimap check below. While the plugin is enabled, check
+        // the spot identity in addition to that flag and draw the distinct
+        // cyan mapdotsFishing sprite instead of the default mapdots2 --
+        // content data itself is never modified.
+        const fishingSpotsEnabled: boolean = PluginManager.isEnabled('fishing');
         for (let i: number = 0; i < this.npcCount; i++) {
             const npc: ClientNpc | null = this.npc[this.npcIds[i]];
-            if (npc && npc.isReady() && npc.type && npc.type.minimap) {
+            if (!npc || !npc.isReady() || !npc.type) {
+                continue;
+            }
+
+            if (fishingSpotsEnabled && npc.type.name === FISHING_SPOT_NAME) {
+                anchorX = ((npc.x / 32) | 0) - ((this.localPlayer.x / 32) | 0);
+                anchorY = ((npc.z / 32) | 0) - ((this.localPlayer.z / 32) | 0);
+                this.minimapDrawDot(anchorY, this.mapdotsFishing, anchorX);
+            } else if (npc.type.minimap) {
                 anchorX = ((npc.x / 32) | 0) - ((this.localPlayer.x / 32) | 0);
                 anchorY = ((npc.z / 32) | 0) - ((this.localPlayer.z / 32) | 0);
                 this.minimapDrawDot(anchorY, this.mapdots2, anchorX);
