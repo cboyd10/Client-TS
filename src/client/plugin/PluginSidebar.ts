@@ -183,10 +183,15 @@ const STYLES = `
 .plugin-fishing-metric-label { font-size: 11px; color: #9aa39a; }
 .plugin-fishing-metric-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plugin-fishing-hint { color: #9aa39a; font-size: 11px; line-height: 1.4; padding: 4px 2px; }
-/* custom (issue #151): Active Spot card -- cyan accent per the confirmed
-   mockup, distinct from the Total card's green convention above. Only the
-   catch-chance rows are implemented here; the mockup's relocation-timer row
-   belongs to a separate, spot-intrinsic/broadcastable issue. */
+/* custom (issue #150 + #151): Active Spot card -- cyan accent (matches the
+   tile-highlight primitive's color, FISHING_SPOT_TILE_COLOR = 0x00e1ff), per
+   the comment above plugin-fishing-total-card reserving cyan for
+   "Fishing-specific cards in later issues", distinct from the Total card's
+   green. One shared card built by two independent PRs (see
+   FishingPlugin.ts's renderSpotCard() reconciliation note): #151's
+   bar-chart catch-chance rows (plugin-fishing-chance-*) render first, then
+   #150's plain label:value countdown row (plugin-fishing-timer-*) — both
+   under the same plugin-fishing-spot-card/-head shell. */
 .plugin-fishing-spot-card { border: 1px solid #00e1ff; border-radius: 4px; padding: 8px; margin-bottom: 8px; background: #0a2a30; }
 .plugin-fishing-spot-head { font-size: 12px; font-weight: 700; color: #f2f2f2; margin-bottom: 6px; }
 .plugin-fishing-chance-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
@@ -194,6 +199,9 @@ const STYLES = `
 .plugin-fishing-chance-bar-track { flex: 0 0 46px; height: 5px; background: #06181b; border: 1px solid #000; border-radius: 2px; overflow: hidden; }
 .plugin-fishing-chance-bar-fill { height: 100%; background: #00e1ff; opacity: 0.85; }
 .plugin-fishing-chance-pct { font-size: 12px; font-weight: 700; color: #f2f2f2; font-variant-numeric: tabular-nums; flex: 0 0 auto; width: 32px; text-align: right; }
+.plugin-fishing-timer-row { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; }
+.plugin-fishing-timer-label { font-size: 11px; color: #9aa39a; }
+.plugin-fishing-timer-value { font-size: 12px; color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
 /* custom (issue #152): generic toast primitive -- first consumer is Client's
    Fishing level-up detection. Styled per the confirmed mockup
    (.claude/context/mockups equivalent artifact linked from issue #152): the

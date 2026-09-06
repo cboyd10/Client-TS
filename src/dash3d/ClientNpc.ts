@@ -15,11 +15,31 @@ export const enum NpcUpdate {
     HITMARK = 0x10,
     CHANGETYPE = 0x20,
     SPOTANIM = 0x40,
-    FACESQUARE = 0x80
+    FACESQUARE = 0x80,
+    // custom (issue #150): mirrors the server's NpcInfoProt.TIMER (0x100) --
+    // generic network "ticks remaining" countdown mask, first consumer is
+    // the Fishing plugin's relocation countdown. Since the original 8 low
+    // bits (0x1-0x80) were already fully occupied with no spare "BIG"-style
+    // continuation flag, the server's mask header is now unconditionally 2
+    // bytes (little-endian) any time an npc has any mask update at all --
+    // see the mask read in Client.getNpcPosExtended().
+    TIMER = 0x100
 }
 
 export default class ClientNpc extends ClientEntity {
     type: NpcType | null = null;
+    // custom (issue #150): generic "ticks remaining" payload for
+    // NpcUpdate.TIMER, in client loop-cycle units (mirrors Client.rebootTimer's
+    // unit convention: the server's raw game-tick value is multiplied by 30
+    // on decode -- see Client.getNpcPosExtended() -- and this field is then
+    // decremented by 1 once per client cycle in Client.gameLoop(), so reading
+    // it back out (divide by 50 for seconds) always reflects the live
+    // countdown between server updates, not just its value as of the last
+    // packet. -1 (the default) means no timer is currently armed. The server
+    // sends this mask once, non-persisting, when the timer is armed (see
+    // NpcInfoTimer.persists() in Engine-TS) and never re-sends the same
+    // countdown mid-flight -- the client owns ticking it down.
+    timerMaskTicks: number = -1;
 
     override getTempModel(): Model | null {
         if (this.type == null) {

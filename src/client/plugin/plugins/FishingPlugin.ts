@@ -1,4 +1,4 @@
-import type {FishingCatchChanceData, PluginBridge} from '#/client/plugin/PluginBridge.js';
+import type {FishingActiveSpotData, FishingCatchChanceData, PluginBridge} from '#/client/plugin/PluginBridge.js';
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
 // custom (issue #149): simple line-art fish glyph (matches the Feather-style
@@ -67,16 +67,36 @@ function renderTotalCard(bridge: PluginBridge): HTMLElement {
     return el;
 }
 
-// custom (issue #151): Active Spot card -- cyan-accented per the confirmed
-// mockup, ties visually back to the tile-highlight color (#149). Lists one
-// row per fish species reachable with the player's currently held tool at a
-// nearby fishing spot; `percent` is computed entirely server-side (the exact
-// STAT_RANDOM formula) and rendered as-is. Only the catch-chance rows are in
-// scope here -- the mockup's relocation-timer row belongs to a separate,
-// spot-intrinsic/broadcastable issue and isn't implemented by this plugin.
+// custom (issue #150): zero-padded MM:SS, matching Client.ts's
+// xpTrackerFormatHms formatting style (colon-separated, 2-digit segments)
+// but only the two segments this countdown ever needs -- the fishing spot
+// relocation range is ~280-530 ticks (~2:48-5:18), well under an hour, so an
+// HH:MM:SS format would only add a constant, pointless "00:" prefix.
+function formatMoveCountdown(totalSeconds: number): string {
+    const minutes: number = Math.floor(totalSeconds / 60);
+    const seconds: number = totalSeconds % 60;
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+}
+
+// custom (issue #150 + #151, reconciled on merge): the Active Spot card --
+// one shared box built from two independent data sources. #151's rows list
+// each fish species reachable with the player's currently held tool at a
+// nearby spot, with a server-computed catch-chance % (bar-chart row shape:
+// plugin-fishing-chance-*). #150's row is a live "Moves in" countdown for
+// the nearest fishing spot with an armed relocation timer (plain
+// label:value row shape: plugin-fishing-timer-*; "nearest" is
+// PluginBridge.getFishingActiveSpot()'s own definition of "the" active
+// spot, there being no client-side interaction-target tracking to key off
+// instead). The two data sources are independent (a nearby spot can have
+// catch-chance rows, a countdown, both, or -- if the player isn't near any
+// covered spot and no spot's timer is armed -- neither, in which case this
+// returns null and the card doesn't render at all). Refreshed every second
+// by PluginSidebar's existing CONTENT_REFRESH_MS redraw, same as every
+// other plugin card -- neither half keeps a separate timer of its own.
 function renderSpotCard(bridge: PluginBridge): HTMLElement | null {
     const entries: FishingCatchChanceData[] = bridge.getFishingCatchChances();
-    if (entries.length === 0) {
+    const spot: FishingActiveSpotData | null = bridge.getFishingActiveSpot();
+    if (entries.length === 0 && spot === null) {
         return null;
     }
 
@@ -109,6 +129,23 @@ function renderSpotCard(bridge: PluginBridge): HTMLElement | null {
         pct.className = 'plugin-fishing-chance-pct';
         pct.textContent = `${entry.percent}%`;
         row.appendChild(pct);
+
+        card.appendChild(row);
+    }
+
+    if (spot !== null) {
+        const row: HTMLDivElement = document.createElement('div');
+        row.className = 'plugin-fishing-timer-row';
+
+        const label: HTMLSpanElement = document.createElement('span');
+        label.className = 'plugin-fishing-timer-label';
+        label.textContent = 'Moves in:';
+        row.appendChild(label);
+
+        const value: HTMLSpanElement = document.createElement('span');
+        value.className = 'plugin-fishing-timer-value';
+        value.textContent = formatMoveCountdown(spot.secondsRemaining);
+        row.appendChild(value);
 
         card.appendChild(row);
     }
