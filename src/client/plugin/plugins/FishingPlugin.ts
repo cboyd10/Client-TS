@@ -1,5 +1,5 @@
 import {xpTrackerFormatXp} from '#/client/Client.js';
-import type {FishingCatchItemData, FishingCatchSummary, PluginBridge} from '#/client/plugin/PluginBridge.js';
+import type {FishingActiveSpotData, FishingCatchChanceData, FishingCatchItemData, FishingCatchSummary, PluginBridge} from '#/client/plugin/PluginBridge.js';
 import type {PluginDescriptor} from '#/client/plugin/PluginManager.js';
 
 // custom (issue #149): simple line-art fish glyph (matches the Feather-style
@@ -134,12 +134,103 @@ function renderCatchGrid(summary: FishingCatchSummary): HTMLElement | null {
     return grid;
 }
 
+// custom (issue #150): zero-padded MM:SS, matching Client.ts's
+// xpTrackerFormatHms formatting style (colon-separated, 2-digit segments)
+// but only the two segments this countdown ever needs -- the fishing spot
+// relocation range is ~280-530 ticks (~2:48-5:18), well under an hour, so an
+// HH:MM:SS format would only add a constant, pointless "00:" prefix.
+function formatMoveCountdown(totalSeconds: number): string {
+    const minutes: number = Math.floor(totalSeconds / 60);
+    const seconds: number = totalSeconds % 60;
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+}
+
+// custom (issue #150 + #151, reconciled on merge): the Active Spot card --
+// one shared box built from two independent data sources. #151's rows list
+// each fish species reachable with the player's currently held tool at a
+// nearby spot, with a server-computed catch-chance % (bar-chart row shape:
+// plugin-fishing-chance-*). #150's row is a live "Moves in" countdown for
+// the nearest fishing spot with an armed relocation timer (plain
+// label:value row shape: plugin-fishing-timer-*; "nearest" is
+// PluginBridge.getFishingActiveSpot()'s own definition of "the" active
+// spot, there being no client-side interaction-target tracking to key off
+// instead). The two data sources are independent (a nearby spot can have
+// catch-chance rows, a countdown, both, or -- if the player isn't near any
+// covered spot and no spot's timer is armed -- neither, in which case this
+// returns null and the card doesn't render at all). Refreshed every second
+// by PluginSidebar's existing CONTENT_REFRESH_MS redraw, same as every
+// other plugin card -- neither half keeps a separate timer of its own.
+function renderSpotCard(bridge: PluginBridge): HTMLElement | null {
+    const entries: FishingCatchChanceData[] = bridge.getFishingCatchChances();
+    const spot: FishingActiveSpotData | null = bridge.getFishingActiveSpot();
+    if (entries.length === 0 && spot === null) {
+        return null;
+    }
+
+    const card: HTMLDivElement = document.createElement('div');
+    card.className = 'plugin-fishing-spot-card';
+
+    const head: HTMLDivElement = document.createElement('div');
+    head.className = 'plugin-fishing-spot-head';
+    head.textContent = 'Active Spot';
+    card.appendChild(head);
+
+    for (const entry of entries) {
+        const row: HTMLDivElement = document.createElement('div');
+        row.className = 'plugin-fishing-chance-row';
+
+        const name: HTMLSpanElement = document.createElement('span');
+        name.className = 'plugin-fishing-chance-name';
+        name.textContent = entry.name;
+        row.appendChild(name);
+
+        const barTrack: HTMLDivElement = document.createElement('div');
+        barTrack.className = 'plugin-fishing-chance-bar-track';
+        const barFill: HTMLDivElement = document.createElement('div');
+        barFill.className = 'plugin-fishing-chance-bar-fill';
+        barFill.style.width = `${Math.max(0, Math.min(100, entry.percent))}%`;
+        barTrack.appendChild(barFill);
+        row.appendChild(barTrack);
+
+        const pct: HTMLSpanElement = document.createElement('span');
+        pct.className = 'plugin-fishing-chance-pct';
+        pct.textContent = `${entry.percent}%`;
+        row.appendChild(pct);
+
+        card.appendChild(row);
+    }
+
+    if (spot !== null) {
+        const row: HTMLDivElement = document.createElement('div');
+        row.className = 'plugin-fishing-timer-row';
+
+        const label: HTMLSpanElement = document.createElement('span');
+        label.className = 'plugin-fishing-timer-label';
+        label.textContent = 'Moves in:';
+        row.appendChild(label);
+
+        const value: HTMLSpanElement = document.createElement('span');
+        value.className = 'plugin-fishing-timer-value';
+        value.textContent = formatMoveCountdown(spot.secondsRemaining);
+        row.appendChild(value);
+
+        card.appendChild(row);
+    }
+
+    return card;
+}
+
 function renderPanel(bridge: PluginBridge): HTMLElement {
     const container: HTMLDivElement = document.createElement('div');
     container.className = 'plugin-fishing-panel';
 
     const summary: FishingCatchSummary = bridge.getFishingCatches();
     container.appendChild(renderTotalCard(bridge, summary));
+
+    const spotCard: HTMLElement | null = renderSpotCard(bridge);
+    if (spotCard !== null) {
+        container.appendChild(spotCard);
+    }
 
     const grid: HTMLElement | null = renderCatchGrid(summary);
     if (grid !== null) {
