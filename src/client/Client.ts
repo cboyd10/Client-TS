@@ -8,7 +8,7 @@ import LongPressIndicator from '#/client/LongPressIndicator.js';
 import { MiniMenuAction } from '#/client/MiniMenuAction.js';
 import MobileKeyboard from '#/client/MobileKeyboard.js';
 import MouseTracking from '#/client/MouseTracking.js';
-import type {FishingActiveSpotData, FishingCatchChanceData, LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
+import type {FishingActiveSpotData, FishingCatchChanceData, FishingCatchItemData, FishingCatchSummary, LootTrackerGroupData, PluginBridge, XpTrackerCardData} from '#/client/plugin/PluginBridge.js';
 import PluginManager, {type PluginConfig} from '#/client/plugin/PluginManager.js';
 import PluginSidebar from '#/client/plugin/PluginSidebar.js';
 import cameraPlugin from '#/client/plugin/plugins/CameraPlugin.js';
@@ -340,6 +340,36 @@ export class Client extends GameShell {
     // trade-off against the guaranteed, frequent double-credit this Set
     // exists to prevent.
     private lootTrackerCreditedGround: Set<string> = new Set();
+
+    // custom (issue #153): the interface component id carrying the player's
+    // real backpack (InvType.INV) -- captured once, from the very first
+    // UPDATE_INV_FULL this session. Content binds `inventory:inv` to this
+    // exact InvType at login (login.rs2's inv_transmit(inv, inventory:inv)),
+    // before any bank/shop/trade screen could possibly be open, so the first
+    // UPDATE_INV_FULL this client ever receives is guaranteed to be that
+    // binding. Bank/shop/trade each additionally bind the same InvType to
+    // their OWN distinct component (bank_side:inv, shop_template_side:inv,
+    // tradeside:inv) only once opened -- NetworkPlayer.updateInvs() sends one
+    // UPDATE_INV_FULL/PARTIAL per active listener, so those arrive as
+    // separate wire messages tagged with a different comId entirely. Scoping
+    // catch-detection to this one captured id is what lets a fishing-catch
+    // diff run safely without the ground-item correlation anchor loot's old
+    // (deleted, #139) inventory-diff technique relied on. -1 until captured.
+    private fishingBackpackComId: number = -1;
+    // custom (issue #153): the Client.loopCycle a Fishing (skill 10) XP gain
+    // last arrived on -- see the UPDATE_STAT handler. An inventory gain is
+    // only attributed to a catch when it lands on this exact tick.
+    private fishingXpGainCycle: number = -1;
+    // custom (issue #153): last known total count per item type across the
+    // scoped backpack (see fishingBackpackComId), used to diff whole-
+    // inventory totals rather than per-slot deltas -- mirrors the deleted
+    // lootTrackerSumInv's approach, which diffed totals specifically to
+    // avoid false gains from item reordering shifting stack positions
+    // between slots.
+    private fishingLastInvTotals: Map<number, number> = new Map();
+    // custom (issue #153): per-item icon data-URL cache for the Fishing
+    // plugin's catch grid, mirroring lootTrackerIconCache's role.
+    private fishingCatchIconCache: IconDataUrlCache<string> = new IconDataUrlCache();
 
     // custom (issue #149): generic tile-highlight registry, rendered by
     // renderTileHighlights() as a post-pass right after entityOverlays()/
@@ -5598,7 +5628,9 @@ export class Client extends GameShell {
             clearTileHighlight: (id: string): void => this.clearTileHighlight(id),
             getFishingIcon: (): string | null => this.getXpTrackerIconCache().get(10) ?? null,
             getFishingActiveSpot: (): FishingActiveSpotData | null => this.buildFishingActiveSpot(),
-            getFishingCatchChances: (): FishingCatchChanceData[] => this.buildFishingCatchChances()
+            getFishingCatchChances: (): FishingCatchChanceData[] => this.buildFishingCatchChances(),
+            getFishingCatches: (): FishingCatchSummary => this.buildFishingCatches(),
+            resetFishingCatches: (): void => this.resetFishingCatches()
         };
 
         window.pluginBridge = bridge;
@@ -5900,6 +5932,139 @@ export class Client extends GameShell {
             }
         }
         return this.lootTrackerTotalIconCache;
+    }
+
+    // custom (issue #153): recomputes total per-item-type counts across the
+    // scoped backpack inventory (see fishingBackpackComId) and, when
+    // attributeGains is true and a Fishing XP gain landed on this exact
+    // tick, attributes any type whose total increased to a catch. Called
+    // with attributeGains=false from UPDATE_INV_FULL (the initial/resync
+    // snapshot -- treating it as a gain would over-count on every login or
+    // reconnect, the same reasoning #139's ADR amendment settled on for
+    // loot's zone-resync case), and attributeGains=true from
+    // UPDATE_INV_PARTIAL (an actual live change).
+    private fishingDiffInv(inv: IfType, attributeGains: boolean): void {
+        if (!inv.linkObjType || !inv.linkObjNumber) {
+            return;
+        }
+
+        const totals: Map<number, number> = new Map();
+        for (let i: number = 0; i < inv.linkObjType.length; i++) {
+            const type: number = inv.linkObjType[i] - 1; // wire format is id+1, 0 = empty
+            if (type < 0) {
+                continue;
+            }
+            totals.set(type, (totals.get(type) ?? 0) + inv.linkObjNumber[i]);
+        }
+
+        if (attributeGains && this.fishingXpGainCycle === Client.loopCycle) {
+            for (const [type, count] of totals) {
+                const delta: number = count - (this.fishingLastInvTotals.get(type) ?? 0);
+                if (delta > 0) {
+                    this.fishingUpdateCatch(type, delta);
+                }
+            }
+        }
+
+        this.fishingLastInvTotals = totals;
+    }
+
+    // custom (issue #153): read-modify-write helper for the 'fishing' plugin
+    // config's persisted per-species catch counts, mirroring
+    // lootTrackerUpdateGroup's shape. PluginManager.setConfig shallow-merges
+    // its partial into the existing config blob, so this never clobbers the
+    // separately-written xpGained key (see fishingAddXp).
+    private fishingUpdateCatch(type: number, count: number): void {
+        const raw: unknown = PluginManager.getConfig('fishing').catches;
+        const catches: Record<string, number> = typeof raw === 'object' && raw !== null ? (raw as Record<string, number>) : {};
+
+        const key: string = String(type);
+        catches[key] = (catches[key] ?? 0) + count;
+
+        PluginManager.setConfig('fishing', {catches});
+    }
+
+    // custom (issue #153): accumulates this session's total Fishing XP gain
+    // into the 'fishing' plugin config, alongside the per-species catch
+    // counts -- both surfaced by the Total card's "128 caught * 1,240 xp" /
+    // "612 xp/hr" line. Seeds startTime on the first gain of a session (own
+    // state, independent of the XP Tracker plugin's per-skill session --
+    // resetting that plugin's Fishing card shouldn't reset this one's rate).
+    private fishingAddXp(delta: number): void {
+        const cfg: PluginConfig = PluginManager.getConfig('fishing');
+
+        const raw: unknown = cfg.xpGained;
+        const xpGained: number = typeof raw === 'number' ? raw : 0;
+
+        const startRaw: unknown = cfg.startTime;
+        const startTime: number = typeof startRaw === 'number' ? startRaw : Date.now();
+
+        PluginManager.setConfig('fishing', {xpGained: xpGained + delta, startTime});
+    }
+
+    // custom (issue #153): clears this session's tracked catches, XP total,
+    // and rate start-time, following the existing reset-button convention
+    // (see resetLootTrackerGroups). Exposed via PluginBridge.resetFishingCatches().
+    private resetFishingCatches(): void {
+        PluginManager.setConfig('fishing', {catches: {}, xpGained: 0, startTime: Date.now()});
+    }
+
+    // custom (issue #153): resolves (and caches) a caught species' inventory-
+    // style icon as a data URL, mirroring lootTrackerIcon() exactly (same
+    // ObjType.getSprite + Pix32.toDataURL pipeline, same shared
+    // IconDataUrlCache from #148, same only-cache-success behavior so a
+    // fish whose model hasn't on-demand-loaded yet is retried for free on
+    // the panel's next refresh).
+    private fishingCatchIcon(type: number, count: number): string | null {
+        const cacheKey: string = `${type}:${count}`;
+        return this.fishingCatchIconCache.get(cacheKey, (): string | null => {
+            const sprite: Pix32 | null = ObjType.getSprite(type, count, 0);
+            return sprite ? sprite.toDataURL() : null;
+        });
+    }
+
+    // custom (issue #153): DOM-friendly mirror of the persisted 'fishing'
+    // catches/xpGained config for the plugin sidebar's catch grid and Total
+    // card, mirroring buildLootTrackerGroups()'s shape. Sorted by count
+    // descending.
+    private buildFishingCatches(): FishingCatchSummary {
+        const cfg: PluginConfig = PluginManager.getConfig('fishing');
+
+        const raw: unknown = cfg.catches;
+        const catches: Record<string, number> = typeof raw === 'object' && raw !== null ? (raw as Record<string, number>) : {};
+
+        const xpRaw: unknown = cfg.xpGained;
+        const totalXp: number = typeof xpRaw === 'number' ? xpRaw : 0;
+
+        // custom (issue #153): same xpPerHour shape as buildXpTrackerCards'
+        // own per-skill rate (gained / elapsed hours), independent state.
+        const startRaw: unknown = cfg.startTime;
+        const startTime: number = typeof startRaw === 'number' ? startRaw : 0;
+        const elapsedMs: number = startTime > 0 ? Date.now() - startTime : 0;
+        const xpPerHour: number = elapsedMs > 0 ? Math.round(totalXp / (elapsedMs / 3600000)) : 0;
+
+        // custom (issue #153, see buildLootTrackerGroups' issue #134 fix for
+        // the same reasoning): an out-of-range persisted id (e.g. from an
+        // older/buggy build) would send ObjType.list()'s decode() into an
+        // infinite loop -- validate before ever calling it.
+        const items: FishingCatchItemData[] = Object.keys(catches)
+            .map((key: string): number => Number(key))
+            .filter((type: number): boolean => type >= 0 && type < ObjType.numDefinitions)
+            .map((type: number) => {
+                const count: number = catches[String(type)];
+                const objType: ObjType = ObjType.list(type);
+                return {
+                    type,
+                    name: objType.name ?? 'Unknown item',
+                    count,
+                    iconDataUrl: this.fishingCatchIcon(type, count)
+                };
+            })
+            .sort((a, b) => b.count - a.count);
+
+        const totalCatches: number = items.reduce((s: number, i: FishingCatchItemData): number => s + i.count, 0);
+
+        return {totalCatches, totalXp, xpPerHour, items};
     }
 
     // custom (cboyd10/runescape#103, extracted to IconDataUrlCache by issue
@@ -7681,6 +7846,17 @@ export class Client extends GameShell {
                     inv.linkObjNumber[i] = 0;
                 }
 
+                // custom (issue #153): the very first UPDATE_INV_FULL a session
+                // ever receives is guaranteed to be inventory:inv's binding --
+                // see fishingBackpackComId's comment. Seed totals only, never
+                // attribute a catch from a full resync.
+                if (this.fishingBackpackComId === -1) {
+                    this.fishingBackpackComId = comId;
+                }
+                if (comId === this.fishingBackpackComId) {
+                    this.fishingDiffInv(inv, false);
+                }
+
                 this.ptype = -1;
                 return true;
             }
@@ -7708,6 +7884,15 @@ export class Client extends GameShell {
                         inv.linkObjType[slot] = id;
                         inv.linkObjNumber[slot] = count;
                     }
+                }
+
+                // custom (issue #153): only the comId captured from the first
+                // UPDATE_INV_FULL (the real backpack) is eligible for catch
+                // detection -- a bank/shop/trade screen's own inventory
+                // listener arrives on a different comId entirely and never
+                // reaches here.
+                if (comId === this.fishingBackpackComId) {
+                    this.fishingDiffInv(inv, true);
                 }
 
                 this.ptype = -1;
@@ -8084,6 +8269,16 @@ export class Client extends GameShell {
                     if (this.xpTrackerPausedAt[stat] !== -1) {
                         this.xpTrackerPausedAccumMs[stat] += xpTrackerNow - this.xpTrackerPausedAt[stat];
                         this.xpTrackerPausedAt[stat] = -1;
+                    }
+
+                    // custom (issue #153): stat 10 = Fishing (Skill.names[10]).
+                    // Marks this exact tick as eligible for catch attribution
+                    // (see fishingDiffInv) and accumulates the session XP total
+                    // the Total card displays -- excluded from the login/
+                    // reconnect-resend branch above, same as xpTrackerLastGain.
+                    if (stat === 10) {
+                        this.fishingXpGainCycle = Client.loopCycle;
+                        this.fishingAddXp(xp - this.statXP[stat]);
                     }
                 }
 

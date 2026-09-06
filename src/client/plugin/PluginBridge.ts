@@ -124,6 +124,15 @@ export type PluginBridge = {
     // the player isn't near a covered spot -- the panel hides the card in
     // that case.
     getFishingCatchChances(): FishingCatchChanceData[];
+    // custom (issue #153): this session's tracked per-species catch counts
+    // + total XP gained, rebuilt fresh from persisted config on every panel
+    // refresh -- no separate live-session cache, mirroring
+    // getLootTrackerGroups()'s shape.
+    getFishingCatches(): FishingCatchSummary;
+    // custom (issue #153): clears this session's tracked catches and XP
+    // total in one write, following the existing reset-button convention
+    // (see resetLootTrackerGroups).
+    resetFishingCatches(): void;
 };
 
 // custom (issue #150): the Fishing plugin panel's Active Spot card data --
@@ -168,6 +177,27 @@ export type LootTrackerGroupData = {
     kills: number;
     totalValue: number;
     items: LootTrackerItemData[];
+};
+
+// custom (issue #153): one caught species' session count for the Fishing
+// plugin's catch grid -- same DOM-friendly shape as LootTrackerItemData
+// (pre-converted icon data URL, no Pix32 sprite reaching page-level code),
+// minus the value field (fishing has no gp-value convention to track).
+export type FishingCatchItemData = {
+    type: number;
+    name: string;
+    count: number;
+    iconDataUrl: string | null;
+};
+
+// custom (issue #153): the Fishing plugin's whole session summary --
+// totalCatches/totalXp/xpPerHour back the Total card's "128 caught * 1,240
+// xp" / "612 xp/hr" lines, items backs the catch grid below it.
+export type FishingCatchSummary = {
+    totalCatches: number;
+    totalXp: number;
+    xpPerHour: number;
+    items: FishingCatchItemData[];
 };
 
 declare global {
